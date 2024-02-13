@@ -9,7 +9,7 @@ pub struct Blockchain { // This is like a class and init
 
 impl Blockchain {
     pub fn new() -> Self {
-        let genesis_block = Block::new("Genesis block".to_string(), "".to_string());
+        let genesis_block = Block::new("Genesis block".to_string(), "".to_string(), 0);
         Blockchain {
             chain: vec![genesis_block],
         }
@@ -19,7 +19,8 @@ impl Blockchain {
     // without taking ownership
     pub fn add_block(&mut self, data: String) {
         let prev_hash = self.chain.last().unwrap().hash.clone();
-        let new_block = Block::new(data, prev_hash);
+        let next_nonce = self.chain.last().unwrap().nonce.clone() + 1;
+        let new_block = Block::new(data, prev_hash, next_nonce);
         self.chain.push(new_block);
     }
 }
