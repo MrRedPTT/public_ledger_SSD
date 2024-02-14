@@ -13,10 +13,8 @@ pub struct Block {
 
 impl Block {
     pub fn new(data: String, prev_hash: String, nonce : u64) -> Self {
-        let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-
         let block = Block {
-            timestamp,
+            timestamp : SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
             data,
             prev_hash,
             hash: String::new(), // Temporary empty string, will be replaced
