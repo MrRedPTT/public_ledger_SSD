@@ -1,5 +1,8 @@
 mod block; // Import block
 mod blockchain;  // Import blockChain
+mod kademlia{
+    pub mod test_network;
+}
 
 use crate::blockchain::Blockchain;
 fn main() {
