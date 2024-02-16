@@ -12,7 +12,10 @@ fn main() {
 
     println!("{:#?}", blockchain);
 
-    let mut block_to_mine = Block::new("Block data".to_string(), "prev_hash_value".to_string(), 0);
+    let mut block_to_mine = Block::new(blockchain.get_current_index()
+                                               ,"Block data".to_string()
+                                               , "prev_hash_value".to_string()
+                                               , 0,blockchain.difficulty);
 
     let difficulty = blockchain.difficulty;
     block_to_mine.mine(difficulty);

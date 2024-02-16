@@ -4,30 +4,28 @@ use sha2::{Sha512, Digest}; // Ensure sha2 crate is in Cargo.toml
 
 #[derive(Debug, Clone)]
 pub struct Block {
+    pub index : usize,
     pub timestamp: u64,
     pub data: String,
     pub prev_hash: String,
     pub hash: String,
     pub nonce: u64,
+    pub difficulty : usize,
 }
 
 impl Block {
-    pub fn new(data: String, prev_hash: String, nonce : u64) -> Self {
+    pub fn new(index: usize, data: String, prev_hash: String, nonce : u64, difficulty: usize) -> Self {
         let block = Block {
+            index,
             timestamp : SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
             data,
             prev_hash,
             hash: String::new(), // Temporary empty string, will be replaced
             nonce,
+            difficulty,
         };
 
-        let hash = block.calculate_hash();
-
-        Block{
-            hash,
-            ..block
-
-        }
+        block
     }
 
     pub fn mine(&mut self, difficulty: usize) {

@@ -10,10 +10,11 @@ pub struct Blockchain { // This is like a class and init
 
 impl Blockchain {
     pub fn new() -> Self {
-        let genesis_block = Block::new("Genesis block".to_string(), "".to_string(), 0);
+        let defaut_difficulty = 1;
+        let genesis_block = Block::new(0,"Genesis block".to_string(), "".to_string(), 0, defaut_difficulty);
         Blockchain {
             chain: vec![genesis_block],
-            difficulty: 4, //Default difficulty
+            difficulty: defaut_difficulty, //Default difficulty
         }
     }
 
@@ -21,12 +22,31 @@ impl Blockchain {
     // without taking ownership
     pub fn add_block(&mut self, data: String) {
         let prev_hash = self.chain.last().unwrap().hash.clone();
-        let next_nonce = self.chain.last().unwrap().nonce.clone() + 1;
-        let new_block = Block::new(data, prev_hash, next_nonce);
+
+
+        let mut new_block = Block::new(self.get_current_index(),data, prev_hash, 0, self.difficulty);
+
+        new_block.mine(self.difficulty); // This needs to be changed when we have p2p connection so that it asks for the block to be mined
 
         self.chain.push(new_block);
+
         self.adjust_difficulty(); // Adjust the difficulty after adding the new block
     }
+
+    /* Something like this
+    pub fn async add_block(&mut self, data: String) {
+        let prev_hash = self.chain.last().unwrap().hash.clone();
+
+
+        let mut new_block = Block::new(self.get_current_index(),data, prev_hash, 0, self.difficulty);
+
+        new_block.mine_async(self.difficulty).await;
+
+        self.chain.push(new_block);
+
+        self.adjust_difficulty(); // Adjust the difficulty after adding the new block
+    }*/
+
 
     // This function is made to adjust the difficulty of the hashes
     pub fn adjust_difficulty(&mut self) {
@@ -46,5 +66,9 @@ impl Blockchain {
         } else if actual_time > target_time * 2 && self.difficulty > 1 {
             self.difficulty -= 1; // Decrease difficulty if block mined too slowly, but never below 1
         }
+    }
+
+    pub fn get_current_index(&mut self) -> usize{
+        return self.chain.len();
     }
 }
