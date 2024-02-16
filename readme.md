@@ -9,13 +9,13 @@ The [full assigment](./docs/assigment.pdf)
 ## Secure Ledger
 
 The secure ledger should be moduler and it must support PoW and Delegated Proof of Stake
-- using proof-of-work[]
-- proof-of-stake[3,9]
+- using proof-of-work[[1]](https://assets.pubpub.org/d8wct41f/31611263538139.pdf)
+- proof-of-stake ([[3]](https://dl.acm.org/doi/pdf/10.1145/571637.571640), [[9]](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8645706))
 
 ## P2P
 
 Layer that gossips the necessary data to support the blockchain. Must include:
-- must implemente S/Kademlkia [5]
+- must implemente S/Kademlkia [[5]](https://link.springer.com/chapter/10.1007/3-540-45748-8_5)
 - Resistance to Sybil and Eclipse attacks
 - Implement trust mechanisms (PoS)
 
@@ -23,7 +23,7 @@ Layer that gossips the necessary data to support the blockchain. Must include:
 
 Auction System capable of supporting sellers and buyers using a single attribute auction following English auctions
 - Transactions should be saved in blockchain and be properly gossiped
-- publisher/subscriber should be built on top of Kadmlia to support auctions [8]
+- publisher/subscriber should be built on top of Kadmlia to support auctions [[8]](http://bittorrent.org/beps/bep_0050.html)
 
 ## Fault injection
 Fault Injection mechanism that allows to shutdown 1 or more nodes.
