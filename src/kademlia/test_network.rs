@@ -16,12 +16,26 @@ pub fn test() {
             let clone_node = my_node.clone(); // Cloning the node so that we can use it in the println
             let mut kademlia = Kademlia::new(my_node);
             kademlia.store(clone_node.clone());
-            let result: Option<(&String, &Node)> = kademlia.find_node(vec![0; 8]);
+
+            let mut result: Option<(&String, &Node)> = kademlia.find_node(vec![0; 8]);
             if result.is_none() {
                println!("Node {} was not found", vec_u8_to_string(clone_node.clone().id))
             } else {
                 println!("Node {} has a value of {}", vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
             }
+
+            if !kademlia.remove_node(vec![0; 8]) {
+                println!("Failed to Remove node");
+            }
+
+            result = kademlia.find_node(vec![0; 8]);
+            // Duplicate code but it's only here for testing purposes
+            if result.is_none() {
+                println!("Node {} was not found", vec_u8_to_string(clone_node.clone().id))
+            } else {
+                println!("Node {} has a value of {}", vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
+            }
+
         }
         Err(e) => {
             eprintln!("Error parsing IP address: {}", e);
