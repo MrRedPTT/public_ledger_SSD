@@ -16,21 +16,19 @@ pub struct Block {
     pub data: String,
     pub prev_hash: String,
     pub transactions: Vec<Transaction>,
-    pub hash: String,
     pub nonce: u64,
     pub difficulty : usize,
 }
 
 impl Block {
-    pub fn new(index: usize, data: String, prev_hash: String, nonce : u64, difficulty: usize, transactions: Vec<Transaction>) -> Self {
+    pub fn new(index: usize, data: String, prev_hash: String, difficulty: usize, transactions: Vec<Transaction>) -> Self {
         let block = Block {
             index,
             timestamp : SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
             data,
             prev_hash,
             transactions,
-            hash: String::new(), // Temporary empty string, will be replaced
-            nonce,
+            nonce : 0,
             difficulty,
         };
 
@@ -40,17 +38,17 @@ impl Block {
     pub fn mine(&mut self, difficulty: usize) {
         loop {
             let hash = self.calculate_hash();
+            
             if hash.starts_with(&"0".repeat(difficulty)) {
-                self.hash = hash;
-                println!("Block mined! Nonce: {} Hash: {}", self.nonce, self.hash);
+                println!("Block mined! Nonce: {} Hash: {}", self.nonce, hash);
                 break;
-            } else {
-                self.nonce += 1;
-            }
+            } 
+            
+            self.nonce += 1;
         }
     }
 
-    fn calculate_hash(&self) -> String {
+    pub fn calculate_hash(&self) -> String {
         // Use Sha512 to hash the concatenated string of data, timestamp, prev_hash and a nonce
         let mut hasher = Sha512::new();
         hasher.update(format!("{}{}{}{}", &self.data, self.timestamp, &self.prev_hash, self.nonce));

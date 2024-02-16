@@ -10,25 +10,28 @@ pub struct Blockchain { // This is like a class and init
 }
 
 impl Blockchain {
+    const initial_difficulty:usize = 1;
+
     pub fn new() -> Self {
-        let defaut_difficulty = 1;
         let genesis_transactions = Vec::new();
-        let genesis_block = Block::new(0,"Genesis block".to_string(), "".to_string(), 0, defaut_difficulty, genesis_transactions);
+        let genesis_block = Block::new(0,"Genesis block".to_string(), "".to_string(),Self::initial_difficulty, genesis_transactions);
+
         Blockchain {
             chain: vec![genesis_block],
-            difficulty: defaut_difficulty, //Default difficulty
+            difficulty: Self::initial_difficulty,
             mining_reward: 0.01,
         }
     }
 
     // &mut denotes a mutable reference to a value it allows us to borrow a value and modify it
     // without taking ownership
+
     pub fn add_block(&mut self, data: String, miner_address: String) {
 
-        let prev_hash = self.chain.last().unwrap().hash.clone();
+        let prev_hash = self.chain.last().unwrap().calculate_hash();
         let transactions = self.reward_miner(miner_address);
 
-        let mut new_block = Block::new(self.get_current_index(),data, prev_hash, 0, self.difficulty, transactions);
+        let mut new_block = Block::new(self.get_current_index(),data, prev_hash, self.difficulty, transactions);
 
         new_block.mine(self.difficulty); // This needs to be changed when we have p2p connection so that it asks for the block to be mined
 
