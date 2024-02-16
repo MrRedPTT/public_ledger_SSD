@@ -1,4 +1,4 @@
-use crate::block::{Block, Transaction};
+use crate::ledger::block::{Block, Transaction};
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated

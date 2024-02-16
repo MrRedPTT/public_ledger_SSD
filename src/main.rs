@@ -1,7 +1,6 @@
-mod block; // Import block
-mod blockchain;  // Import blockchain
+mod ledger;
 
-use crate::blockchain::Blockchain;
+use crate::ledger::blockchain::Blockchain;
 
 fn main() {
     let mut blockchain = Blockchain::new();
