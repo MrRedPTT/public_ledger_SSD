@@ -2,6 +2,9 @@ mod block; // Import block
 mod blockchain;  // Import blockChain
 mod kademlia{
     pub mod test_network;
+    pub mod kademlia;
+    pub mod node;
+    pub mod k_buckets;
 }
 
 use crate::blockchain::Blockchain;
