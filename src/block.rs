@@ -3,23 +3,32 @@ use sha2::{Sha512, Digest}; // Ensure sha2 crate is in Cargo.toml
 
 
 #[derive(Debug, Clone)]
+pub struct Transaction {
+    pub from: String,
+    pub to: String,
+    pub amount: f64,
+}
+
+#[derive(Debug, Clone)]
 pub struct Block {
     pub index : usize,
     pub timestamp: u64,
     pub data: String,
     pub prev_hash: String,
+    pub transactions: Vec<Transaction>,
     pub hash: String,
     pub nonce: u64,
     pub difficulty : usize,
 }
 
 impl Block {
-    pub fn new(index: usize, data: String, prev_hash: String, nonce : u64, difficulty: usize) -> Self {
+    pub fn new(index: usize, data: String, prev_hash: String, nonce : u64, difficulty: usize, transactions: Vec<Transaction>) -> Self {
         let block = Block {
             index,
             timestamp : SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
             data,
             prev_hash,
+            transactions,
             hash: String::new(), // Temporary empty string, will be replaced
             nonce,
             difficulty,
