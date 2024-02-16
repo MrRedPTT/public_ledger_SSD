@@ -1,3 +1,5 @@
+extern crate core;
+
 mod block; // Import block
 mod blockchain;  // Import blockChain
 mod kademlia{
@@ -5,9 +7,12 @@ mod kademlia{
     pub mod kademlia;
     pub mod node;
     pub mod k_buckets;
+
+    pub mod key;
 }
 
 use crate::blockchain::Blockchain;
+use crate::kademlia::*;
 fn main() {
     let mut blockchain = Blockchain::new();
 
@@ -15,4 +20,6 @@ fn main() {
     blockchain.add_block("Second block data".to_string());
 
     println!("{:#?}", blockchain);
+
+    test_network::test();
 }
