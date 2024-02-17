@@ -9,7 +9,7 @@ use crate::kademlia::node::Node;
 // Init file to test the Kademlia P2P layer
 pub fn test() {
     let my_ip = "127.0.0.1";
-    let my_node;
+    let mut my_node;
     match my_ip.parse::<IpAddr>() {
         Ok(ip) => {
             // Clones will be used throughout this code snippet to avoid moving the variable
@@ -51,6 +51,23 @@ pub fn test() {
             kbucket.remove(&clone_node.clone().id);
             if kbucket.get(&clone_node.clone().id).is_none() {
                 println!("Node1 was removed");
+            }
+
+            for i in 1..=3 {
+                let mut base_id = vec![0; 64-i];
+                base_id.append(&mut vec![1; i]);
+                let new_node = Node::new(base_id, SocketAddr::new(ip, 8888+i as u16));
+                kbucket.add(new_node);
+            }
+
+            for i in 0..512 {
+                let bucket_nodes = kbucket.get_nodes_from_bucket(i);
+                if !bucket_nodes.is_none() {
+                    println!("Nodes in bucket {}", i);
+                    for n in bucket_nodes.unwrap() {
+                        println!("{}", n);
+                    }
+                }
             }
         }
         Err(e) => {
