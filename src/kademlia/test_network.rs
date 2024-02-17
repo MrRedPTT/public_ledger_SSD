@@ -19,7 +19,7 @@ pub fn test() {
             let mut kademlia = Kademlia::new(my_node);
             kademlia.store(clone_node.clone());
 
-            let mut result: Option<(&String, &Node)> = kademlia.find_node(vec![0; 64]);
+            let mut result: Option<(&Vec<u8>, &Node)> = kademlia.find_node(vec![0; 64]);
             if result.is_none() {
                println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().id))
             } else {

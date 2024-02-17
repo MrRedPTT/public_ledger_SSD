@@ -34,7 +34,7 @@ impl KBucket {
         let index = MAX_BUCKETS - Self::xor_distance(&self.id, id);
         let bucket = &self.buckets[index];
 
-        bucket.map.get(&auxi::convert_node_id_to_string(id)).map(|socket_addr| Node {
+        bucket.map.get(id).map(|socket_addr| Node {
             id: (*id).clone(),
             address: *socket_addr,
         })
@@ -44,7 +44,7 @@ impl KBucket {
         let index = MAX_BUCKETS - Self::xor_distance(&self.id, id);
 
         if !Self::get(self, id).is_none() {
-            let _ = &self.buckets[index].map.remove(&auxi::convert_node_id_to_string(id));
+            let _ = &self.buckets[index].map.remove(id);
             return;
         }
         println!("DEBUG FROM KBUCKET::remove() -> Node: {} not found", auxi::vec_u8_to_string((*id).clone()));

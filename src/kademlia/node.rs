@@ -15,7 +15,7 @@ impl fmt::Display for Node {
 
 
         // Customize the formatting of Node here
-        write!(f, "Node {{ id: {}, address: {} }}", auxi::convert_node_id_to_string(&self.id), self.address)
+        write!(f, "Node {{ id:{:?} (SHA512: {}), address: {} }}", &self.id, auxi::convert_node_id_to_string(&self.id), self.address)
     }
 }
 impl Node {
