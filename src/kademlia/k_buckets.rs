@@ -1,6 +1,6 @@
 use crate::kademlia::bucket::Bucket;
 use crate::kademlia::node::Node;
-use crate::kademlia::aux;
+use crate::kademlia::auxi;
 
 pub const MAX_BUCKETS: usize = 512; // Max amount of Buckets (AKA amount of sub-tries)
 
@@ -34,7 +34,7 @@ impl KBucket {
         let index = MAX_BUCKETS - Self::xor_distance(&self.id, id);
         let bucket = &self.buckets[index];
 
-        bucket.map.get(&aux::convert_node_id_to_string(id)).map(|socket_addr| Node {
+        bucket.map.get(&auxi::convert_node_id_to_string(id)).map(|socket_addr| Node {
             id: (*id).clone(),
             address: *socket_addr,
         })

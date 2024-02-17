@@ -1,6 +1,6 @@
 use core::fmt;
 use std::net::SocketAddr;
-use crate::kademlia::aux;
+use crate::kademlia::auxi;
 
 #[derive(Debug, Clone)]
 pub struct Node {
@@ -15,7 +15,7 @@ impl fmt::Display for Node {
 
 
         // Customize the formatting of Node here
-        write!(f, "Node {{ id: {}, address: {} }}", aux::convert_node_id_to_string(&self.id), self.address)
+        write!(f, "Node {{ id: {}, address: {} }}", auxi::convert_node_id_to_string(&self.id), self.address)
     }
 }
 impl Node {

@@ -10,7 +10,7 @@ mod kademlia{
     pub mod key;
 
     pub mod bucket;
-    pub mod aux;
+    pub mod auxi;
 }
 
 use crate::blockchain::Blockchain;

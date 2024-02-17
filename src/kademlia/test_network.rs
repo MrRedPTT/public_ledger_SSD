@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use crate::kademlia::kademlia::Kademlia;
 use std::net::IpAddr;
 use sha2::{Digest};
-use crate::kademlia::aux;
+use crate::kademlia::auxi;
 use crate::kademlia::k_buckets::KBucket;
 use crate::kademlia::node::Node;
 // Init file to test the Kademlia P2P layer
@@ -21,9 +21,9 @@ pub fn test() {
 
             let mut result: Option<(&String, &Node)> = kademlia.find_node(vec![0; 64]);
             if result.is_none() {
-               println!("Node {} was not found", aux::vec_u8_to_string(clone_node.clone().id))
+               println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().id))
             } else {
-                println!("Node {} has a value of {}", aux::vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
+                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
             }
 
             if !kademlia.remove_node(vec![0; 64]) {
@@ -33,9 +33,9 @@ pub fn test() {
             result = kademlia.find_node(vec![0; 64]);
             // Duplicate code but it's only here for testing purposes
             if result.is_none() {
-                println!("Node {} was not found", aux::vec_u8_to_string(clone_node.clone().id))
+                println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().id))
             } else {
-                println!("Node {} has a value of {}", aux::vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
+                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
             }
 
             let mut kbucket = KBucket::new(clone_node.clone().id);
