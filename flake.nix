@@ -27,6 +27,8 @@
 
                 alias build='cargo build'
                 alias run='cargo run'
+                alias test='cargo test'
+                alias dtest='cargo test -- --nocapture'
 
                 echo rustc is @ version ${pkgs.rustc}
                 echo cargo is @ version ${pkgs.cargo}

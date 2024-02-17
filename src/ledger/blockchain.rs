@@ -1,4 +1,4 @@
-use crate::ledger::block::{Block, Transaction};
+use crate::ledger::block::*;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated
@@ -7,65 +7,44 @@ pub struct Blockchain { // This is like a class and init
     pub chain: Vec<Block>, // Vector is like a list but more strongly typed
     pub difficulty: usize, //Difficulty
     mining_reward: f64, // Mining reward
+    pub is_miner: bool
 }
 
 impl Blockchain {
     const initial_difficulty:usize = 1;
 
-    pub fn new() -> Self {
-        let genesis_transactions = Vec::new();
-        let genesis_block = Block::new(0,"Genesis block".to_string(), "".to_string(),Self::initial_difficulty, genesis_transactions);
+    pub fn new(is_miner:bool) -> Self {
+        let genesis_block = Block::new(0, 
+                                       "".to_string(),
+                                       Self::initial_difficulty, 
+                                       "network".to_string(),
+                                       0.0);
 
         Blockchain {
             chain: vec![genesis_block],
             difficulty: Self::initial_difficulty,
             mining_reward: 0.01,
+            is_miner
         }
     }
 
     // &mut denotes a mutable reference to a value it allows us to borrow a value and modify it
     // without taking ownership
 
-    pub fn add_block(&mut self, data: String, miner_address: String) {
-
+    pub fn add_block(&mut self, b:Block) -> bool{
         let prev_hash = self.chain.last().unwrap().calculate_hash();
-        let transactions = self.reward_miner(miner_address);
 
-        let mut new_block = Block::new(self.get_current_index(),data, prev_hash, self.difficulty, transactions);
+        if !b.check_hash() {
+            return false;
+        }
 
-        new_block.mine(self.difficulty); // This needs to be changed when we have p2p connection so that it asks for the block to be mined
-
-        self.chain.push(new_block);
-
+        self.chain.push(b);
         self.adjust_difficulty(); // Adjust the difficulty after adding the new block
+        return true
     }
-
-    pub fn reward_miner(&mut self, miner_address: String) -> Vec<Transaction> {
-        let reward_transaction = Transaction {
-            from: "network".to_string(),
-            to: miner_address,
-            amount: self.mining_reward, // Define mining_reward as part of Blockchain
-        };
-
-        vec![reward_transaction] // This is a return
-    }
-    /* Something like this
-    pub fn async add_block(&mut self, data: String) {
-        let prev_hash = self.chain.last().unwrap().hash.clone();
-
-
-        let mut new_block = Block::new(self.get_current_index(),data, prev_hash, 0, self.difficulty);
-
-        new_block.mine_async(self.difficulty).await;
-
-        self.chain.push(new_block);
-
-        self.adjust_difficulty(); // Adjust the difficulty after adding the new block
-    }*/
-
 
     // This function is made to adjust the difficulty of the hashes
-    pub fn adjust_difficulty(&mut self) {
+    fn adjust_difficulty(&mut self) {
         let target_time: u64 = 1 * 60; // Target time to mine a block, e.g., 1 minute
         if self.chain.len() <= 1 {
             return; // Don't adjust if only the genesis block exists
@@ -84,7 +63,11 @@ impl Blockchain {
         }
     }
 
-    pub fn get_current_index(&mut self) -> usize{
+    fn get_current_index(&mut self) -> usize{
         return self.chain.len();
+    }
+
+    pub fn get_head(&self) -> Block {
+        return self.chain.last().unwrap().clone();
     }
 }
