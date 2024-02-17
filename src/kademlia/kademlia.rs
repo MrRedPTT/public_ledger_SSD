@@ -25,7 +25,7 @@ impl Kademlia {
 
     // Here we assume that we will only store nodes
     pub fn store(&mut self, value: Node) {
-        self.routingtable.insert(value.clone().id, value);
+        let _ = self.routingtable.insert(value.clone().id, value);
     }
 
     // Here we assume that the Key on the hash table is the Hashed nodeid
@@ -34,8 +34,12 @@ impl Kademlia {
         return self.routingtable.get_key_value(&node_id);
     }
 
-    pub fn remove_node (&mut self, node_id: Vec<u8>) -> bool{
-        return self.find_node(node_id).is_none()
+    pub fn remove_node (&mut self, node_id: Vec<u8>) -> bool {
+        if self.find_node(node_id.clone()).is_none() {
+            return true;
+        }
+        let _ = self.routingtable.remove(&node_id);
+        return true;
 
     }
 

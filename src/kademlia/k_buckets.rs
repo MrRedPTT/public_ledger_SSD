@@ -74,6 +74,10 @@ impl KBucket {
         let mut i = 0;
         let mut j = 1;
 
+        // The overall concept is:
+        // 0 1 2 3 ... 90 target 92 93 94 ... MAX_BUCKETS
+        // The closest nodes will be all that are inside target, then all that are inside 90 and 92, then those inside 89 and 93 and so on
+        // What this for loop does is simply iterate on a zigzag pattern until it fills the vector
         for _ in 0..MAX_BUCKETS {
             if given_node_index + i < MAX_BUCKETS {
                 index = given_node_index + i;
@@ -102,9 +106,13 @@ impl KBucket {
                 }
             }
         }
+        // If at the end the vector is empty return None
         if closest_nodes.is_empty() {
             return None;
         }
+
+        // Otherwise it most likely means we weren't able to fill the vector
+        // So we return the nodes we were able to gather
         Some(closest_nodes)
 
     }
