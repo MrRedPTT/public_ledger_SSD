@@ -8,6 +8,8 @@ mod kademlia{
     pub mod node;
     pub mod k_buckets;
     pub mod key;
+
+    pub mod bucket;
 }
 
 use crate::blockchain::Blockchain;

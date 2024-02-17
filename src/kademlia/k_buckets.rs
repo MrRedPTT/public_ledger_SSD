@@ -1,16 +1,20 @@
-use crate::kademlia::node::Node;
+use crate::kademlia::bucket::Bucket;
+
+pub const MAX_BUCKETS: usize = 10; // Max amount of Buckets (AKA amount of sub-tries)
 
 #[derive(Debug, Clone)]
 pub struct KBucket {
-    nodes: Vec<Node>, // The list of nodes in this bucket
+    pub id: String, // Here we can use some kind of identification (later on check if it's really needed)
+    pub buckets: Vec<Bucket>, // The list of nodes in this bucket
 }
 
 impl KBucket {
-    pub fn new() -> Self {
+    pub fn new (&mut self, id: String) -> Self {
         KBucket {
-            nodes: Vec::new(),
+            id,
+            buckets: vec![Default::default(); MAX_BUCKETS],
         }
     }
-
-    // We need methods to add and remove nodes from the kbucket
 }
+
+

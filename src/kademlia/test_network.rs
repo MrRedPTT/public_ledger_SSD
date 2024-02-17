@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use crate::kademlia::kademlia::Kademlia;
 use std::net::IpAddr;
 use crate::kademlia::node::Node;
-
 // Init file to test the Kademlia P2P layer
 pub fn test() {
     let my_ip = "127.0.0.1";
