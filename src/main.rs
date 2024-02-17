@@ -1,12 +1,10 @@
 mod block; // Import block
 mod blockchain;  // Import blockChain
 
-use crate::blockchain::Blockchain;
+mod p2p{
+    pub mod peer;
+    pub mod connect;
+}
 fn main() {
-    let mut blockchain = Blockchain::new();
-
-    blockchain.add_block("First block data".to_string());
-    blockchain.add_block("Second block data".to_string());
-
-    println!("{:#?}", blockchain);
+    crate::p2p::connect::connect();
 }
