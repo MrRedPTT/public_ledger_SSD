@@ -8,10 +8,10 @@ pub fn connect() {
                 peer.start_listener();
             },
             "send" => {
-                let peer = Peer::new("".to_string()); // No need for an address to send
+                let peer = Peer::new("".to_string()); // This address is not used for sending
                 let peer_address = "127.0.0.1:7878";
-                let message = "Hello, peer!";
-                peer.connect_to_peer(peer_address, message);
+                let messages = vec!["Hello, peer!", "How are you?", "BYE"];
+                peer.connect_to_peer(peer_address, messages);
             },
             _ => println!("Unknown command."),
         }

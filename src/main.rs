@@ -6,5 +6,5 @@ mod p2p{
     pub mod connect;
 }
 fn main() {
-    crate::p2p::connect::connect();
+    p2p::connect::connect();
 }
