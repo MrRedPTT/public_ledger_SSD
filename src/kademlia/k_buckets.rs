@@ -40,6 +40,16 @@ impl KBucket {
         })
     }
 
+    pub fn remove (&mut self, id: &Vec<u8>){
+        let index = MAX_BUCKETS - Self::xor_distance(&self.id, id);
+
+        if !Self::get(self, id).is_none() {
+            let _ = &self.buckets[index].map.remove(&auxi::convert_node_id_to_string(id));
+            return;
+        }
+        println!("DEBUG FROM KBUCKET::remove() -> Node: {} not found", auxi::vec_u8_to_string((*id).clone()));
+    }
+
     // Applies XOR to each element of the Vector
     // and returns the XORed elements inside another Vector
     pub fn xor_distance(id1: &Vec<u8>, id2: &Vec<u8>) -> usize {

@@ -48,7 +48,10 @@ pub fn test() {
             if !result3.is_none(){
                 println!("Node2 does not exist");
             }
-
+            kbucket.remove(&clone_node.clone().id);
+            if kbucket.get(&clone_node.clone().id).is_none() {
+                println!("Node1 was removed");
+            }
         }
         Err(e) => {
             eprintln!("Error parsing IP address: {}", e);
