@@ -67,6 +67,48 @@ impl KBucket {
         return Some(return_bucket);
     }
 
+    pub fn get_n_closest_nodes (&self, id: Vec<u8>, n: usize) -> Option<Vec<Node>>{
+        let mut closest_nodes: Vec<Node> = Vec::new();
+        let given_node_index = MAX_BUCKETS - auxi::xor_distance(&id, &self.id);
+        let mut index;
+        let mut i = 0;
+        let mut j = 1;
+
+        for _ in 0..MAX_BUCKETS {
+            if given_node_index + i < MAX_BUCKETS {
+                index = given_node_index + i;
+                if let Some(nodes) = self.get_nodes_from_bucket(index) {
+                    for node in nodes {
+                        if closest_nodes.len() < n{
+                            closest_nodes.push(node);
+                        } else {
+                            return Some(closest_nodes);
+                        }
+                    }
+                }
+                i += 1;
+                if index - j >= 0 {
+                    index = index - j;
+                    if let Some(nodes) = self.get_nodes_from_bucket(index) {
+                        for node in nodes {
+                            if closest_nodes.len() < n{
+                                closest_nodes.push(node);
+                            } else {
+                                return Some(closest_nodes);
+                            }
+                        }
+                    }
+                    j += 1;
+                }
+            }
+        }
+        if closest_nodes.is_empty() {
+            return None;
+        }
+        Some(closest_nodes)
+
+    }
+
 }
 
 

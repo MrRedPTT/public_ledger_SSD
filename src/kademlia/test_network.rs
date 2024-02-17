@@ -60,6 +60,14 @@ pub fn test() {
                 kbucket.add(new_node);
             }
 
+            // Add more nodes to a same bucket (bucket 9 has 2 entries which will be used to test get_n_closest_nodes)
+            let mut base_id = vec![0; 64-2];
+            base_id.append(&mut vec![1; 1]);
+            base_id.append(&mut vec![0; 1]);
+            let new_node = Node::new(base_id, SocketAddr::new(ip, 8888+ 7u16));
+            kbucket.add(new_node);
+
+
             for i in 0..512 {
                 let bucket_nodes = kbucket.get_nodes_from_bucket(i);
                 if !bucket_nodes.is_none() {
@@ -69,6 +77,18 @@ pub fn test() {
                     }
                 }
             }
+            let mut fake_node = vec![0;62];
+            fake_node.append(&mut vec![1; 2]);
+            let closest = kbucket.get_n_closest_nodes(fake_node.clone(), 3);
+            if !closest.is_none() {
+                println!("Printing the {} closes nodes to {:?}", 3, fake_node);
+                for node in closest.unwrap() {
+                    println!("{}", node);
+                }
+            }else {
+                println!("No Nodes found");
+            }
+
         }
         Err(e) => {
             eprintln!("Error parsing IP address: {}", e);
