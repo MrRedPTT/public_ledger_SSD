@@ -1,7 +1,9 @@
+#[doc(inline)]
 use core::fmt;
 use std::net::SocketAddr;
 use crate::kademlia::auxi;
 
+/// ## Node
 #[derive(Debug, Clone)]
 pub struct Node {
     pub id: Vec<u8>, // Tipically the node is represented by 160 bit Uid,
@@ -18,7 +20,14 @@ impl fmt::Display for Node {
         write!(f, "Node {{ id:{:?} (SHA512: {}), address: {} }}", &self.id, auxi::convert_node_id_to_string(&self.id), self.address)
     }
 }
+
+impl PartialEq for Node {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id && self.address == other.address
+    }
+}
 impl Node {
+    /// Create a new instance of a Node
     pub fn new(id: Vec<u8>, address: SocketAddr) -> Self {
         Node {
             id,
@@ -26,3 +35,4 @@ impl Node {
         }
     }
 }
+
