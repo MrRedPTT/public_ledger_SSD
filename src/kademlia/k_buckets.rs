@@ -92,7 +92,7 @@ impl KBucket {
                 }
                 i += 1;
                 if index - j >= 0 {
-                    index = index - j;
+                    index = given_node_index - j;
                     if let Some(nodes) = self.get_nodes_from_bucket(index) {
                         for node in nodes {
                             if closest_nodes.len() < n{
