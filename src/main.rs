@@ -14,11 +14,16 @@ mod kademlia{
 }
 mod ledger;
 
+mod p2p{
+    pub mod peer;
+    pub mod connect;
+}
 use crate::blockchain::Blockchain;
 use crate::kademlia::*;
 use crate::ledger::blockchain::Blockchain;
 
 fn main() {
+    p2p::connect::connect();
     let mut blockchain = Blockchain::new();
 
     //blockchain.add_block("miner2317".to_string());
