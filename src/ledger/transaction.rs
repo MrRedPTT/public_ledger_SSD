@@ -1,4 +1,6 @@
 #[derive(Debug, Clone)]
+
+///##Transactions
 pub struct Transaction {
     pub from: String,
     pub to: String,
@@ -10,7 +12,10 @@ pub struct Transaction {
 
 impl Transaction {
 
-    pub fn new(amount_in: f64, from: String, amount_out: f64, to: String ) -> Transaction{
+    /// creates a new transaction
+    ///
+    /// miner_fee is the difference of amount_in and amoun_out 
+    pub fn new(amount_in: f64, from: String, amount_out: f64, to: String ) -> Transaction {
         return Transaction {
             from,
             to,
@@ -20,6 +25,7 @@ impl Transaction {
         };
     }
 
+    /// returns the transaction in string format
     pub fn to_string(&self) -> String {
         return format!("{} from {}, {} to {} with {} fees",
                 self.amount_in,

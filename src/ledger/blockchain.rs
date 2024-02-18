@@ -1,19 +1,25 @@
+#[doc(inline)]
+use crate::ledger::transaction::*;
 use crate::ledger::block::*;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated
 #[derive(Debug, Clone)]
-pub struct Blockchain { // This is like a class and init
-    pub chain: Vec<Block>, // Vector is like a list but more strongly typed
-    pub difficulty: usize, //Difficulty
-    mining_reward: f64, // Mining reward
+
+
+/// Representation of the Blockchain
+pub struct Blockchain { 
+    pub chain: Vec<Block>, 
+    pub difficulty: usize,
+    mining_reward: f64, 
     pub is_miner: bool
 }
 
 impl Blockchain {
     const initial_difficulty:usize = 1;
 
-    pub fn new(is_miner:bool) -> Self {
+    /// creates a new Blockchain with only the Genesis Block
+    pub fn new(is_miner:bool) -> Blockchain {
         let genesis_block = Block::new(0, 
                                        "".to_string(),
                                        Self::initial_difficulty, 
@@ -28,9 +34,17 @@ impl Blockchain {
         }
     }
 
-    // &mut denotes a mutable reference to a value it allows us to borrow a value and modify it
-    // without taking ownership
-
+    /// adds a block to the blockchain,
+    ///
+    /// if the `b.prev_hash != blockchain.head.hash` 
+    /// the client will ask the network for missing block(s)
+    ///
+    /// **outputs:**
+    /// returns true if the block is successfully added
+    ///
+    /// **status:** **not fully implemented**
+    /// - missing getting other packages from network
+    /// - verification is also not fully done
     pub fn add_block(&mut self, b:Block) -> bool{
         let prev_hash = self.chain.last().unwrap().calculate_hash();
 
@@ -39,11 +53,11 @@ impl Blockchain {
         }
 
         self.chain.push(b);
-        self.adjust_difficulty(); // Adjust the difficulty after adding the new block
+        self.adjust_difficulty(); 
         return true
     }
 
-    // This function is made to adjust the difficulty of the hashes
+    /// adjust the difficulty of the hashes
     fn adjust_difficulty(&mut self) {
         let target_time: u64 = 1 * 60; // Target time to mine a block, e.g., 1 minute
         if self.chain.len() <= 1 {
@@ -67,7 +81,19 @@ impl Blockchain {
         return self.chain.len();
     }
 
+
+    /// returns the most recent Block of the blockchain
     pub fn get_head(&self) -> Block {
         return self.chain.last().unwrap().clone();
     }
+
+
+    /// adds a transaction to a temporary block
+    /// when the block is full it will be mined
+    /// 
+    /// **status:** not impleemnted
+    ///
+    /// **note** this method is only important to miners,
+    pub fn add_transaction(t:Transaction) {}
+
 }

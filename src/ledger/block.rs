@@ -1,10 +1,12 @@
+#[doc(inline)]
 use std::time::{SystemTime, UNIX_EPOCH};
-use sha2::{Sha512, Digest}; // Ensure sha2 crate is in Cargo.toml
-
+use sha2::{Sha512, Digest};
 
 use crate::ledger::transaction::*;
 
 #[derive(Debug, Clone)]
+
+/// ## BLock
 pub struct Block {
     pub index : usize,
     pub timestamp: u64,
@@ -16,6 +18,7 @@ pub struct Block {
 }
 
 impl Block {
+    /// creates a new block with a single transaction (the miner reward)
     pub fn new(index: usize, 
                prev_hash: String, 
                difficulty: usize, 
@@ -38,6 +41,11 @@ impl Block {
         return block
     }
 
+
+    /// mines the block
+    ///
+    ///- **outputs:**
+    ///    returns true when the block is mined with success
     pub fn mine(&mut self) -> bool {
         loop {
             if self.check_hash() {
@@ -48,11 +56,13 @@ impl Block {
         }
     }
 
+    /// checks if the hash of the block is correct with reference to its dificulty
     pub fn check_hash(&self) -> bool {
         let hash = self.calculate_hash();
         return hash.starts_with(&"0".repeat(self.difficulty)) 
     }
 
+    /// returns the hash(sha512) of the block
     pub fn calculate_hash(&self) -> String {
         // Use Sha512 to hash the concatenated string of data, timestamp, prev_hash and a nonce
         let mut hasher = Sha512::new();
@@ -67,11 +77,17 @@ impl Block {
         hash_hex
     }
 
+    /// adds a transaction to the block
+    /// if the number of transactions exceeds the max ammount and the client is a miner 
+    /// then the block is mined
+    ///
+    /// **outputs:** id of the transaction
     pub fn add_transaction(&mut self, t: Transaction) -> usize{
         self.transactions.push(t);
         return self.transactions.len()
     }
 
+    /// returns a string of all the transactions inside this block 
     pub fn transactions_to_string(&self) -> String{
         return  self.transactions.iter()
             .map(|t| t.to_string())
@@ -102,7 +118,9 @@ mod test {
                                           "bob".to_string()));
 
         if block.mine() {
-            println!("Block mined! Nonce: {} Hash: {}", block.nonce, block.calculate_hash());
+            println!("Block mined! Nonce: {} Hash: {}", 
+                     block.nonce, 
+                     block.calculate_hash());
         }
     }
 
