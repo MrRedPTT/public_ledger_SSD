@@ -19,6 +19,7 @@ pub struct Block {
 }
 
 impl Block {
+
     /// creates a new block with a single transaction (the miner reward)
     pub fn new(index: usize, 
                prev_hash: String, 
