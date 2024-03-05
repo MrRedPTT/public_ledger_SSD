@@ -18,20 +18,25 @@
             buildInputs = with pkgs; [
                 cargo
                 rustc
+                rust-analyzer
             ];
 
             ROOT=root;
 
             shellHook = ''
+                export NIX_SHELL_NAME="${name}" 
                 echo -ne "\033]0;${name}\007"
 
                 alias build='cargo build'
                 alias run='cargo run'
                 alias test='cargo test'
-                alias dtest='cargo test -- --nocapture'
+                alias dtest='cargo test -- --show-output'
+                alias doc='cargo doc'
+                alias odoc='cargo doc --open'
 
-                echo rustc is @ version ${pkgs.rustc}
-                echo cargo is @ version ${pkgs.cargo}
+                echo 'rustc is @ version ${pkgs.rustc}'
+                echo 'cargo is @ version ${pkgs.cargo}'
+                reload
             '';
 
         };

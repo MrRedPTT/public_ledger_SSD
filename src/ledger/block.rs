@@ -15,9 +15,11 @@ pub struct Block {
     pub nonce: u64,
     pub difficulty : usize,
     pub miner_id : String,
+    pub hash: String,
 }
 
 impl Block {
+
     /// creates a new block with a single transaction (the miner reward)
     pub fn new(index: usize, 
                prev_hash: String, 
@@ -32,7 +34,9 @@ impl Block {
             nonce : 0,
             difficulty,
             miner_id: miner_id.clone(),
+            hash: "".to_string()
         };
+
         block.add_transaction( Transaction::new(miner_reward,
                                                   "network".to_string(),
                                                   miner_reward,
@@ -49,6 +53,7 @@ impl Block {
     pub fn mine(&mut self) -> bool {
         loop {
             if self.check_hash() {
+                self.hash = self.calculate_hash();
                 return true;
             }
             

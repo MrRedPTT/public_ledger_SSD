@@ -12,25 +12,38 @@ pub struct Blockchain {
     pub chain: Vec<Block>, 
     pub difficulty: usize,
     mining_reward: f64, 
-    pub is_miner: bool
+    pub is_miner: bool,
+    pub temporary_block: Block,
+    pub miner_id: String
 }
 
 impl Blockchain {
-    const initial_difficulty:usize = 1;
+    const INITIAL_DIFFICULTY:usize = 1;
+    const NETWORK:&'static str = "network";
+    const MAX_TRANSACTIONS:usize = 16;
 
     /// creates a new Blockchain with only the Genesis Block
-    pub fn new(is_miner:bool) -> Blockchain {
-        let genesis_block = Block::new(0, 
+    pub fn new(is_miner:bool, miner_id:String) -> Blockchain {
+        let mut genesis_block = Block::new(0, 
                                        "".to_string(),
-                                       Self::initial_difficulty, 
-                                       "network".to_string(),
+                                       Self::INITIAL_DIFFICULTY, 
+                                       Self::NETWORK.to_string(),
                                        0.0);
+
+        genesis_block.mine();
+        let hash = genesis_block.hash.clone();
 
         Blockchain {
             chain: vec![genesis_block],
-            difficulty: Self::initial_difficulty,
+            difficulty: Self::INITIAL_DIFFICULTY,
             mining_reward: 0.01,
-            is_miner
+            is_miner,
+            miner_id: miner_id.clone(),
+            temporary_block: Block::new(1,
+                                        hash.clone(),
+                                        Self::INITIAL_DIFFICULTY,
+                                        miner_id.clone(),
+                                        0.0)
         }
     }
 
@@ -46,14 +59,19 @@ impl Blockchain {
     /// - missing getting other packages from network
     /// - verification is also not fully done
     pub fn add_block(&mut self, b:Block) -> bool{
-        let prev_hash = self.chain.last().unwrap().calculate_hash();
 
         if !b.check_hash() {
             return false;
         }
 
+        let prev_hash = self.get_head().hash;
+        if b.hash != prev_hash {
+            return false
+        }
+
         self.chain.push(b);
         self.adjust_difficulty(); 
+        self.adjust_temporary_block(false);
         return true
     }
 
@@ -77,8 +95,9 @@ impl Blockchain {
         }
     }
 
-    fn get_current_index(&mut self) -> usize{
-        return self.chain.len();
+    /// returns the current index of the blockchain
+    fn get_current_index(&self) -> usize{
+        return self.get_head().index;
     }
 
 
@@ -94,6 +113,37 @@ impl Blockchain {
     /// **status:** not impleemnted
     ///
     /// **note** this method is only important to miners,
-    pub fn add_transaction(t:Transaction) {}
+    pub fn add_transaction(&mut self, t:Transaction) {
+        let index = self.temporary_block.add_transaction(t);
+
+        if self.is_miner && index >= Self::MAX_TRANSACTIONS {
+            self.temporary_block.mine();
+            self.add_block(self.temporary_block.clone());
+            self.adjust_temporary_block(true);
+        }
+    }
+
+    ///adjust the temporary block based on the state of the blockchain
+    ///if the parameter `create` is true then a new block is created
+    ///
+    ///**Note:** does **not** check for transactions that already exist in other blocks
+    fn adjust_temporary_block(&mut self, create: bool){
+        let head = self.get_head();
+
+
+        if !create {
+            self.temporary_block.index = head.index + 1;
+            self.temporary_block.prev_hash = head.hash;
+            //self.temporary_block.mining_reward = self.mining_reward;
+            self.temporary_block.difficulty = self.difficulty;
+            return
+        }
+
+        self.temporary_block = Block::new(head.index + 1,
+                                          head.hash,
+                                          self.difficulty.clone(),
+                                          self.miner_id.clone(),
+                                          self.mining_reward.clone())
+    }
 
 }
