@@ -17,25 +17,25 @@ pub fn test() {
             my_node = Node::new(id, SocketAddr::new(ip, 8888));
             let clone_node = my_node.clone(); // Cloning the node so that we can use it in the println
             let mut kademlia = Kademlia::new(my_node);
-            kademlia.store(clone_node.clone());
+            kademlia.add_node(clone_node.clone());
 
-            let mut result: Option<(&Vec<u8>, &Node)> = kademlia.find_node(vec![0; 64]);
+            let mut result: Option<Node> = kademlia.get_node(vec![0; 64]);
             if result.is_none() {
                println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().id))
             } else {
-                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
+                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().address);
             }
 
             if !kademlia.remove_node(vec![0; 64]) {
                 println!("Failed to Remove node");
             }
 
-            result = kademlia.find_node(vec![0; 64]);
+            result = kademlia.get_node(vec![0; 64]);
             // Duplicate code but it's only here for testing purposes
             if result.is_none() {
                 println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().id))
             } else {
-                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().1.address);
+                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().address);
             }
 
             let mut kbucket = KBucket::new(clone_node.clone().id);
