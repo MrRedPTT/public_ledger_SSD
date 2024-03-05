@@ -66,16 +66,16 @@ impl Kademlia {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{IpAddr, SocketAddr};
     use crate::kademlia::kademlia::Kademlia;
     use crate::kademlia::node::Node;
 
     #[test]
     fn test_get_key() {
-        let ip = "127.0.0.1";
+        let ip = "127.0.0.1".to_string();
         let port = 8888;
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), 8888));
-        let mut kademlia = Kademlia::new(node);
+        let node = Node::new(ip.clone(), 8888);
+        assert!(!node.is_none());
+        let mut kademlia = Kademlia::new(node.unwrap());
 
         kademlia.add_key("Some Key".to_string(), "Some Value".to_string());
 
@@ -85,10 +85,10 @@ mod tests {
 
     #[test]
     fn test_remove_key() {
-        let ip = "127.0.0.1";
+        let ip = "127.0.0.1".to_string();
         let port = 8888;
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), 8888));
-        let mut kademlia = Kademlia::new(node);
+        let node = Node::new(ip.clone(), 8888);
+        let mut kademlia = Kademlia::new(node.unwrap());
 
         kademlia.add_key("Some Key".to_string(), "Some Value".to_string());
         kademlia.remove_key("Some Key".to_string());
@@ -98,29 +98,33 @@ mod tests {
 
     #[test]
     fn test_get_node() {
-        let ip = "127.0.0.1";
+        let ip = "127.0.0.1".to_string();
         let port = 8888;
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), 8888));
-        let mut kademlia = Kademlia::new(node);
+        let node = Node::new(ip.clone(), 8888);
+        assert!(!node.is_none());
+        let mut kademlia = Kademlia::new(node.unwrap());
 
-        let new_node = Node::new(vec![1; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), port +1 ));
+        let new_node = Node::new(ip.clone(), port +1 );
+        assert!(!new_node.is_none());
 
-        kademlia.add_node(new_node.clone());
+        kademlia.add_node(new_node.clone().unwrap());
 
-        assert_eq!(kademlia.get_node(new_node.clone().id).unwrap(), new_node)
+        assert_eq!(kademlia.get_node(new_node.clone().unwrap().id).unwrap(), new_node.unwrap())
     }
 
     #[test]
     fn test_remove_node() {
-        let ip = "127.0.0.1";
+        let ip = "127.0.0.1".to_string();
         let port = 8888;
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), 8888));
-        let mut kademlia = Kademlia::new(node);
+        let node = Node::new(ip.clone(), 8888);
+        assert!(!node.is_none());
+        let mut kademlia = Kademlia::new(node.unwrap());
 
-        let new_node = Node::new(vec![1; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), port +1 ));
+        let new_node = Node::new(ip.clone(), port +1);
+        assert!(!new_node.is_none());
 
-        kademlia.add_node(new_node.clone());
-        kademlia.remove_node(new_node.clone().id);
-        assert_eq!(kademlia.get_node(new_node.clone().id).is_none(), true)
+        kademlia.add_node(new_node.clone().unwrap());
+        kademlia.remove_node(new_node.clone().unwrap().id);
+        assert_eq!(kademlia.get_node(new_node.unwrap().id).is_none(), true)
     }
 }

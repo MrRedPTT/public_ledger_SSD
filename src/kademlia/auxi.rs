@@ -1,11 +1,11 @@
+use sha1::{Digest, Sha1};
 // Auxiliary functions
 #[doc(inline)]
-use sha2::{Digest, Sha512};
-use crate::kademlia::node::Identifier;
+use crate::kademlia::node::{Identifier};
 
 /// Converts a node identifier (Vec<u8>) into a string, after hashing
 pub fn convert_node_id_to_string (node_id: &Identifier) -> String{
-    let mut hasher = Sha512::new();
+    let mut hasher = Sha1::new();
     hasher.update(node_id);
     let hashed_node_id= hasher.finalize();
     let string = hashed_node_id.iter()
@@ -28,22 +28,22 @@ pub fn vec_u8_to_string (v: Identifier) -> String {
 /// Calculates the distance between two Identifiers using xor
 pub fn xor_distance(id1: &Identifier, id2: &Identifier) -> usize {
     println!("DEBUG IN KBUCKETS::xor_distance -> Size of vector1: {}, vector2: {}", id1.len(), id2.len());
-    let res: Vec<u8> = id1
-        .iter()
-        .zip(id2.iter())
-        .map(|(&x1, &x2)| x1 ^ x2)
-        .collect();
+    let mut res: [u8; 160] = [0; 160];
+    for i in 0..160 {
+        res[i] = id1[i] ^ id2[i];
+    }
 
-    return get_leading(&res.to_vec()) as usize;
+    return get_leading(res) as usize;
 }
 
 // Return the number of leading zeros (aka number of bits different between the two nodes)
 /// Gets the number of leading zeros, i.e., the number of consecutive zeros on the left
-fn get_leading(v: &[u8]) -> u32 {
-    let n_zeroes = match v.iter().position(|&x| x != 0) {
-        Some(n) => n,
-        None => return 8*v.len() as u32,
-    };
-
-    v.get(n_zeroes).map_or(0, |x| x.leading_zeros()) + 8 * n_zeroes as u32
+fn get_leading(v: [u8; 160]) -> u32 {
+    let mut count = 0;
+    for i in v {
+        if i == 0 {
+            count += 1;
+        }
+    }
+    return count;
 }

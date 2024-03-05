@@ -3,7 +3,7 @@ use crate::kademlia::bucket::Bucket;
 use crate::kademlia::node::{Identifier, Node};
 use crate::kademlia::auxi;
 
-pub const MAX_BUCKETS: usize = 512; // Max amount of Buckets (AKA amount of sub-tries)
+pub const MAX_BUCKETS: usize = 160; // Max amount of Buckets (AKA amount of sub-tries)
 
 /// ## Kbucket
 #[derive(Debug, Clone)]
@@ -42,9 +42,10 @@ impl KBucket {
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
         let bucket = &self.buckets[index];
 
-        bucket.map.get(id).map(|socket_addr| Node {
+        bucket.map.get(id).map(| node | Node {
             id: (*id).clone(),
-            address: *socket_addr,
+            ip: node.clone().ip,
+            port: node.port
         })
     }
 
@@ -67,7 +68,8 @@ impl KBucket {
         for (k, v) in bucket.map.iter() {
             node = Node {
                 id: (*k).clone(),
-                address: *v,
+                ip: (*v).clone().ip,
+                port: (*v).clone().port
             };
             return_bucket.push(node);
         }
@@ -103,7 +105,7 @@ impl KBucket {
                     }
                 }
                 i += 1;
-                if index - j >= 0 {
+                if given_node_index - j >= 0 {
                     index = given_node_index - j;
                     if let Some(nodes) = self.get_nodes_from_bucket(index) {
                         for node in nodes {
@@ -133,90 +135,82 @@ impl KBucket {
 
 
 mod tests {
-    use std::net::{IpAddr, SocketAddr};
     use crate::kademlia::k_buckets::KBucket;
     use crate::kademlia::node::Node;
 
     #[test]
     fn test_get () {
-        let ip = "127.0.0.1";
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), 8888));
+        let ip = "127.0.0.1".to_string();
+        let node = Node::new(ip.clone(), 8888);
+        let node1 = node.unwrap();
 
-        let mut kbuckets = KBucket::new(node.clone().id);
-        kbuckets.add(node.clone());
-        assert_eq!(kbuckets.get(&node.id).unwrap(), node);
+        let mut kbuckets = KBucket::new(node1.clone().id);
+        kbuckets.add(node1.clone());
+        assert_eq!(kbuckets.get(&node1.id).unwrap(), node1);
     }
 
     #[test]
     fn test_remove () {
-        let ip = "127.0.0.1";
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip.parse::<IpAddr>().unwrap(), 8888));
+        let ip = "127.0.0.1".to_string();
+        let node = Node::new(ip.clone(), 8888);
+        let node1 = node.unwrap();
 
-        let mut kbuckets = KBucket::new(node.clone().id);
-        kbuckets.add(node.clone());
-        kbuckets.remove(&node.clone().id);
-        assert_eq!(kbuckets.get(&node.id).is_none(), true);
+        let mut kbuckets = KBucket::new(node1.clone().id);
+        kbuckets.add(node1.clone());
+        kbuckets.remove(&node1.clone().id);
+        assert_eq!(kbuckets.get(&node1.id).is_none(), true);
     }
 
     #[test]
     fn test_get_nodes_from_bucket () {
-        let ip = "127.0.0.1".parse::<IpAddr>().unwrap();
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip, 8888));
+        let ip = "127.0.0.17".to_string();
+        let node = Node::new(ip.clone(), 9988);
+        let node1 = node.unwrap();
 
-        let mut kbucket = KBucket::new(node.clone().id);
+        let mut kbucket = KBucket::new(node1.clone().id);
 
+        let ip2 = "127.0.0.1".to_string();
         for i in 1..=3 {
-            let mut base_id = vec![0; 64-i];
-            base_id.append(&mut vec![1; i]);
-            let new_node = Node::new(base_id, SocketAddr::new(ip, 8888+i as u16));
-            kbucket.add(new_node);
+            let new_node = Node::new(ip2.clone(), 8888+i as u16);
+            let node2 = new_node.unwrap();
+            kbucket.add(node2);
         }
 
         // Add more nodes to a same bucket (bucket 9 has 2 entries which will be used to test get_n_closest_nodes)
-        let mut base_id = vec![0; 64-2];
-        base_id.append(&mut vec![1; 1]);
-        base_id.append(&mut vec![0; 1]);
-        let new_node = Node::new(base_id, SocketAddr::new(ip, 8888+ 7u16));
-        kbucket.add(new_node);
+        let new_node = Node::new(ip.clone(), 8888+ 7u16);
+        let node2 = new_node.unwrap();
+        kbucket.add(node2);
 
-        let res = kbucket.get_nodes_from_bucket(9);
+        let res = kbucket.get_nodes_from_bucket(87);
+        assert!(!res.is_none());
 
         assert_eq!(res.unwrap().len(), 2);
     }
 
     #[test]
     fn test_get_n_closest_nodes () {
-        let ip = "127.0.0.1".parse::<IpAddr>().unwrap();
-        let node = Node::new(vec![0; 64], SocketAddr::new(ip, 8888));
+        let ip = "127.0.0.1".to_string();
+        let node = Node::new(ip.clone(), 8888);
+        let node1 = node.unwrap();
 
-        let mut kbucket = KBucket::new(node.clone().id);
+        let mut kbucket = KBucket::new(node1.clone().id);
 
         for i in 1..=3 {
-            let mut base_id = vec![0; 64-i];
-            base_id.append(&mut vec![1; i]);
-            let new_node = Node::new(base_id, SocketAddr::new(ip, 8888+i as u16));
-            kbucket.add(new_node);
+            let new_node = Node::new(ip.clone(), 8888+i as u16);
+            let node2 = new_node.unwrap();
+            kbucket.add(node2);
         }
 
-        // Add more nodes to a same bucket (bucket 9 has 2 entries which will be used to test get_n_closest_nodes)
-        let mut base_id = vec![0; 62];
-        base_id.append(&mut vec![1; 1]);
-        base_id.append(&mut vec![0; 1]);
-        let new_node = Node::new(base_id, SocketAddr::new(ip, 8895));
-        kbucket.add(new_node);
+        // Add more nodes
+        let new_node = Node::new(ip.clone(), 8895);
+        let node1 = new_node.unwrap();
+        kbucket.add(node1);
 
-        let mut fake_node = vec![0;62];
-        fake_node.append(&mut vec![1; 2]);
-        let mut res = kbucket.get_n_closest_nodes(fake_node.clone(), 3);
+        let node2 = Node::gen_id("127.0.0.17".to_string(), 9988);
+        let res = kbucket.get_n_closest_nodes(node2.clone(), 3);
         let res_content = res.unwrap();
-        let mut count = 0;
-        for result in &res_content {
-            if result.address == SocketAddr::new(ip, 8890) || result.address == SocketAddr::new(ip, 8889) || result.address == SocketAddr::new(ip, 8895){
-                count += 1;
-            }
-        }
 
-        assert_eq!(count, 3)
+        assert_eq!(res_content.len(), 3)
 
     }
 

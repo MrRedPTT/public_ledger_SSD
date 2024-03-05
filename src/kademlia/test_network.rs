@@ -1,74 +1,76 @@
-
-use std::net::SocketAddr;
 use crate::kademlia::kademlia::Kademlia;
 use std::net::IpAddr;
+use std::process::exit;
 use sha2::{Digest};
 use crate::kademlia::auxi;
-use crate::kademlia::k_buckets::KBucket;
-use crate::kademlia::node::Node;
+use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
+use crate::kademlia::node::{Identifier, Node};
 // Init file to test the Kademlia P2P layer
 pub fn test() {
     let my_ip = "127.0.0.1";
     let mut my_node;
     match my_ip.parse::<IpAddr>() {
-        Ok(ip) => {
+        Ok(mut ip) => {
             // Clones will be used throughout this code snippet to avoid moving the variable
-            let id = vec![0; 64];
-            my_node = Node::new(id, SocketAddr::new(ip, 8888));
+            my_node = Node::new(ip.to_string(), 8888);
+            if my_node.is_none() {
+                exit(1); // Terminate if node is invalid
+            }
             let clone_node = my_node.clone(); // Cloning the node so that we can use it in the println
-            let mut kademlia = Kademlia::new(my_node);
-            kademlia.add_node(clone_node.clone());
+            let mut kademlia = Kademlia::new(my_node.clone().unwrap());
+            kademlia.add_node(clone_node.clone().unwrap());
 
-            let mut result: Option<Node> = kademlia.get_node(vec![0; 64]);
+            let mut result: Option<Node> = kademlia.get_node(Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port));
             if result.is_none() {
-               println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().id))
+               println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().unwrap().id))
             } else {
-                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().address);
+                println!("Node {} has a value of ip: {}, port: {}", auxi::vec_u8_to_string(clone_node.clone().unwrap().id), result.clone().unwrap().ip, result.clone().unwrap().port);
             }
 
-            if !kademlia.remove_node(vec![0; 64]) {
+            if !kademlia.remove_node(Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port)) {
                 println!("Failed to Remove node");
             }
 
-            result = kademlia.get_node(vec![0; 64]);
+            result = kademlia.get_node(Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port));
             // Duplicate code but it's only here for testing purposes
             if result.is_none() {
-                println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().id))
+                println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().unwrap().id))
             } else {
-                println!("Node {} has a value of {}", auxi::vec_u8_to_string(clone_node.clone().id), result.unwrap().address);
+                println!("Node {} has a value of ip: {}, port: {}", auxi::vec_u8_to_string(clone_node.clone().unwrap().id), result.clone().unwrap().ip, result.clone().unwrap().port);
             }
 
-            let mut kbucket = KBucket::new(clone_node.clone().id);
-            kbucket.add(clone_node.clone());
-            let result2 = kbucket.get(&clone_node.clone().id);
+            let mut kbucket = KBucket::new(clone_node.clone().unwrap().id);
+            kbucket.add(clone_node.clone().unwrap());
+            let result2 = kbucket.get(&clone_node.clone().unwrap().id);
             if !result2.is_none(){
                 println!("Node1 from kbucket: {}", result2.unwrap());
             }
-            let result3 = kbucket.get(&vec![0; 64]);
+            let result3 = kbucket.get(&Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port));
             if !result3.is_none(){
                 println!("Node2 does not exist");
             }
-            kbucket.remove(&clone_node.clone().id);
-            if kbucket.get(&clone_node.clone().id).is_none() {
+            kbucket.remove(&clone_node.clone().unwrap().id);
+            if kbucket.get(&clone_node.clone().unwrap().id).is_none() {
                 println!("Node1 was removed");
             }
 
             for i in 1..=3 {
-                let mut base_id = vec![0; 64-i];
-                base_id.append(&mut vec![1; i]);
-                let new_node = Node::new(base_id, SocketAddr::new(ip, 8888+i as u16));
-                kbucket.add(new_node);
+                let new_node = Node::new(ip.to_string(), 8888+i as u16);
+                if new_node.is_none() {
+                    exit(1); // Terminate if node is invalid
+                }
+                kbucket.add(new_node.unwrap());
             }
 
             // Add more nodes to a same bucket (bucket 9 has 2 entries which will be used to test get_n_closest_nodes)
-            let mut base_id = vec![0; 64-2];
-            base_id.append(&mut vec![1; 1]);
-            base_id.append(&mut vec![0; 1]);
-            let new_node = Node::new(base_id, SocketAddr::new(ip, 8888+ 7u16));
-            kbucket.add(new_node);
+            let new_node = Node::new(ip.to_string(), 8888+ 7u16);
+            if new_node.is_none() {
+                exit(1); // Terminate if node is invalid
+            }
+            kbucket.add(new_node.unwrap());
 
 
-            for i in 0..512 {
+            for i in 0..MAX_BUCKETS {
                 let bucket_nodes = kbucket.get_nodes_from_bucket(i);
                 if !bucket_nodes.is_none() {
                     println!("Nodes in bucket {}", i);
@@ -77,18 +79,19 @@ pub fn test() {
                     }
                 }
             }
-            let mut fake_node = vec![0;62];
-            fake_node.append(&mut vec![1; 2]);
+            let fake_node = Node::gen_id("127.0.0.17".to_string(), 9988);
             let closest = kbucket.get_n_closest_nodes(fake_node.clone(), 3);
             if !closest.is_none() {
-                println!("Printing the {} closes nodes to {:?}", 3, fake_node);
+                println!("Printing the {} closes nodes to {:?}, address: 127.0.0.17:9988", 3, fake_node);
                 for node in closest.unwrap() {
-                    println!("{}", node);
+                    println!("{} => {}", node, 160 - auxi::xor_distance(&fake_node as &Identifier, &node.id as &Identifier));
                 }
             }else {
                 println!("No Nodes found");
             }
 
+            // A simple test for the hash gen
+            println!("Hash: {:?}", Node::gen_id("192.45.121.871".to_string(), 12189));
         }
         Err(e) => {
             eprintln!("Error parsing IP address: {}", e);

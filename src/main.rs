@@ -14,19 +14,20 @@ mod ledger;
 mod p2p{
     pub mod peer;
     pub mod connect;
+
+    pub mod protocol;
 }
 
 use crate::kademlia::*;
-use crate::ledger::blockchain::Blockchain;
 
 fn main() {
-    p2p::connect::connect();
-    let blockchain = Blockchain::new(true,"mario".to_string());
+    //p2p::connect::connect();
+    //let blockchain = Blockchain::new(true,"mario".to_string());
 
     //blockchain.add_block("miner2317".to_string());
     //blockchain.add_block("miner2318".to_string());
 
-    println!("{:#?}", blockchain);
+    // println!("{:#?}", blockchain);
 
     test_network::test();
 }

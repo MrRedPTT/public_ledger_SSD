@@ -1,19 +1,22 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::{self, Read, Write};
 use std::thread;
+use crate::kademlia::node::Node;
 
 pub struct Peer {
-    address: String,
+    node: Node,
 }
 
 impl Peer {
-    pub fn new(address: String) -> Self {
-        Self { address }
+    pub fn new(node: Node) -> Self {
+        Peer {
+            node
+        }
     }
 
     pub fn start_listener(&self) {
-        let listener = TcpListener::bind(&self.address).expect("Failed to bind to address");
-        println!("Listening on {}", self.address);
+        let listener = TcpListener::bind(format!("{}:{}", &self.node.ip, &self.node.port)).expect("Failed to bind to address");
+        println!("Listening on {}", format!("{}:{}", &self.node.ip, &self.node.port));
 
         for connection in listener.incoming() {
             match connection {
@@ -72,7 +75,7 @@ impl Peer {
                     println!("Received: {}", String::from_utf8_lossy(&message));
 
                     // Echo back the message as an acknowledgment
-                    let mut length_prefix = (message.len() as u32).to_be_bytes();
+                    let length_prefix = (message.len() as u32).to_be_bytes();
                     stream.write_all(&length_prefix).expect("Failed to write length prefix");
                     stream.write_all(&message).expect("Failed to write message");
                 },
