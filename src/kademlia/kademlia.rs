@@ -3,8 +3,8 @@ use crate::kademlia::node::Node;
 use std::collections::HashMap;
 
 use sha2::{Digest};
-use sha2::digest::typenum::private::IsLessOrEqualPrivate;
 use crate::kademlia::k_buckets::KBucket;
+use crate::kademlia::node::Identifier;
 
 /// ## Kademlia
 pub struct Kademlia {
@@ -52,12 +52,12 @@ impl Kademlia {
     }
 
     /// Get the node for the given id
-    pub fn get_node (&self, id: Vec<u8>) -> Option<Node> {
+    pub fn get_node (&self, id: Identifier) -> Option<Node> {
         return self.kbuckets.get(&id);
     }
 
     /// Remove a node by ID from the kbuckets
-    pub fn remove_node (&mut self, id: Vec<u8>) -> bool {
+    pub fn remove_node (&mut self, id: Identifier) -> bool {
         self.kbuckets.remove(&id);
         return Self::get_node(self, id).is_none();
     }

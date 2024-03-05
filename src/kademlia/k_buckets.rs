@@ -1,6 +1,6 @@
 #[doc(inline)]
 use crate::kademlia::bucket::Bucket;
-use crate::kademlia::node::Node;
+use crate::kademlia::node::{Identifier, Node};
 use crate::kademlia::auxi;
 
 pub const MAX_BUCKETS: usize = 512; // Max amount of Buckets (AKA amount of sub-tries)
@@ -8,12 +8,12 @@ pub const MAX_BUCKETS: usize = 512; // Max amount of Buckets (AKA amount of sub-
 /// ## Kbucket
 #[derive(Debug, Clone)]
 pub struct KBucket {
-    pub id: Vec<u8>, // Here we can use some kind of identification (later on check if it's really needed)
+    pub id: Identifier, // Here we can use some kind of identification (later on check if it's really needed)
     pub buckets: Vec<Bucket>, // The list of nodes in this bucket
 }
 impl KBucket {
     /// Create a new KBucket Object
-    pub fn new (id: Vec<u8>) -> Self {
+    pub fn new (id: Identifier) -> Self {
         KBucket {
             id,
             buckets: vec![Default::default(); MAX_BUCKETS],
@@ -38,7 +38,7 @@ impl KBucket {
 
     /// Get a node with a specific ID.
     /// If such node does not exist, return None
-    pub fn get (&self, id: &Vec<u8>) -> Option<Node>{
+    pub fn get (&self, id: &Identifier) -> Option<Node>{
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
         let bucket = &self.buckets[index];
 
@@ -49,7 +49,7 @@ impl KBucket {
     }
 
     /// Remove a node from its bucket
-    pub fn remove (&mut self, id: &Vec<u8>){
+    pub fn remove (&mut self, id: &Identifier){
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
 
         if !Self::get(self, id).is_none() {
@@ -79,7 +79,7 @@ impl KBucket {
     }
 
     /// Get the n closest nodes from the given node
-    pub fn get_n_closest_nodes (&self, id: Vec<u8>, n: usize) -> Option<Vec<Node>>{
+    pub fn get_n_closest_nodes (&self, id: Identifier, n: usize) -> Option<Vec<Node>>{
         let mut closest_nodes: Vec<Node> = Vec::new();
         let given_node_index = MAX_BUCKETS - auxi::xor_distance(&id, &self.id);
         let mut index;
@@ -95,7 +95,7 @@ impl KBucket {
                 index = given_node_index + i;
                 if let Some(nodes) = self.get_nodes_from_bucket(index) {
                     for node in nodes {
-                        if closest_nodes.len() < n{
+                        if closest_nodes.len() < n {
                             closest_nodes.push(node);
                         } else {
                             return Some(closest_nodes);
@@ -107,7 +107,7 @@ impl KBucket {
                     index = given_node_index - j;
                     if let Some(nodes) = self.get_nodes_from_bucket(index) {
                         for node in nodes {
-                            if closest_nodes.len() < n{
+                            if closest_nodes.len() < n {
                                 closest_nodes.push(node);
                             } else {
                                 return Some(closest_nodes);

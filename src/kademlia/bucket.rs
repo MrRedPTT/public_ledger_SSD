@@ -1,14 +1,14 @@
 #[doc(inline)]
 use std::collections::HashMap;
 use std::net::SocketAddr;
-use crate::kademlia::node::Node;
+use crate::kademlia::node::{Identifier, Node};
 
 /// Defines the maximum amount of nodes allowed per bucket
 pub const K: usize = 3; // Max bucket size
 #[derive(Clone, Debug, Default, PartialEq)]
 /// ## Bucket
 pub struct Bucket {
-    pub map: HashMap<Vec<u8>, SocketAddr>,
+    pub map: HashMap<Identifier, SocketAddr>,
 }
 
 impl Bucket {
