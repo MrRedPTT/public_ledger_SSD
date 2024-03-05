@@ -9,7 +9,7 @@ pub struct Protocol {
 
 pub enum REQUEST {
     PING, // Check if node is online
-    STORE(String, String), // Instructs a Node to store a Value (Node is found using distance)
+    Store(String, String), // Instructs a Node to store a Value (Node is found using distance)
     FindValue(String), // Returns a Value or the k nearest nodes to the value
     FindNode(Identifier) // Returns the k nearest nodes from the target id
 

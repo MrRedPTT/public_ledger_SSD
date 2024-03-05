@@ -2,7 +2,7 @@
 use crate::kademlia::node::Node;
 use std::collections::HashMap;
 
-use sha2::{Digest};
+use sha3::{Digest};
 use crate::kademlia::k_buckets::KBucket;
 use crate::kademlia::node::Identifier;
 

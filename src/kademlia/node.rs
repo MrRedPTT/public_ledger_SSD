@@ -1,13 +1,13 @@
 #[doc(inline)]
 use core::fmt;
 use std::net::IpAddr;
-use sha1::{Sha1, Digest};
+use sha3::{Digest, Sha3_256};
 use crate::kademlia::auxi;
 use crate::kademlia::auxi::vec_u8_to_string;
 
 /// Identifier Type
-pub type Identifier = [u8; 160]; // hash of the ip:port of the node (can be changed later on to use the private certificates of the node)
-pub const ID_LEN: usize = 160; // Size in bits of SHA1 output (This is the hashing algorithm defined in Kademlia's documentation)
+pub type Identifier = [u8; 256]; // hash of the ip:port of the node (can be changed later on to use the private certificates of the node)
+pub const ID_LEN: usize = 256; // Size in bits of SHA3_256 output (This is the hashing algorithm defined in Kademlia's documentation)
 /// ## Node
 #[derive(Debug, Clone)]
 pub struct Node {
@@ -23,7 +23,7 @@ impl fmt::Display for Node {
 
         let id_str = vec_u8_to_string(self.id);
         // Customize the formatting of Node here
-        write!(f, "Node {{ id:{:?} (SHA1: {}), ip: {}, port: {} }}", id_str, auxi::convert_node_id_to_string(&self.id), self.ip, self.port)
+        write!(f, "Node {{ id:{:?} (SHA3_256: {}), ip: {}, port: {} }}", id_str, auxi::convert_node_id_to_string(&self.id), self.ip, self.port)
     }
 }
 
@@ -59,9 +59,9 @@ impl Node {
         }
     }
 
-    pub fn gen_id (ip: String, port: u16) -> [u8; 160] {
+    pub fn gen_id (ip: String, port: u16) -> Identifier {
         let input = format!("{}:{}", ip, port.to_string());
-        let mut hasher = Sha1::new();
+        let mut hasher = Sha3_256::new();
         hasher.update(input.as_bytes());
 
         // we know that the hash output is going to be 256 bits = 32 bytes
@@ -74,7 +74,7 @@ impl Node {
         }
 
         let mut i = 0;
-        assert_eq!(bin_str.len(), 160); // assert thar we indeed have 160 bits
+        assert_eq!(bin_str.len(), ID_LEN); // assert thar we indeed have 160 bits
         for b in bin_str.chars() {
             hash[i] = b.to_digit(2).unwrap() as u8;
             i += 1;

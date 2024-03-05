@@ -1,11 +1,12 @@
-use sha1::{Digest, Sha1};
+use sha3::{Digest, Sha3_256};
 // Auxiliary functions
 #[doc(inline)]
 use crate::kademlia::node::{Identifier};
 
+
 /// Converts a node identifier (Vec<u8>) into a string, after hashing
 pub fn convert_node_id_to_string (node_id: &Identifier) -> String{
-    let mut hasher = Sha1::new();
+    let mut hasher = Sha3_256::new();
     hasher.update(node_id);
     let hashed_node_id= hasher.finalize();
     let string = hashed_node_id.iter()

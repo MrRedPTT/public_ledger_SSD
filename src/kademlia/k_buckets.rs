@@ -3,7 +3,7 @@ use crate::kademlia::bucket::Bucket;
 use crate::kademlia::node::{Identifier, Node};
 use crate::kademlia::auxi;
 
-pub const MAX_BUCKETS: usize = 160; // Max amount of Buckets (AKA amount of sub-tries)
+pub const MAX_BUCKETS: usize = 256; // Max amount of Buckets (AKA amount of sub-tries)
 
 /// ## Kbucket
 #[derive(Debug, Clone)]
@@ -181,10 +181,10 @@ mod tests {
         let node2 = new_node.unwrap();
         kbucket.add(node2);
 
-        let res = kbucket.get_nodes_from_bucket(87);
+        let res = kbucket.get_nodes_from_bucket(175);
         assert!(!res.is_none());
 
-        assert_eq!(res.unwrap().len(), 2);
+        assert_eq!(res.unwrap().len(), 1);
     }
 
     #[test]

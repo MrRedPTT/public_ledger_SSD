@@ -1,10 +1,9 @@
 use crate::kademlia::kademlia::Kademlia;
 use std::net::IpAddr;
 use std::process::exit;
-use sha2::{Digest};
 use crate::kademlia::auxi;
 use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
-use crate::kademlia::node::{Identifier, Node};
+use crate::kademlia::node::{ID_LEN, Identifier, Node};
 // Init file to test the Kademlia P2P layer
 pub fn test() {
     let my_ip = "127.0.0.1";
@@ -84,7 +83,7 @@ pub fn test() {
             if !closest.is_none() {
                 println!("Printing the {} closes nodes to {:?}, address: 127.0.0.17:9988", 3, fake_node);
                 for node in closest.unwrap() {
-                    println!("{} => {}", node, 160 - auxi::xor_distance(&fake_node as &Identifier, &node.id as &Identifier));
+                    println!("{} => {}", node, ID_LEN - auxi::xor_distance(&fake_node as &Identifier, &node.id as &Identifier));
                 }
             }else {
                 println!("No Nodes found");
