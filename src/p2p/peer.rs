@@ -1,101 +1,89 @@
-use std::net::{TcpListener, TcpStream};
-use std::io::{self, Read, Write};
-use std::thread;
+use std::{io};
+use std::time::Duration;
+use async_std::net::{TcpListener, TcpStream};
+use futures::{AsyncReadExt, AsyncWriteExt, StreamExt};
 use crate::kademlia::node::Node;
 
 pub struct Peer {
     node: Node,
+    listener: TcpListener
 }
 
 impl Peer {
-    pub fn new(node: Node) -> Self {
-        Peer {
-            node
-        }
+
+    pub async fn new(node: &Node) -> Result<Peer, io::Error> {
+        let listener = TcpListener::bind(format!("{}:{}", node.ip, node.port)).await?;
+        Ok(Peer {
+            node: node.clone(),
+            listener,
+        })
     }
 
-    pub fn start_listener(&self) {
-        let listener = TcpListener::bind(format!("{}:{}", &self.node.ip, &self.node.port)).expect("Failed to bind to address");
-        println!("Listening on {}", format!("{}:{}", &self.node.ip, &self.node.port));
+    pub async fn create_listener(self) -> std::io::Result<()>{
+        let mut incoming = self.listener.incoming();
 
-        for connection in listener.incoming() {
-            match connection {
+        while let Some(stream) = incoming.next().await {
+            match stream {
                 Ok(stream) => {
-                    println!("New connection: {}", stream.peer_addr().unwrap());
-                    thread::spawn(|| Peer::handle_client(stream));
+                    let _ = Self::handle_connection(stream).await;
                 }
-                Err(e) => println!("Connection failed: {}", e),
+                Err(e) => eprintln!("Accept failed: {:?}", e),
             }
         }
+        Ok(())
     }
 
-    pub fn connect_to_peer(&self, peer_address: &str, messages: Vec<&str>) {
-        match TcpStream::connect(peer_address) {
-            Ok(mut stream) => {
-                println!("Successfully connected to {}", peer_address);
-                for message in messages {
-                    println!("Sending: {}", message);
-                    // Send each message with a length prefix for consistency
-                    let message_len = (message.len() as u32).to_be_bytes();
-                    stream.write_all(&message_len).expect("Failed to write message length");
-                    stream.write_all(message.as_bytes()).expect("Failed to send message");
-                    stream.flush().expect("Failed to flush");
+    async fn handle_connection(mut stream: TcpStream) -> Result<(), io::Error>{
+        let mut buf = vec![0u8; 1024];
+        let n = stream.read(&mut buf).await?;
 
-                    // Wait for an acknowledgment using read_message
-                    match read_message(&mut stream) {
-                        Ok(response) => {
-                            let response_str = String::from_utf8_lossy(&response);
-                            println!("Acknowledgment received: {}", response_str);
-                            if message == "BYE" {
-                                println!("Termination message sent, closing connection.");
-                                break;
-                            }
-                        }
-                        Err(e) => {
-                            eprintln!("Failed to read acknowledgment: {}", e);
-                            break;
-                        }
-                    }
-                }
+        // Security check to verify if the message was correctly obtained
+        let message = Self::p2p_msg_to_string(buf);
+
+        println!("Just received a connection from: {} with content: {:?} -> byte len: {:?}", stream.peer_addr().unwrap(), message, n);
+        Ok(())
+    }
+
+    pub async fn create_sender(self, server: &Node) -> Result<(), io::Error>{
+        // To test multiple connections I added a sleep (to be removed after the test)
+        for _ in 0..10{
+            tokio::time::sleep(Duration::from_millis(600)).await;
+
+            let mut stream = TcpStream::connect(format!("{}:{}", server.ip, server.port)).await?;
+
+            // Here to make the payload different for the 2 nodes while testing
+            // When deploying remove the for (leaving the code that is inside)
+            // And removing the following if else statement
+            let mut payload: &[u8] = b"";
+            if self.node.port == 9988 {
+                payload = b"Hey There Brother";
+            } else {
+                payload = b"Hello World";
             }
-            Err(e) => println!("Failed to connect to {}: {}", peer_address, e),
+            stream.write_all(payload).await?;
         }
+        Ok(())
     }
 
-    fn handle_client(mut stream: TcpStream) {
-        loop {
-            match read_message(&mut stream) {
-                Ok(message) => {
-                    if message.is_empty() {
-                        // Assuming an empty message signifies the client has closed the connection
-                        println!("Client disconnected.");
-                        break;
-                    }
-                    // Process the message (e.g., log it, echo back)
-                    println!("Received: {}", String::from_utf8_lossy(&message));
-
-                    // Echo back the message as an acknowledgment
-                    let length_prefix = (message.len() as u32).to_be_bytes();
-                    stream.write_all(&length_prefix).expect("Failed to write length prefix");
-                    stream.write_all(&message).expect("Failed to write message");
-                },
-                Err(e) => {
-                    eprintln!("Failed to read message: {}", e);
-                    break;
-                }
+    fn p2p_msg_to_string(msg: Vec<u8>) -> String {
+        if msg.len() == 0 {
+            return "".to_string();
+        }
+        let mut buf: Vec<u8> = vec![];
+        for i in 0..msg.len() {
+            if msg[i] != 0 {
+                buf.push(msg[i]);
+            } else {
+                break;
             }
         }
-        println!("Connection with {} closed.", stream.peer_addr().unwrap());
+        // The only element was a null byte
+        if buf.len() == 0 {
+            return "".to_string();
+        }
+
+        std::str::from_utf8(&buf).unwrap().to_string()
+
     }
 
-
-}
-fn read_message(stream: &mut TcpStream) -> io::Result<Vec<u8>> {
-    let mut length_buf = [0; 4]; // Assuming a 4-byte length prefix
-    stream.read_exact(&mut length_buf)?;
-    let msg_length = u32::from_be_bytes(length_buf) as usize;
-
-    let mut message_buf = vec![0; msg_length];
-    stream.read_exact(&mut message_buf)?;
-    Ok(message_buf)
 }

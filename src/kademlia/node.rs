@@ -5,13 +5,14 @@ use sha3::{Digest, Sha3_256};
 use crate::kademlia::auxi;
 use crate::kademlia::auxi::vec_u8_to_string;
 
-/// Identifier Type
-pub type Identifier = [u8; 256]; // hash of the ip:port of the node (can be changed later on to use the private certificates of the node)
+
 pub const ID_LEN: usize = 256; // Size in bits of SHA3_256 output (This is the hashing algorithm defined in Kademlia's documentation)
+/// Identifier Type
+pub type Identifier = [u8; ID_LEN]; // hash of the ip:port of the node (can be changed later on to use the private certificates of the node)
 /// ## Node
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub id: Identifier, // Tipically the node is represented by 160 bit Uid,
+    pub id: Identifier, // Typically the node is represented by 160 bit Uid,
     // using this we don't have to strictly adhere to the 160 bits, we can use more or less.
     pub ip: String, // IP address or hostname
     pub port: u16,
@@ -83,3 +84,20 @@ impl Node {
     }
 }
 
+mod test {
+    use crate::kademlia::node::Node;
+
+    #[test]
+    fn test_gen_id(){
+        let ip = "TestStringForTheSHA3_256HashingAlgorith".to_string();
+        let port = 1;
+        let res = Node::gen_id(ip, port);
+
+        let mut bin_str = "".to_string();
+        for i in 0..res.len() {
+            bin_str += &format!("{}", res[i]);
+        }
+        assert_eq!(bin_str, "1000111111100100100001111100111100111011001000111001110000111011011100001010111000101010100110101101110100010010100011010010010000100101110000110010001001001100011100111100100111001101000011000101001010110011100110011100010000001000111001100101100001110010");
+
+    }
+}

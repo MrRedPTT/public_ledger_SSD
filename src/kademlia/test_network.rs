@@ -4,8 +4,9 @@ use std::process::exit;
 use crate::kademlia::auxi;
 use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
+
 // Init file to test the Kademlia P2P layer
-pub fn test() {
+pub async fn test() {
     let my_ip = "127.0.0.1";
     let mut my_node;
     match my_ip.parse::<IpAddr>() {
@@ -91,6 +92,8 @@ pub fn test() {
 
             // A simple test for the hash gen
             println!("Hash: {:?}", Node::gen_id("192.45.121.871".to_string(), 12189));
+
+
         }
         Err(e) => {
             eprintln!("Error parsing IP address: {}", e);

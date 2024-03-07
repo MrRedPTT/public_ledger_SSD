@@ -1,9 +1,9 @@
 #[doc(inline)]
 use crate::kademlia::bucket::Bucket;
-use crate::kademlia::node::{Identifier, Node};
+use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::kademlia::auxi;
 
-pub const MAX_BUCKETS: usize = 256; // Max amount of Buckets (AKA amount of sub-tries)
+pub const MAX_BUCKETS: usize = ID_LEN; // Max amount of Buckets (AKA amount of sub-tries)
 
 /// ## Kbucket
 #[derive(Debug, Clone)]
