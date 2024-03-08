@@ -8,14 +8,17 @@ use crate::ledger::transaction::*;
 
 /// ## BLock
 pub struct Block {
+    pub hash: String,
+
     pub index : usize,
     pub timestamp: u64,
     pub prev_hash: String,
-    pub transactions: Vec<Transaction>,
     pub nonce: u64,
     pub difficulty : usize,
     pub miner_id : String,
-    pub hash: String,
+    pub merkle_tree_root: String,
+
+    pub transactions: Vec<Transaction>,
 }
 
 impl Block {
@@ -34,7 +37,9 @@ impl Block {
             nonce : 0,
             difficulty,
             miner_id: miner_id.clone(),
-            hash: "".to_string()
+
+            hash: "".to_string(),
+            merkle_tree_root: "".to_string()
         };
 
         block.add_transaction( Transaction::new(miner_reward,
@@ -93,7 +98,7 @@ impl Block {
     }
 
     /// returns a string of all the transactions inside this block 
-    pub fn transactions_to_string(&self) -> String{
+    pub fn calculate_merkle_tree(&self) -> String{
         return  self.transactions.iter()
             .map(|t| t.to_string())
             .collect::<String>();
