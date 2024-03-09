@@ -1,10 +1,9 @@
 extern crate core;
-use std::env;
-use tonic::transport::Server;
+use std::{env};
 use crate::kademlia::node::Node;
 use crate::p2p::peer::Peer;
 use crate::proto::Address;
-use crate::proto::packet_sending_server::{PacketSendingServer, PacketSending};
+use crate::proto::packet_sending_server::{PacketSending};
 
 
 
@@ -42,7 +41,6 @@ async fn main() {
         println!("Argument \"1\" passed, creating server...");
     }
 
-    // Start the network listener in a separate task.
     if server_bool {
         let mut rpc = Peer::new(&node1).await.unwrap();
 
@@ -53,12 +51,14 @@ async fn main() {
             let _ = rpc.kademlia.add_node(Node::new(ip, port).unwrap());
         }
 
-        Server::builder()
-            .concurrency_limit_per_connection(40) // Max concurrent connections to the peer (when reached, packets are placed on queues)
-            .add_service(PacketSendingServer::new(rpc))
-            .serve("127.0.0.1:8888".parse().unwrap())
-            .await
-            .unwrap();
+        let shutdown_rx = rpc.init_server().await;
+        println!("Test async");
+
+        // This should be the last instruction (It's what's holding the Server thread up)
+        // This channel (shutdown_rx) is waiting for the server thread to send a shutdown signal
+        // which will only happen when an error occurs or the server stops (for some other reason other than panic)
+        let _ = shutdown_rx.await;
+
     } else {
         let url = "http://127.0.0.1:8888";
         let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await.unwrap();

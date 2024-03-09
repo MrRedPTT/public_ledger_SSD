@@ -1,15 +1,16 @@
-
 use std::{io};
 use async_std::net::{TcpStream};
+use tokio::sync::oneshot;
 use tonic::{Request, Response, Status};
+use tonic::transport::Server;
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::proto;
-use crate::proto::packet_sending_server::{PacketSending};
+use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
 use crate::proto::{Address, PingPacket, PongPacket, FindNodeRequest, FindNodeResponse};
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Peer {
     node: Node,
     pub kademlia: Kademlia
@@ -65,7 +66,7 @@ impl PacketSending for Peer {
         let id = Identifier::new(id_array);
         let lookup = self.kademlia.get_node(id.clone());
 
-        if lookup == None {
+        if lookup.is_none() {
             // Node not found, send k nearest nodes to
             let k_nearest = self.kademlia.get_k_nearest_to_node(id.clone());
             return if k_nearest.is_none() {
@@ -117,14 +118,22 @@ impl Peer {
         })
     }
 
-    pub async fn create_listener(&self) -> std::io::Result<()>{
-        todo!()
-    }
+    pub async fn init_server(self) -> tokio::sync::oneshot::Receiver<()> {
+        let node = self.node.clone();
+        let server = Server::builder()
+            .concurrency_limit_per_connection(40)
+            .add_service(PacketSendingServer::new(self.clone()))
+            .serve(format!("{}:{}", node.ip, node.port).parse().unwrap());
 
-    async fn handle_connection(&self, mut stream: TcpStream) -> Result<(), io::Error>{
-        todo!()
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+        tokio::spawn(async move {
+            if let Err(e) = server.await {
+                eprintln!("Server error: {}", e);
+            }
+            let _ = shutdown_tx.send(());
+        });
+        shutdown_rx // Channel to receive shutdown signal from the server thread
     }
-
     pub async fn create_sender(&self, msg: Vec<u8>, mut stream: TcpStream) -> Result<(), io::Error>{
         todo!()
     }

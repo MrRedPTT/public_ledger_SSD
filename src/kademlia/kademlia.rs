@@ -7,7 +7,7 @@ use crate::kademlia::bucket::K;
 use crate::kademlia::k_buckets::KBucket;
 use crate::kademlia::node::Identifier;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// ## Kademlia
 pub struct Kademlia {
     // Struct holding the node's state, routing table, etc.
