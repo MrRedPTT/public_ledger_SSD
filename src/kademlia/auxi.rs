@@ -7,7 +7,7 @@ use crate::kademlia::node::{Identifier};
 /// Converts a node identifier (Vec<u8>) into a string, after hashing
 pub fn convert_node_id_to_string (node_id: &Identifier) -> String{
     let mut hasher = Sha3_256::new();
-    hasher.update(node_id);
+    hasher.update(node_id.0);
     let hashed_node_id= hasher.finalize();
     let string = hashed_node_id.iter()
         .map(|byte| format!("{:02x}", byte))
@@ -18,7 +18,7 @@ pub fn convert_node_id_to_string (node_id: &Identifier) -> String{
 /// Converts an Identifier (Vec<u8>) into a String
 pub fn vec_u8_to_string (v: Identifier) -> String {
     let mut string_result: String = "".parse().unwrap();
-    for x in &v {
+    for x in &v.0 {
         string_result += &*x.to_string();
     }
     return string_result;
@@ -28,10 +28,9 @@ pub fn vec_u8_to_string (v: Identifier) -> String {
 // and returns the XORed elements inside another Vector
 /// Calculates the distance between two Identifiers using xor
 pub fn xor_distance(id1: &Identifier, id2: &Identifier) -> usize {
-    println!("DEBUG IN KBUCKETS::xor_distance -> Size of vector1: {}, vector2: {}", id1.len(), id2.len());
     let mut res: [u8; 160] = [0; 160];
     for i in 0..160 {
-        res[i] = id1[i] ^ id2[i];
+        res[i] = id1.0[i] ^ id2.0[i];
     }
 
     return get_leading(res) as usize;

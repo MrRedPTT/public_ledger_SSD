@@ -8,21 +8,31 @@ use crate::kademlia::auxi::vec_u8_to_string;
 
 pub const ID_LEN: usize = 256; // Size in bits of SHA3_256 output (This is the hashing algorithm defined in Kademlia's documentation)
 /// Identifier Type
-pub type Identifier = [u8; ID_LEN]; // hash of the ip:port of the node (can be changed later on to use the private certificates of the node)
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct  Identifier(pub [u8; ID_LEN]); // hash of the ip:port of the node (can be changed later on to use the private certificates of the node)
+
+
+impl Identifier {
+
+    pub fn new(id: [u8; ID_LEN]) -> Self {
+        Self(id)
+    }
+
+}
+
 /// ## Node
 #[derive(Debug, Clone)]
 pub struct Node {
-    pub id: Identifier, // Typically the node is represented by 160 bit Uid,
-    // using this we don't have to strictly adhere to the 160 bits, we can use more or less.
-    pub ip: String, // IP address or hostname
-    pub port: u16,
+    pub id: Identifier, // Assuming Identifier is represented as a fixed-size array of 160 bytes
+    pub ip: String,
+    pub port: u32,
 }
 
 // Implement Display for Node
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
-        let id_str = vec_u8_to_string(self.id);
+        let id_str = vec_u8_to_string(self.clone().id);
         // Customize the formatting of Node here
         write!(f, "Node {{ id:{:?} (SHA3_256: {}), ip: {}, port: {} }}", id_str, auxi::convert_node_id_to_string(&self.id), self.ip, self.port)
     }
@@ -36,7 +46,7 @@ impl PartialEq for Node {
 
 impl Node {
     /// Create a new instance of a Node
-    pub fn new(ip: String, port: u16) -> Option<Self> {
+    pub fn new(ip: String, port: u32) -> Option<Self> {
 
         match ip.parse::<IpAddr>(){
             Ok(ip) => {
@@ -45,7 +55,6 @@ impl Node {
                     return None; // Return none if port is invalid
                 }
                 let id = Self::gen_id(ip.clone().to_string(), port);
-                println!("DEBUG AT NODE::NEW => size of id: {} with id: {:?}", id.len(), id.clone());
 
                 Some(Node {
                     id,
@@ -60,7 +69,7 @@ impl Node {
         }
     }
 
-    pub fn gen_id (ip: String, port: u16) -> Identifier {
+    pub fn gen_id (ip: String, port: u32) -> Identifier {
         let input = format!("{}:{}", ip, port.to_string());
         let mut hasher = Sha3_256::new();
         hasher.update(input.as_bytes());
@@ -80,7 +89,11 @@ impl Node {
             hash[i] = b.to_digit(2).unwrap() as u8;
             i += 1;
         }
-        hash
+        Identifier::new(hash)
+    }
+
+    pub fn get_addr(self) -> String {
+        format!("{}:{}", self.ip, self.port).to_string()
     }
 }
 
@@ -94,8 +107,8 @@ mod test {
         let res = Node::gen_id(ip, port);
 
         let mut bin_str = "".to_string();
-        for i in 0..res.len() {
-            bin_str += &format!("{}", res[i]);
+        for i in 0..res.0.len() {
+            bin_str += &format!("{}", res.0[i]);
         }
         assert_eq!(bin_str, "1000111111100100100001111100111100111011001000111001110000111011011100001010111000101010100110101101110100010010100011010010010000100101110000110010001001001100011100111100100111001101000011000101001010110011100110011100010000001000111001100101100001110010");
 

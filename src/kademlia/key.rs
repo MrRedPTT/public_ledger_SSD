@@ -1,4 +1,4 @@
-
+#[derive(Debug)]
 pub struct Key {
     value: String,
 }

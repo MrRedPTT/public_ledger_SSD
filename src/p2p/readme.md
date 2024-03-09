@@ -1,12 +1,7 @@
-Cargo run listen 
+# In order to test the current version
 
-or
+## Open 2 terminals:
 
-Cargo run send
+**1st terminal** ``cargo run -- 1`` 
 
-To run this to listen and receive messages through thr p2p
-
-Next steps: 
-- Make it possible to have multiple connections
-- Have asynchronous calls
-- Syncing with blockchain and kademlia
+**2nd terminal** ``cargo run -- 2``

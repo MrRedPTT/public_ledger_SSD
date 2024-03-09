@@ -40,7 +40,7 @@ pub async fn test() {
             }
 
             let mut kbucket = KBucket::new(clone_node.clone().unwrap().id);
-            kbucket.add(clone_node.clone().unwrap());
+            kbucket.add(&clone_node.clone().unwrap());
             let result2 = kbucket.get(&clone_node.clone().unwrap().id);
             if !result2.is_none(){
                 println!("Node1 from kbucket: {}", result2.unwrap());
@@ -55,19 +55,19 @@ pub async fn test() {
             }
 
             for i in 1..=3 {
-                let new_node = Node::new(ip.to_string(), 8888+i as u16);
+                let new_node = Node::new(ip.to_string(), 8888+i);
                 if new_node.is_none() {
                     exit(1); // Terminate if node is invalid
                 }
-                kbucket.add(new_node.unwrap());
+                kbucket.add(&new_node.unwrap());
             }
 
             // Add more nodes to a same bucket (bucket 9 has 2 entries which will be used to test get_n_closest_nodes)
-            let new_node = Node::new(ip.to_string(), 8888+ 7u16);
+            let new_node = Node::new(ip.to_string(), 8888+ 7);
             if new_node.is_none() {
                 exit(1); // Terminate if node is invalid
             }
-            kbucket.add(new_node.unwrap());
+            kbucket.add(&new_node.unwrap());
 
 
             for i in 0..MAX_BUCKETS {

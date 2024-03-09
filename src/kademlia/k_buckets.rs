@@ -25,10 +25,8 @@ impl KBucket {
     /// The bucket in which the node will be place
     /// is calculated through the XOR distance from the
     /// KBucket origin node
-    pub fn add (&mut self, node: Node) -> bool {
+    pub fn add (&mut self, node: &Node) -> bool {
         // Get the index with relation to the buckets
-        let leading_zeros = auxi::xor_distance(&self.id, &node.id);
-        println!("DEBUG IN KBUCKETS::add: Leading Zeros: {}", leading_zeros);
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, &node.id);
         match self.buckets[index].add(node).is_none() {
             true => true,
@@ -57,7 +55,6 @@ impl KBucket {
             let _ = &self.buckets[index].map.remove(id);
             return;
         }
-        println!("DEBUG FROM KBUCKET::remove() -> Node: {} not found", auxi::vec_u8_to_string((*id).clone()));
     }
 
     /// Get all nodes from a specific Bucket
@@ -83,7 +80,7 @@ impl KBucket {
     /// Get the n closest nodes from the given node
     pub fn get_n_closest_nodes (&self, id: Identifier, n: usize) -> Option<Vec<Node>>{
         let mut closest_nodes: Vec<Node> = Vec::new();
-        let given_node_index = MAX_BUCKETS - auxi::xor_distance(&id, &self.id);
+        let given_node_index: i64 = (MAX_BUCKETS - auxi::xor_distance(&id, &self.id)) as i64;
         let mut index;
         let mut i = 0;
         let mut j = 1;
@@ -93,9 +90,9 @@ impl KBucket {
         // The closest nodes will be all that are inside target, then all that are inside 90 and 92, then those inside 89 and 93 and so on
         // What this for loop does is simply iterate on a zigzag pattern until it fills the vector
         for _ in 0..MAX_BUCKETS {
-            if given_node_index + i < MAX_BUCKETS {
+            if given_node_index + i < MAX_BUCKETS as i64 {
                 index = given_node_index + i;
-                if let Some(nodes) = self.get_nodes_from_bucket(index) {
+                if let Some(nodes) = self.get_nodes_from_bucket(index as usize) {
                     for node in nodes {
                         if closest_nodes.len() < n {
                             closest_nodes.push(node);
@@ -105,19 +102,19 @@ impl KBucket {
                     }
                 }
                 i += 1;
-                if given_node_index - j >= 0 {
-                    index = given_node_index - j;
-                    if let Some(nodes) = self.get_nodes_from_bucket(index) {
-                        for node in nodes {
-                            if closest_nodes.len() < n {
-                                closest_nodes.push(node);
-                            } else {
-                                return Some(closest_nodes);
-                            }
+            }
+            if given_node_index - j >= 0 {
+                index = given_node_index - j;
+                if let Some(nodes) = self.get_nodes_from_bucket(index as usize) {
+                    for node in nodes {
+                        if closest_nodes.len() < n {
+                            closest_nodes.push(node);
+                        } else {
+                            return Some(closest_nodes);
                         }
                     }
-                    j += 1;
                 }
+                j += 1;
             }
         }
         // If at the end the vector is empty return None
@@ -145,7 +142,7 @@ mod tests {
         let node1 = node.unwrap();
 
         let mut kbuckets = KBucket::new(node1.clone().id);
-        kbuckets.add(node1.clone());
+        kbuckets.add(&node1.clone());
         assert_eq!(kbuckets.get(&node1.id).unwrap(), node1);
     }
 
@@ -156,7 +153,7 @@ mod tests {
         let node1 = node.unwrap();
 
         let mut kbuckets = KBucket::new(node1.clone().id);
-        kbuckets.add(node1.clone());
+        kbuckets.add(&node1.clone());
         kbuckets.remove(&node1.clone().id);
         assert_eq!(kbuckets.get(&node1.id).is_none(), true);
     }
@@ -171,15 +168,15 @@ mod tests {
 
         let ip2 = "127.0.0.1".to_string();
         for i in 1..=3 {
-            let new_node = Node::new(ip2.clone(), 8888+i as u16);
+            let new_node = Node::new(ip2.clone(), 8888+i);
             let node2 = new_node.unwrap();
-            kbucket.add(node2);
+            kbucket.add(&node2);
         }
 
         // Add more nodes to a same bucket (bucket 9 has 2 entries which will be used to test get_n_closest_nodes)
-        let new_node = Node::new(ip.clone(), 8888+ 7u16);
+        let new_node = Node::new(ip.clone(), 8888+ 7);
         let node2 = new_node.unwrap();
-        kbucket.add(node2);
+        kbucket.add(&node2);
 
         let res = kbucket.get_nodes_from_bucket(175);
         assert!(!res.is_none());
@@ -196,15 +193,15 @@ mod tests {
         let mut kbucket = KBucket::new(node1.clone().id);
 
         for i in 1..=3 {
-            let new_node = Node::new(ip.clone(), 8888+i as u16);
+            let new_node = Node::new(ip.clone(), 8888+i);
             let node2 = new_node.unwrap();
-            kbucket.add(node2);
+            kbucket.add(&node2);
         }
 
         // Add more nodes
         let new_node = Node::new(ip.clone(), 8895);
         let node1 = new_node.unwrap();
-        kbucket.add(node1);
+        kbucket.add(&node1);
 
         let node2 = Node::gen_id("127.0.0.17".to_string(), 9988);
         let res = kbucket.get_n_closest_nodes(node2.clone(), 3);

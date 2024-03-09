@@ -3,9 +3,11 @@ use crate::kademlia::node::Node;
 use std::collections::HashMap;
 
 use sha3::{Digest};
+use crate::kademlia::bucket::K;
 use crate::kademlia::k_buckets::KBucket;
 use crate::kademlia::node::Identifier;
 
+#[derive(Debug)]
 /// ## Kademlia
 pub struct Kademlia {
     // Struct holding the node's state, routing table, etc.
@@ -48,12 +50,16 @@ impl Kademlia {
     /// Add node to the kbuckets
     /// Return true on success
     pub fn add_node (&mut self, node: Node) -> bool {
-        self.kbuckets.add(node)
+        self.kbuckets.add(&node)
     }
 
     /// Get the node for the given id
     pub fn get_node (&self, id: Identifier) -> Option<Node> {
         return self.kbuckets.get(&id);
+    }
+
+    pub fn get_k_nearest_to_node(&self, id: Identifier) -> Option<Vec<Node>> {
+        self.kbuckets.get_n_closest_nodes(id, K)
     }
 
     /// Remove a node by ID from the kbuckets

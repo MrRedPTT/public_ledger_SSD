@@ -20,9 +20,9 @@ impl Bucket {
     }
 
     /// Add a new node to the bucket
-    pub fn add(&mut self, node: Node) -> Option<Node> {
+    pub fn add(&mut self, node: &Node) -> Option<Node> {
         if self.map.len() <= K {
-            self.map.insert(node.id, node) // If the same key was already present, return the old value
+            self.map.insert(node.clone().id, node.clone()) // If the same key was already present, return the old value
         } else {
             None // Return None if the max value of nodes inside the bucket was reached
         }
@@ -43,7 +43,7 @@ mod tests {
         let node = maybe_node.unwrap();
 
         let mut bucket = Bucket::new();
-        bucket.add(node.clone());
+        bucket.add(&node.clone());
 
         assert_eq!(*bucket.map.get(&node.clone().id).unwrap(), node)
     }
