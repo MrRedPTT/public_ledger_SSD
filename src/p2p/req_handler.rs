@@ -86,7 +86,7 @@ impl ReqHandler {
 
                 let res = peer.ping(&src.ip.clone(), src.port).await;
                 match res{
-                    Err(e) => {
+                    Err(_) => {
                         // This means we couldn't contact the node on top of the list
                         // Therefore let's substitute it
                         let new_node = Node::new(src.ip.clone(), src.port);
@@ -95,7 +95,7 @@ impl ReqHandler {
                         }
                     }
                     // If the node is alive send it to the back of the list
-                    Ok(pong_packet) => {
+                    Ok(_) => {
                         let new_node = Node::new(src.ip.clone(), src.port);
                         if !new_node.is_none() {
                             // The new node is passed as a way to calculate which bucket we
