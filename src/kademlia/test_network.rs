@@ -18,8 +18,7 @@ pub async fn test() {
             }
             let clone_node = my_node.clone(); // Cloning the node so that we can use it in the println
             let mut kademlia = Kademlia::new(my_node.clone().unwrap());
-            kademlia.add_node(clone_node.clone().unwrap());
-
+            kademlia.add_node(clone_node.as_ref().unwrap());
             let mut result: Option<Node> = kademlia.get_node(Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port));
             if result.is_none() {
                println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().unwrap().id))

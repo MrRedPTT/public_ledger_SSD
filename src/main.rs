@@ -21,6 +21,7 @@ pub mod ledger;
 
 mod p2p{
     pub mod peer;
+    pub mod req_handler;
 
 }
 
@@ -49,7 +50,7 @@ async fn main() {
             let ip = format!("127.0.0.{}", i);
             let port = 8888 + i;
             let mut kademlia_ref = &mut *rpc.kademlia.lock().unwrap();
-            let _ = kademlia_ref.add_node(Node::new(ip, port).unwrap());
+            let _ = kademlia_ref.add_node(&Node::new(ip, port).unwrap());
         }
 
         let shutdown_rx = rpc.init_server().await;

@@ -25,13 +25,20 @@ impl KBucket {
     /// The bucket in which the node will be place
     /// is calculated through the XOR distance from the
     /// KBucket origin node
-    pub fn add (&mut self, node: &Node) -> bool {
+    pub fn add (&mut self, node: &Node) -> Option<Node> {
         // Get the index with relation to the buckets
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, &node.id);
-        match self.buckets[index].add(node).is_none() {
-            true => true,
-            false => false,
-        }
+        self.buckets[index].add(node)
+        // None => Means we added the node to the vector
+        // Node => Bucket was full, but we need to check if the latest contacted node is up, if not substitute
+    }
+
+    pub fn replace_node(&mut self, node: &Node){
+        // This function will be called if a certain bucket is full
+        // but we received a packet from a node which would belong to that
+        // bucket and the latest stored node of that particular bucket is down
+        let index = MAX_BUCKETS - auxi::xor_distance(&self.id, &node.id);
+        self.buckets[index].replace_node(node); // Remove the top node and push back the passed node
     }
 
     /// Get a node with a specific ID.
@@ -40,11 +47,13 @@ impl KBucket {
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
         let bucket = &self.buckets[index];
 
-        bucket.map.get(id).map(| node | Node {
-            id: (*id).clone(),
-            ip: node.clone().ip,
-            port: node.port
-        })
+        for i in bucket.map.iter() {
+            if i.id == *id {
+                return Some(i.clone())
+            }
+        }
+
+        return None
     }
 
     /// Remove a node from its bucket
@@ -52,7 +61,7 @@ impl KBucket {
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
 
         if !Self::get(self, id).is_none() {
-            let _ = &self.buckets[index].map.remove(id);
+            let _ = &self.buckets[index].remove(id.clone());
             return;
         }
     }
@@ -61,14 +70,9 @@ impl KBucket {
     pub fn get_nodes_from_bucket (&self, index: usize) -> Option<Vec<Node>> {
         let bucket = &self.buckets[index];
         let mut return_bucket = Vec::new();
-        let mut node: Node;
-        for (k, v) in bucket.map.iter() {
-            node = Node {
-                id: (*k).clone(),
-                ip: (*v).clone().ip,
-                port: (*v).clone().port
-            };
-            return_bucket.push(node);
+        for k in bucket.map.iter() {
+
+            return_bucket.push(k.clone());
         }
 
         if return_bucket.is_empty() {

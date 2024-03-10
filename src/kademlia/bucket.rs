@@ -1,5 +1,5 @@
 #[doc(inline)]
-use std::collections::HashMap;
+use std::collections::VecDeque;
 use crate::kademlia::node::{Identifier, Node};
 
 /// Defines the maximum amount of nodes allowed per bucket
@@ -7,7 +7,7 @@ pub const K: usize = 3; // Max bucket size
 #[derive(Clone, Debug, Default, PartialEq)]
 /// ## Bucket
 pub struct Bucket {
-    pub map: HashMap<Identifier, Node>,
+    pub map: VecDeque<Node>,
 }
 
 impl Bucket {
@@ -15,16 +15,37 @@ impl Bucket {
     /// Create a new instance of a Bucket
     pub fn new() -> Self {
         Bucket {
-            map: HashMap::new(),
+            map: VecDeque::new(),
         }
     }
 
     /// Add a new node to the bucket
     pub fn add(&mut self, node: &Node) -> Option<Node> {
-        if self.map.len() <= K {
-            self.map.insert(node.clone().id, node.clone()) // If the same key was already present, return the old value
+        return if self.map.len() <= K {
+            self.map.push_back(node.clone()); // Add node to the back of the Vector
+            None
         } else {
-            None // Return None if the max value of nodes inside the bucket was reached
+            let top_node = self.map.get(0);
+            if top_node.is_none() {
+                return None;
+            }
+            Some(top_node.unwrap().clone())
+        }
+    }
+
+    pub fn replace_node(&mut self, node: &Node){
+        self.map.pop_front();
+        self.map.push_back(node.clone());
+    }
+
+    pub fn remove(&mut self, id: Identifier){
+        let mut i = 0;
+        for node in self.map.iter() {
+            if node.id == id {
+                self.map.remove(i);
+                return;
+            }
+            i += 1;
         }
     }
 }
@@ -45,6 +66,6 @@ mod tests {
         let mut bucket = Bucket::new();
         bucket.add(&node.clone());
 
-        assert_eq!(*bucket.map.get(&node.clone().id).unwrap(), node)
+        assert!(bucket.map.contains(&node));
     }
 }

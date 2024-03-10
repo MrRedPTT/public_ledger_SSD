@@ -49,8 +49,12 @@ impl Kademlia {
 
     /// Add node to the kbuckets
     /// Return true on success
-    pub fn add_node (&mut self, node: Node) -> bool {
-        self.kbuckets.add(&node)
+    pub fn add_node (&mut self, node: &Node) -> Option<Node> {
+        self.kbuckets.add(node)
+    }
+
+    pub fn replace_node(&mut self, node: &Node){
+        self.kbuckets.replace_node(node)
     }
 
     /// Get the node for the given id
@@ -110,12 +114,13 @@ mod tests {
         assert!(!node.is_none());
         let mut kademlia = Kademlia::new(node.unwrap());
 
-        let new_node = Node::new(ip.clone(), port +1 );
+        let new_node = &Node::new(ip.clone(), port +1 );
         assert!(!new_node.is_none());
 
-        kademlia.add_node(new_node.clone().unwrap());
+        kademlia.add_node(new_node.as_ref().unwrap());
 
-        assert_eq!(kademlia.get_node(new_node.clone().unwrap().id).unwrap(), new_node.unwrap())
+        // Best way I found to avoid moving variables
+        assert_eq!(kademlia.get_node(<Option<Node> as Clone>::clone(&new_node).unwrap().id.clone()).unwrap(), <Option<Node> as Clone>::clone(&new_node).unwrap())
     }
 
     #[test]
@@ -129,8 +134,8 @@ mod tests {
         let new_node = Node::new(ip.clone(), port +1);
         assert!(!new_node.is_none());
 
-        kademlia.add_node(new_node.clone().unwrap());
+        kademlia.add_node(&new_node.clone().unwrap());
         kademlia.remove_node(new_node.clone().unwrap().id);
-        assert_eq!(kademlia.get_node(new_node.unwrap().id).is_none(), true)
+        assert_eq!(kademlia.get_node(new_node.unwrap().id.clone()).is_none(), true)
     }
 }
