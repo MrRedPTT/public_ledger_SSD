@@ -38,6 +38,13 @@ impl Bucket {
         self.map.push_back(node.clone());
     }
 
+    pub fn send_back(&mut self) {
+        let top = self.map.pop_front();
+        if !top.is_none(){
+            self.map.push_back(top.unwrap());
+        }
+    }
+
     pub fn remove(&mut self, id: Identifier){
         let mut i = 0;
         for node in self.map.iter() {

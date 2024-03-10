@@ -1,12 +1,13 @@
 use std::{io};
 use std::sync::{Arc, Mutex};
-use async_std::net::{TcpStream};
+use tokio::signal;
 use tokio::sync::oneshot;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 use crate::kademlia::kademlia::Kademlia;
-use crate::kademlia::node::{Node};
+use crate::kademlia::node::{Identifier, Node};
 use crate::p2p::req_handler::ReqHandler;
+use crate::{proto, test_fn_gen_address};
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
 use crate::proto::{PingPacket, PongPacket, FindNodeRequest, FindNodeResponse};
 
@@ -44,16 +45,60 @@ impl Peer {
             .serve(format!("{}:{}", node.ip, node.port).parse().unwrap());
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
+
+        tokio::spawn(async move {
+            // Wait for CTRL+C signal
+            signal::ctrl_c().await.expect("failed to listen for event");
+            // Send shutdown signal to the server thread
+            let _ = shutdown_tx.send(());
+
+            // Print a message indicating the server is shutting down
+            println!("Shutting down server...");
+        });
+
         tokio::spawn(async move {
             if let Err(e) = server.await {
                 eprintln!("Server error: {}", e);
             }
-            let _ = shutdown_tx.send(());
         });
         shutdown_rx // Channel to receive shutdown signal from the server thread
     }
-    pub async fn create_sender(&self, msg: Vec<u8>, mut stream: TcpStream) -> Result<(), io::Error>{
-        todo!()
+    pub async fn ping(&self, ip: &str, port: u32) -> Result<Response<PongPacket>, tonic::transport::Error> {
+        let mut url = "http://".to_string();
+        url += &format!("{}:{}", ip, port);
+
+        let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await?;
+
+        let req = proto::PingPacket {
+            src: test_fn_gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
+            dst: test_fn_gen_address(Node::gen_id(ip.to_string(), port), ip.to_string(), port)
+        };
+
+        let request = tonic::Request::new(req);
+        let response = client.ping(request).await.expect("Error while trying to ping");
+        let input = response.get_ref();
+
+        let res_ip = input.src.as_ref().unwrap();
+        println!("Got a Pong from: {:?}", res_ip);
+        Ok(response)
+    }
+
+    pub async fn find_node(&self, ip: &str, port: u32, id: Identifier) -> Result<Response<FindNodeResponse> , tonic::transport::Error>{
+        let mut url = "http://".to_string();
+        url += &format!("{}:{}", ip, port);
+
+        let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await?;
+
+        let req = proto::FindNodeRequest { // Ask for a node that the server holds
+            id: id.0.to_vec(),
+            src: test_fn_gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
+            dst: test_fn_gen_address(Node::gen_id(ip.to_string(), port), ip.to_string(), port)
+        };
+        let request = tonic::Request::new(req);
+        let response = client.find_node(request).await.expect("Error while trying to find_node");
+
+        println!("Find Node Response: {:?}", response.get_ref());
+        Ok(response)
     }
 
     // When dealing with objects, proto struct typically require the type passed

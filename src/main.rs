@@ -32,6 +32,7 @@ pub mod proto {
 async fn main() {
 
     let node1 = Node::new("127.0.0.1".to_string(), 8888).expect("Failed to create Node1");
+    let node2 = &Node::new("127.0.0.1".to_string(), 9999).expect("Failed to create Node2");
 
     let args: Vec<String> = env::args().collect();
 
@@ -56,74 +57,22 @@ async fn main() {
         let shutdown_rx = rpc.init_server().await;
         println!("Test async");
 
-        // This should be the last instruction (It's what's holding the Server thread up)
-        // This channel (shutdown_rx) is waiting for the server thread to send a shutdown signal
-        // which will only happen when an error occurs or the server stops (for some other reason other than panic)
+        // In order to keep the server running we created a new thread which is the one "holding" the main thread
+        // from terminating (given the following await)
+        // This new thread is only listening for CTRL + C signals, and when it detects one, it attempts to send
+        // a value through the oneshot channel which, if successful, will return the value to the receiver,
+        // proceeding with the execution, but given that it's the last instruction, the program will terminate
         let _ = shutdown_rx.await;
 
     } else {
-        let url = "http://127.0.0.1:8888";
-        let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await.unwrap();
+        let target_node = &node1;
+        let peer = &Peer::new(node2).await.unwrap();
 
-        let req = proto::PingPacket {
-            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
-            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
-        };
-
-        let request = tonic::Request::new(req);
-        let response = client.ping(request).await.unwrap();
-
-        println!("Got a Pong from: {:?}", response.get_ref());
-
-        let req2 = proto::FindNodeRequest { // Ask for a node that the server holds
-            id: Node::gen_id("127.0.0.1".to_string(), 8889).0.to_vec(),
-            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
-            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
-        };
-        let request = tonic::Request::new(req2);
-        let response = client.find_node(request).await.unwrap();
-
-        println!("Find Node Response: {:?}", response.get_ref());
-
-        let req3 = proto::FindNodeRequest { // Ask for a node that the server does not hold
-            id: Node::gen_id("127.0.04".to_string(), 8889).0.to_vec(),
-            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
-            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
-        };
-        let request = tonic::Request::new(req3);
-        let response = client.find_node(request).await.unwrap();
-
-        println!("Find Node Response: {:?}", response.get_ref());
-
-        let req4 = proto::FindNodeRequest { // Ask for a node that the server does not hold
-            id: Node::gen_id("127.0.04".to_string(), 8889).0.to_vec(),
-            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
-            dst: test_fn_gen_address(Node::gen_id("127.0.0.2".to_string(), 8888), "127.0.0.1".to_string(), 8888)
-        };
-        let request = tonic::Request::new(req4);
-        let response = client.find_node(request).await.unwrap();
-
-        println!("Find Node Response (Invalid Dest): {:?}", response.get_ref());
-
-        let req5 = proto::FindNodeRequest { // Ask for a node that the server does not hold
-            id: Node::gen_id("127.0.04".to_string(), 8889).0.to_vec(),
-            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.2".to_string(), 9999),
-            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
-        };
-        let request = tonic::Request::new(req5);
-        let response = client.find_node(request).await.unwrap();
-
-        println!("Find Node Response (Invalid Src): {:?}", response.get_ref());
-
-        let req6 = proto::PingPacket {
-            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
-            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
-        };
-
-        let request = tonic::Request::new(req6);
-        let response = client.ping(request).await.unwrap();
-
-        println!("Got a Pong from: {:?}", response.get_ref());
+        let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
+        let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, Node::gen_id("127.0.0.2".to_string(), 8890)).await;
+        let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, Node::gen_id("127.0.0.4".to_string(), 8889)).await;
+        let _ = peer.ping("127.0.0.1", 8888).await;
+        println!("{:?}", peer.ping("127.0.0.1", 7777).await);
 
     }
 }

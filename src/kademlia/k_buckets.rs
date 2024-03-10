@@ -41,6 +41,13 @@ impl KBucket {
         self.buckets[index].replace_node(node); // Remove the top node and push back the passed node
     }
 
+    pub fn send_back(&mut self, node: &Node) {
+        // This function will send the element on the top of the list to the back
+        // Shifting upwards 1 every other node
+        let index = MAX_BUCKETS - auxi::xor_distance(&self.id, &node.id);
+        self.buckets[index].send_back();
+    }
+
     /// Get a node with a specific ID.
     /// If such node does not exist, return None
     pub fn get (&self, id: &Identifier) -> Option<Node>{

@@ -57,6 +57,10 @@ impl Kademlia {
         self.kbuckets.replace_node(node)
     }
 
+    pub fn send_back(&mut self, node: &Node) {
+        self.kbuckets.send_back(node);
+    }
+
     /// Get the node for the given id
     pub fn get_node (&self, id: Identifier) -> Option<Node> {
         return self.kbuckets.get(&id);

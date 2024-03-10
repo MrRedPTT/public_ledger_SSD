@@ -48,7 +48,7 @@ message kNearestNodes {
 
 enum FindNodeResponseType {
   UNKNOWN_TYPE = 0; // Some weird value was passed for the enum
-  ReRoute = 1; // The node was not found, return the up to k nearest nodes from the target id
+  KNear = 1; // The node was not found, return the up to k nearest nodes from the target id
   TargetNode = 2; // The node was found, returning it
 }
 
