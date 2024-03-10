@@ -1,6 +1,6 @@
 extern crate core;
 use std::{env};
-use crate::kademlia::node::Node;
+use crate::kademlia::node::{Identifier, Node};
 use crate::p2p::peer::Peer;
 use crate::proto::Address;
 use crate::proto::packet_sending_server::{PacketSending};
@@ -48,7 +48,8 @@ async fn main() {
         for i in 1..=20 {
             let ip = format!("127.0.0.{}", i);
             let port = 8888 + i;
-            let _ = rpc.kademlia.add_node(Node::new(ip, port).unwrap());
+            let mut kademlia_ref = &mut *rpc.kademlia.lock().unwrap();
+            let _ = kademlia_ref.add_node(Node::new(ip, port).unwrap());
         }
 
         let shutdown_rx = rpc.init_server().await;
@@ -64,8 +65,8 @@ async fn main() {
         let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await.unwrap();
 
         let req = proto::PingPacket {
-            src: test_fn_gen_address("127.0.0.1".to_string(), 9999),
-            dst: test_fn_gen_address("127.0.0.1".to_string(), 8888)
+            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
+            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
         };
 
         let request = tonic::Request::new(req);
@@ -74,7 +75,9 @@ async fn main() {
         println!("Got a Pong from: {:?}", response.get_ref());
 
         let req2 = proto::FindNodeRequest { // Ask for a node that the server holds
-            id: Node::gen_id("127.0.0.1".to_string(), 8889).0.to_vec()
+            id: Node::gen_id("127.0.0.1".to_string(), 8889).0.to_vec(),
+            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
+            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
         };
         let request = tonic::Request::new(req2);
         let response = client.find_node(request).await.unwrap();
@@ -82,19 +85,51 @@ async fn main() {
         println!("Find Node Response: {:?}", response.get_ref());
 
         let req3 = proto::FindNodeRequest { // Ask for a node that the server does not hold
-            id: Node::gen_id("127.0.04".to_string(), 8889).0.to_vec()
+            id: Node::gen_id("127.0.04".to_string(), 8889).0.to_vec(),
+            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
+            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
         };
         let request = tonic::Request::new(req3);
         let response = client.find_node(request).await.unwrap();
 
         println!("Find Node Response: {:?}", response.get_ref());
 
+        let req4 = proto::FindNodeRequest { // Ask for a node that the server does not hold
+            id: Node::gen_id("127.0.04".to_string(), 8889).0.to_vec(),
+            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
+            dst: test_fn_gen_address(Node::gen_id("127.0.0.2".to_string(), 8888), "127.0.0.1".to_string(), 8888)
+        };
+        let request = tonic::Request::new(req4);
+        let response = client.find_node(request).await.unwrap();
+
+        println!("Find Node Response (Invalid Dest): {:?}", response.get_ref());
+
+        let req5 = proto::FindNodeRequest { // Ask for a node that the server does not hold
+            id: Node::gen_id("127.0.04".to_string(), 8889).0.to_vec(),
+            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.2".to_string(), 9999),
+            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
+        };
+        let request = tonic::Request::new(req5);
+        let response = client.find_node(request).await.unwrap();
+
+        println!("Find Node Response (Invalid Src): {:?}", response.get_ref());
+
+        let req6 = proto::PingPacket {
+            src: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 9999), "127.0.0.1".to_string(), 9999),
+            dst: test_fn_gen_address(Node::gen_id("127.0.0.1".to_string(), 8888), "127.0.0.1".to_string(), 8888)
+        };
+
+        let request = tonic::Request::new(req6);
+        let response = client.ping(request).await.unwrap();
+
+        println!("Got a Pong from: {:?}", response.get_ref());
 
     }
 }
 
-fn test_fn_gen_address(ip: String, port: u32) -> Option<Address> {
+fn test_fn_gen_address(id: Identifier, ip: String, port: u32) -> Option<Address> {
     Some(proto::Address {
+        id: id.0.to_vec(),
         ip,
         port
     })

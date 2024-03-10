@@ -6,7 +6,7 @@ service PacketSending {
   rpc Ping(PingPacket) returns (PongPacket);
   // rpc Store(StorePacket) returns (StoreStatus);  // Kademlia
   rpc FindNode(FindNodeRequest) returns (FindNodeResponse); // Kademlia
-  // rpc FindValue // Kademlia
+  // rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
   // rpc SendTransaction // BlockChain
   // rpc SendBlock // BlockChain
   // rpc GetBlock(id) // BlockChain => Ask for a block already in the blockchain
@@ -14,8 +14,9 @@ service PacketSending {
 
 
 message Address {
-  string ip = 1;
-  uint32 port = 2;
+  bytes id = 1;
+  string ip = 2;
+  uint32 port = 3;
 }
 
 message PingPacket {
@@ -31,6 +32,8 @@ message PongPacket {
 
 message FindNodeRequest {
   bytes id = 1;
+  Address src = 2;
+  Address dst = 3;
 }
 
 message Node {
@@ -54,4 +57,10 @@ message FindNodeResponse {
   Node node = 2;
   kNearestNodes list = 3;
   string error = 4; // In case an error occurs we can communicate that to the "client"
+}
+
+message FindValueRequest {
+  bytes value_id = 1; // Since every record is stored inside of a hashmap, we can pass a [u8; ID_LEN] (Identifier) as argument
+  Address src = 2; // Node that originated the request
+  Address dst = 3; // Node to which the request was originally sent
 }
