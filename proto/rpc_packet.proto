@@ -4,13 +4,16 @@ package rpcpacket;
 
 service PacketSending {
   rpc Ping(PingPacket) returns (PongPacket);
-  // rpc Store(StorePacket) returns (StoreStatus);  // Kademlia
+  rpc Store(StoreRequest) returns (StoreResponse);  // Kademlia
   rpc FindNode(FindNodeRequest) returns (FindNodeResponse); // Kademlia
-  // rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
+  rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
   // rpc SendTransaction // BlockChain
   // rpc SendBlock // BlockChain
   // rpc GetBlock(id) // BlockChain => Ask for a block already in the blockchain
 }
+
+// TODO
+// use the "optional" key to avoid sending useless information
 
 
 message Address {
@@ -47,7 +50,7 @@ message kNearestNodes {
 }
 
 enum FindNodeResponseType {
-  UNKNOWN_TYPE = 0; // Some weird value was passed for the enum
+  UNKNOWN_TYPE_FIND_NODE = 0; // Some weird value was passed for the enum
   KNear = 1; // The node was not found, return the up to k nearest nodes from the target id
   TargetNode = 2; // The node was found, returning it
 }
@@ -63,4 +66,36 @@ message FindValueRequest {
   bytes value_id = 1; // Since every record is stored inside of a hashmap, we can pass a [u8; ID_LEN] (Identifier) as argument
   Address src = 2; // Node that originated the request
   Address dst = 3; // Node to which the request was originally sent
+}
+
+enum FindValueType {
+  UNKNOWN_TYPE_FIND_VALUE = 0;
+  ReRoute = 1;
+  TargetValue = 2;
+}
+
+message FindValueResponse {
+  FindValueType ResponseType = 1;
+  kNearestNodes list = 2;
+  string value = 3; // Might change later depending on what we choose to store
+  string error = 4;
+
+}
+
+message StoreRequest {
+  bytes key = 1;
+  string value = 2;
+  Address src = 3; // Node that originated the request
+  Address dst = 4; // Node to which the request was originally sent
+}
+
+enum StoreType {
+  UNKNOWN_TYPE_STORE = 0; // Error may have occurred
+  LocalStore = 1; // The recipient node stored the value
+  Forwarding = 2; // The recipient node forwarded the request to the closest node
+}
+
+message StoreResponse {
+  StoreType ResponseType = 1;
+  string error = 2;
 }

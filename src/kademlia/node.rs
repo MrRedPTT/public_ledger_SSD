@@ -1,7 +1,7 @@
 #[doc(inline)]
 use core::fmt;
 use std::net::IpAddr;
-use sha3::{Digest, Sha3_256};
+use sha3::{Digest};
 use crate::kademlia::auxi;
 use crate::kademlia::auxi::vec_u8_to_string;
 
@@ -54,7 +54,7 @@ impl Node {
                     eprintln!("{} is an invalid port, try a value between 0 - 65535", port);
                     return None; // Return none if port is invalid
                 }
-                let id = Self::gen_id(ip.clone().to_string(), port);
+                let id = auxi::gen_id(format!("{}:{}", ip, port).to_string());
 
                 Some(Node {
                     id,
@@ -69,42 +69,19 @@ impl Node {
         }
     }
 
-    pub fn gen_id (ip: String, port: u32) -> Identifier {
-        let input = format!("{}:{}", ip, port.to_string());
-        let mut hasher = Sha3_256::new();
-        hasher.update(input.as_bytes());
-
-        // we know that the hash output is going to be 256 bits = 32 bytes
-        let result = hasher.finalize();
-
-        let mut hash = [0; ID_LEN];
-        let mut bin_str = "".to_string();
-        for b in result {
-            bin_str += &format!("{:0>8b}", b); // Force the representation to pad with 0's in case there aren't 8 bits
-        }
-
-        let mut i = 0;
-        assert_eq!(bin_str.len(), ID_LEN); // assert thar we indeed have 160 bits
-        for b in bin_str.chars() {
-            hash[i] = b.to_digit(2).unwrap() as u8;
-            i += 1;
-        }
-        Identifier::new(hash)
-    }
-
     pub fn get_addr(self) -> String {
         format!("{}:{}", self.ip, self.port).to_string()
     }
 }
 
 mod test {
-    use crate::kademlia::node::Node;
+    use crate::kademlia::auxi;
 
     #[test]
     fn test_gen_id(){
         let ip = "TestStringForTheSHA3_256HashingAlgorith".to_string();
         let port = 1;
-        let res = Node::gen_id(ip, port);
+        let res = auxi::gen_id(format!("{}:{}", ip, port).to_string());
 
         let mut bin_str = "".to_string();
         for i in 0..res.0.len() {

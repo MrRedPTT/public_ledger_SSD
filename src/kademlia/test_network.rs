@@ -8,9 +8,9 @@ use crate::kademlia::node::{ID_LEN, Identifier, Node};
 // Init file to test the Kademlia P2P layer
 pub async fn test() {
     let my_ip = "127.0.0.1";
-    let mut my_node;
+    let my_node;
     match my_ip.parse::<IpAddr>() {
-        Ok(mut ip) => {
+        Ok(ip) => {
             // Clones will be used throughout this code snippet to avoid moving the variable
             my_node = Node::new(ip.to_string(), 8888);
             if my_node.is_none() {
@@ -19,18 +19,18 @@ pub async fn test() {
             let clone_node = my_node.clone(); // Cloning the node so that we can use it in the println
             let mut kademlia = Kademlia::new(my_node.clone().unwrap());
             kademlia.add_node(clone_node.as_ref().unwrap());
-            let mut result: Option<Node> = kademlia.get_node(Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port));
+            let mut result: Option<Node> = kademlia.get_node(auxi::gen_id(format!("{}:{}",my_node.clone().unwrap().ip, my_node.clone().unwrap().port).to_string()));
             if result.is_none() {
                println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().unwrap().id))
             } else {
                 println!("Node {} has a value of ip: {}, port: {}", auxi::vec_u8_to_string(clone_node.clone().unwrap().id), result.clone().unwrap().ip, result.clone().unwrap().port);
             }
 
-            if !kademlia.remove_node(Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port)) {
+            if !kademlia.remove_node(auxi::gen_id(format!("{}:{}",my_node.clone().unwrap().ip, my_node.clone().unwrap().port).to_string())) {
                 println!("Failed to Remove node");
             }
 
-            result = kademlia.get_node(Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port));
+            result = kademlia.get_node(auxi::gen_id(format!("{}:{}",my_node.clone().unwrap().ip, my_node.clone().unwrap().port).to_string()));
             // Duplicate code but it's only here for testing purposes
             if result.is_none() {
                 println!("Node {} was not found", auxi::vec_u8_to_string(clone_node.clone().unwrap().id))
@@ -44,7 +44,7 @@ pub async fn test() {
             if !result2.is_none(){
                 println!("Node1 from kbucket: {}", result2.unwrap());
             }
-            let result3 = kbucket.get(&Node::gen_id(my_node.clone().unwrap().ip, my_node.clone().unwrap().port));
+            let result3 = kbucket.get(&auxi::gen_id(format!("{}:{}",my_node.clone().unwrap().ip, my_node.clone().unwrap().port).to_string()));
             if !result3.is_none(){
                 println!("Node2 does not exist");
             }
@@ -78,7 +78,7 @@ pub async fn test() {
                     }
                 }
             }
-            let fake_node = Node::gen_id("127.0.0.17".to_string(), 9988);
+            let fake_node = auxi::gen_id("127.0.0.17:9988".to_string());
             let closest = kbucket.get_n_closest_nodes(fake_node.clone(), 3);
             if !closest.is_none() {
                 println!("Printing the {} closes nodes to {:?}, address: 127.0.0.17:9988", 3, fake_node);
@@ -90,7 +90,7 @@ pub async fn test() {
             }
 
             // A simple test for the hash gen
-            println!("Hash: {:?}", Node::gen_id("192.45.121.871".to_string(), 12189));
+            println!("Hash: {:?}", auxi::gen_id("192.45.121.871:12189".to_string()));
 
 
         }

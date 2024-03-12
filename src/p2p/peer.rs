@@ -1,3 +1,4 @@
+
 use std::{io};
 use std::sync::{Arc, Mutex};
 use tokio::signal;
@@ -7,9 +8,10 @@ use tonic::transport::Server;
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::{Identifier, Node};
 use crate::p2p::req_handler::ReqHandler;
-use crate::{proto, test_fn_gen_address};
+use crate::{proto};
+use crate::kademlia::auxi;
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
-use crate::proto::{PingPacket, PongPacket, FindNodeRequest, FindNodeResponse};
+use crate::proto::{PingPacket, PongPacket, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, StoreRequest, StoreResponse};
 
 
 #[derive(Debug, Clone)]
@@ -26,6 +28,14 @@ impl PacketSending for Peer {
 
     async fn find_node(&self, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
         ReqHandler::find_node(self, request).await
+    }
+
+    async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
+        ReqHandler::find_value(self, request).await
+    }
+
+    async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status>{
+        ReqHandler::store(self, request).await
     }
 }
 impl Peer {
@@ -70,8 +80,8 @@ impl Peer {
         let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await?;
 
         let req = proto::PingPacket {
-            src: test_fn_gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
-            dst: test_fn_gen_address(Node::gen_id(ip.to_string(), port), ip.to_string(), port)
+            src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
+            dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
         };
 
         let request = tonic::Request::new(req);
@@ -91,14 +101,54 @@ impl Peer {
 
         let req = proto::FindNodeRequest { // Ask for a node that the server holds
             id: id.0.to_vec(),
-            src: test_fn_gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
-            dst: test_fn_gen_address(Node::gen_id(ip.to_string(), port), ip.to_string(), port)
+            src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
+            dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
         };
         let request = tonic::Request::new(req);
         let response = client.find_node(request).await.expect("Error while trying to find_node");
 
         println!("Find Node Response: {:?}", response.get_ref());
         Ok(response)
+    }
+
+    pub async fn find_value(&self, ip: String, port: u32, id: Identifier) -> Result<Response<FindValueResponse> , tonic::transport::Error> {
+        let mut url = "http://".to_string();
+        url += &format!("{}:{}", ip, port);
+
+        let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await?;
+
+        let req = proto::FindValueRequest {
+            value_id: id.0.to_vec(),
+            src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
+            dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+        };
+
+        let request = tonic::Request::new(req);
+        let response = client.find_value(request).await.expect("Error while trying to find_value");
+
+        println!("Find Node Response: {:?}", response.get_ref());
+        Ok(response)
+
+    }
+
+    pub async fn store(&self, ip: String, port: u32, key: Identifier, value: String) -> Result<Response<StoreResponse> , tonic::transport::Error> {
+        let mut url = "http://".to_string();
+        url += &format!("{}:{}", ip, port);
+
+        let mut client = proto::packet_sending_client::PacketSendingClient::connect(url).await?;
+        let req = StoreRequest {
+            key: key.0.to_vec(),
+            value,
+            src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
+            dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+        };
+
+        let request = tonic::Request::new(req);
+        let response = client.store(request).await.expect("Error while trying to store");
+
+        println!("Store Response: {:?}", response.get_ref());
+        Ok(response)
+
     }
 
     // When dealing with objects, proto struct typically require the type passed

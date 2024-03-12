@@ -3,8 +3,9 @@ use crate::kademlia::node::Node;
 use std::collections::HashMap;
 
 use sha3::{Digest};
+use crate::kademlia::auxi;
 use crate::kademlia::bucket::K;
-use crate::kademlia::k_buckets::KBucket;
+use crate::kademlia::k_buckets::{KBucket};
 use crate::kademlia::node::Identifier;
 
 #[derive(Debug, Clone)]
@@ -13,7 +14,7 @@ pub struct Kademlia {
     // Struct holding the node's state, routing table, etc.
     node: Node,
     kbuckets: KBucket,
-    map: HashMap<String, String>
+    map: HashMap<Identifier, String>
 }
 
 impl Kademlia {
@@ -28,23 +29,48 @@ impl Kademlia {
     }
 
     /// Store a pair (key, value) inside our local kademlia HashMap
-    pub fn add_key(&mut self, key: String, value: String) {
+    pub fn add_key(&mut self, key: Identifier, value: String) {
         let _ = self.map.insert(key, value);
     }
 
     /// Get the value of a Key (Later on will be implemented with P2P to search on other nodes)
-    pub fn get_value(&self, key: String) -> Option<&String> {
+    pub fn get_value(&self, key: Identifier) -> Option<&String> {
         self.map.get(&key)
     }
 
     /// Remove a (key, value) pair from the hashmap
     /// return false if it failed to do so
-    pub fn remove_key (&mut self, key: String) -> bool {
+    pub fn remove_key (&mut self, key: Identifier) -> bool {
         let _ = self.map.remove(&key);
         if !Self::get_value(&self, key).is_none() {
             return false;
         }
         return true;
+    }
+
+    /// This function will return None if the current node is the closest to a given
+    /// ID (key, value), if it's not, return the k nearest nodes (excluding himself)
+    pub fn is_closest(&self, key: &Identifier) -> Option<Vec<Node>>{
+        // Remember that the following function returns the amount of 0's to the left
+        // Meaning the higher the amount, the closest the 2 ids are
+        let own_distance = auxi::xor_distance(&self.node.id, key);
+
+        let nodes = &self.kbuckets.get_n_closest_nodes(key.clone(), K);
+        // If no nodes stored in the bucket with the closest nodes
+        // Return None
+        if nodes.is_none() {
+            return None;
+        }
+
+        // For each node collected, check if any of them is closer to than ourselfs
+        // If any is, return them, otherwise return None
+        for i in <Option<Vec<Node>> as Clone>::clone(&nodes).unwrap() {
+            if auxi::xor_distance(&i.id, key) > own_distance {
+                return nodes.clone();
+            }
+        }
+
+        return None;
     }
 
     /// Add node to the kbuckets
@@ -80,6 +106,7 @@ impl Kademlia {
 
 #[cfg(test)]
 mod tests {
+    use crate::kademlia::auxi;
     use crate::kademlia::kademlia::Kademlia;
     use crate::kademlia::node::Node;
 
@@ -91,9 +118,9 @@ mod tests {
         assert!(!node.is_none());
         let mut kademlia = Kademlia::new(node.unwrap());
 
-        kademlia.add_key("Some Key".to_string(), "Some Value".to_string());
+        kademlia.add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
 
-        assert_eq!(*kademlia.get_value("Some Key".to_string()).unwrap(), "Some Value".to_string())
+        assert_eq!(*kademlia.get_value(auxi::gen_id("Some Key".to_string())).unwrap(), "Some Value".to_string())
 
     }
 
@@ -104,10 +131,10 @@ mod tests {
         let node = Node::new(ip.clone(), 8888);
         let mut kademlia = Kademlia::new(node.unwrap());
 
-        kademlia.add_key("Some Key".to_string(), "Some Value".to_string());
-        kademlia.remove_key("Some Key".to_string());
+        kademlia.add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
+        kademlia.remove_key(auxi::gen_id("Some Key".to_string()));
 
-        assert_eq!(kademlia.get_value("Some Key".to_string()).is_none(), true)
+        assert_eq!(kademlia.get_value(auxi::gen_id("Some Key".to_string())).is_none(), true)
     }
 
     #[test]

@@ -21,7 +21,7 @@ impl Bucket {
 
     /// Add a new node to the bucket
     pub fn add(&mut self, node: &Node) -> Option<Node> {
-        return if self.map.len() <= K {
+        return if self.map.len() < K {
             self.map.push_back(node.clone()); // Add node to the back of the Vector
             None
         } else {

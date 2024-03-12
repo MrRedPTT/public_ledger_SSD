@@ -2,8 +2,9 @@
 use tonic::{Request, Response, Status};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::p2p::peer::Peer;
-use crate::proto;
-use crate::proto::{Address, FindNodeRequest, FindNodeResponse, PingPacket, PongPacket};
+use crate::{proto};
+use crate::kademlia::auxi;
+use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse};
 
 pub struct ReqHandler {}
 
@@ -180,6 +181,172 @@ impl ReqHandler {
             };
             Ok(tonic::Response::new(response))
         }
+
+    }
+
+
+    pub async fn find_value(peer: &Peer, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
+        let input = request.get_ref();
+        let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+
+        let value_id = &input.value_id;
+        let mut id_array: [u8; ID_LEN] = [0; ID_LEN];
+        let mut src_id_array: [u8; ID_LEN] = [0; ID_LEN];
+
+        // Get the id's into an array so that we can generate Identities
+        for i in 0..value_id.len() {
+            id_array[i] = value_id[i];
+            src_id_array[i] = src.id[i];
+        }
+
+        let mutex_guard = peer.kademlia.lock().unwrap();
+        let lookup_value = mutex_guard.get_value(Identifier::new(id_array));
+
+        // Lookup found:
+        return if !lookup_value.is_none() {
+            let response = FindValueResponse {
+                response_type: 2, // Returning Value
+                list: Self::return_option(KNearestNodes {
+                    nodes: Vec::new()
+                }),
+
+                value: lookup_value.unwrap().clone(),
+                error: "".to_string(),
+            };
+
+            Ok(tonic::Response::new(response))
+
+            // Lookup for the value failed:
+        } else {
+            // Let's get the k nearest nodes to the value
+            let nodes_lookup = mutex_guard.get_k_nearest_to_node(Identifier::new(id_array));
+            // Neither the value nor the nodes were found, return error
+            if nodes_lookup.is_none() {
+                let response = FindValueResponse {
+                    response_type: 0, // Error
+                    list: Self::return_option(KNearestNodes {
+                        nodes: Vec::new()
+                    }),
+
+                    value: "".to_string(),
+                    error: "Neither the value nor any nodes were found".to_string(),
+                };
+
+                Ok(tonic::Response::new(response))
+            } else {
+                let list = nodes_lookup.unwrap();
+
+                let mut new_list: Vec<proto::Node> = Vec::new();
+                for i in list {
+                    new_list.push(proto::Node { id: i.id.0.to_vec(), ip: i.ip, port: i.port });
+                }
+
+                let response = FindValueResponse {
+                    response_type: 1, // ReRoute
+                    list: Self::return_option(KNearestNodes {
+                        nodes: new_list
+                    }),
+
+                    value: "".to_string(),
+                    error: "".to_string(),
+                };
+
+                Ok(tonic::Response::new(response))
+            }
+        }
+    }
+
+    pub async fn store(peer: &Peer, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
+        // Procedure:
+        // Check if our node is the closest to the key
+        // If it is, store the key and send back a Response informing of the store
+        // If it isn't, send the key to all the k closest node and send back a response about the forwarding
+        //
+        // Challenges:
+        // Assuming we need to forward the requests we are faced with the following choice:
+        // Waiting for all (or at least 1) to respond (either LocalStore or Forwarding) and then return the result
+        // to the original sender, this may lock the sender but guarantees that we can inform the sender if the value was not stored
+        // (none of the nodes are up or all of the responses were Error)
+        // OR
+        // Sending the requests on a different thread and simply returning the Forwarding result to the sender.
+        //
+        // We decided to go with the second option given that the first would require the 1st node to wait for the 2nd, the 2nd for the 3rd,
+        // the 3rd for the 4th and so on. Which, in a big network would become very problematic
+        let input = request.get_ref();
+        let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
+        let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+
+        let key = &input.key;
+        let mut id_array: [u8; ID_LEN] = [0; ID_LEN];
+        let mut src_id_array: [u8; ID_LEN] = [0; ID_LEN];
+
+        // Get the id's into an array so that we can generate Identities
+        for i in 0..key.len() {
+            id_array[i] = key[i];
+            src_id_array[i] = src.id[i];
+        }
+
+        let mut mutex_guard = peer.kademlia.lock().unwrap();
+        let nodes = mutex_guard.is_closest(&Identifier::new(id_array));
+        if nodes.is_none() {
+            // Means we are the closest node to the key
+            mutex_guard.add_key(Identifier::new(id_array), input.value.clone());
+            return if !mutex_guard.get_value(Identifier::new(id_array)).is_none() {
+                let response = StoreResponse {
+                    response_type: 1,
+                    error: "".to_string(),
+                };
+                Ok(tonic::Response::new(response))
+            } else {
+                let response = StoreResponse {
+                    response_type: 0, // Error
+                    error: "Failed to store the key locally".to_string(),
+                };
+                Ok(tonic::Response::new(response))
+            }
+        } else {
+            // Means we are not the closest node
+            let mut thread_number = 0;
+            let const_input = input.value.clone();
+            for i in nodes.unwrap() {
+                let url = format!("http://{}:{}", i.ip, i.port);
+                let inp = const_input.clone();
+                let my_node = peer.node.clone();
+                let d = dst.clone(); // Since the thread will continue after the return we need a way to a hard copy of the object
+                tokio::spawn(async move {
+                    // Here we could use the peer.store() function
+                    // However, that would imply consuming the peer object or
+                    // forcing the usage of more mutexes, something we are trying to avoid
+                    println!("DEBUG IN REQ_HANDLER::STORE => Thread {} initiated!", thread_number);
+                    let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+                    if c.is_err() {
+                        eprintln!("Error trying to store. Connection refused/timeout");
+                        return;
+                    }
+                    let mut client = c.unwrap();
+                    let req = StoreRequest {
+                        key: id_array.to_vec(),
+                        value: inp.clone(),
+                        src: auxi::gen_address(my_node.id.clone(), my_node.ip.clone(), my_node.port),
+                        dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", d.ip.clone(), dst.port.clone()).to_string()), d.ip.clone().to_string(), dst.port),
+                    };
+
+                    let request = tonic::Request::new(req);
+                    let _ = client.store(request).await.expect("Error while trying to store");
+                    println!("DEBUG IN REQ_HANDLER::STORE => Thread {} terminated!", thread_number);
+                });
+                thread_number += 1;
+            }
+            // no pool.join() here since we want the response to be sent back
+            // regardless if the nodes responded or not
+            let response = StoreResponse {
+                response_type: 2, // Forwarded the request to the k near nodes
+                error: "".to_string(),
+            };
+            Ok(tonic::Response::new(response))
+
+        }
+
 
     }
 
