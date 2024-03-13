@@ -1,3 +1,5 @@
+
+use sha2::{Sha512, Digest};
 #[derive(Debug, Clone)]
 
 ///##Transactions
@@ -34,5 +36,17 @@ impl Transaction {
                 self.to,
                 self.miner_fee);
 
+    }
+
+    pub fn to_hash(&self) -> String {
+        let mut hasher = Sha512::new();
+        hasher.update(self.to_string());
+        let hash_result = hasher.finalize();
+
+        let hash_hex = hash_result.iter()
+            .map(|byte| format!("{:02x}",byte))
+            .collect::<Vec<String>>()
+            .join("");
+        return hash_hex
     }
 }
