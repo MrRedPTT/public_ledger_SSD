@@ -3,6 +3,7 @@ use crate::kademlia::node::Node;
 use std::collections::HashMap;
 
 use sha3::{Digest};
+use crate::kademlia;
 use crate::kademlia::auxi;
 use crate::kademlia::bucket::K;
 use crate::kademlia::k_buckets::{KBucket};
@@ -19,7 +20,11 @@ pub struct Kademlia {
 
 impl Kademlia {
 
-    /// Create a new instance of Kademlia
+    /// # new
+    /// Create a new instance of [Kademlia]
+    ///
+    /// #### Returns
+    /// Will return a new [Kademlia] instance
     pub fn new (node: Node) -> Self {
         Kademlia {
             node: node.clone(),
@@ -28,18 +33,27 @@ impl Kademlia {
         }
     }
 
-    /// Store a pair (key, value) inside our local kademlia HashMap
+    /// # add_key
+    /// This function will add a new ([Key](Identifier), [Value](String)) to the [Kademlia] map.
     pub fn add_key(&mut self, key: Identifier, value: String) {
         let _ = self.map.insert(key, value);
     }
 
-    /// Get the value of a Key (Later on will be implemented with P2P to search on other nodes)
+    /// # get_value
+    /// This function will try to fetch a given [Value](String) from the map, given the
+    /// corresponding passed [Key](Identifier).
+    ///
+    /// #### Returns
+    /// If successful, return a [&String](String), otherwise return [None].
     pub fn get_value(&self, key: Identifier) -> Option<&String> {
         self.map.get(&key)
     }
 
-    /// Remove a (key, value) pair from the hashmap
-    /// return false if it failed to do so
+    /// # remove_key
+    /// Remove a ([Key](Identifier), [Value](String)) pair from the hashmap
+    ///
+    /// #### Returns
+    /// If successful, return [true] else, [false]
     pub fn remove_key (&mut self, key: Identifier) -> bool {
         let _ = self.map.remove(&key);
         if !Self::get_value(&self, key).is_none() {
@@ -48,8 +62,11 @@ impl Kademlia {
         return true;
     }
 
-    /// This function will return None if the current node is the closest to a given
-    /// ID (key, value), if it's not, return the k nearest nodes (excluding himself)
+    /// # is_closest
+    /// This function will check if the [self.node](Kademlia) is the closest to a given [Key](Identifier)
+    ///
+    /// #### Returns
+    /// If true, return [None] otherwise, return, up to [K], nearest nodes in a [Vec<Node>](Vec) as an Option.
     pub fn is_closest(&self, key: &Identifier) -> Option<Vec<Node>>{
         // Remember that the following function returns the amount of 0's to the left
         // Meaning the higher the amount, the closest the 2 ids are
@@ -73,30 +90,58 @@ impl Kademlia {
         return None;
     }
 
-    /// Add node to the kbuckets
-    /// Return true on success
+    /// # add_node
+    /// Proxy for the [KBucket::add] function.
+    /// Attempts to add a [Node] to its corresponding [Bucket](kademlia::bucket)
+    ///
+    /// ### Returns
+    /// If the bucket is full, return the top [Node] otherwise return [None].
     pub fn add_node (&mut self, node: &Node) -> Option<Node> {
         self.kbuckets.add(node)
     }
 
+    /// # replace_node
+    /// Proxy for the [KBucket::replace_node] function.
+    /// Attempts to replace the top node with the one passed as argument.
+    /// The correct [Bucket](kademlia::bucket) is calculated by this function.
     pub fn replace_node(&mut self, node: &Node){
         self.kbuckets.replace_node(node)
     }
 
+    /// # send_back
+    /// Proxy for the [KBucket::send_back] function.
+    /// Attempts to send the top node from the [Bucket](kademlia::bucket) to the back of the
+    /// [Vec](Vec), shifting every other node upwards.
+    /// The correct [Bucket](kademlia::bucket) is calculated by this function.
     pub fn send_back(&mut self, node: &Node) {
         self.kbuckets.send_back(node);
     }
 
-    /// Get the node for the given id
+    /// # get_node
+    /// Proxy for the [KBucket::get] function.
+    /// Attempts to fetch a node by a given [id](Identifier).
+    ///
+    /// #### Returns
+    /// If the node exists return [Node] as an option, otherwise return [None].
     pub fn get_node (&self, id: Identifier) -> Option<Node> {
         return self.kbuckets.get(&id);
     }
 
+    /// # get_k_nearest_to_node
+    /// Proxy for the [KBucket::get_n_closest_nodes] function.
+    /// Attempts to fetch the k nearest nodes to a given [id](Identifier).
+    ///
+    /// #### Returns
+    /// Will return up K nearest nodes to the given node. If no node was found return [None].
     pub fn get_k_nearest_to_node(&self, id: Identifier) -> Option<Vec<Node>> {
         self.kbuckets.get_n_closest_nodes(id, K)
     }
 
-    /// Remove a node by ID from the kbuckets
+    /// # remove_node
+    /// Attempts to remove a node from the [KBucket]
+    ///
+    /// #### Returns
+    /// If the node is still present in the [KBucket] return [false], otherwise return [true]
     pub fn remove_node (&mut self, id: Identifier) -> bool {
         self.kbuckets.remove(&id);
         return Self::get_node(self, id).is_none();

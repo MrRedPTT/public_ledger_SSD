@@ -2,7 +2,7 @@
 use std::collections::VecDeque;
 use crate::kademlia::node::{Identifier, Node};
 
-/// Defines the maximum amount of nodes allowed per bucket
+/// Defines the maximum number of nodes allowed per bucket
 pub const K: usize = 3; // Max bucket size
 #[derive(Clone, Debug, Default, PartialEq)]
 /// ## Bucket
@@ -12,14 +12,22 @@ pub struct Bucket {
 
 impl Bucket {
 
-    /// Create a new instance of a Bucket
+    /// # new
+    /// Create a new instance of a [Bucket]
+    ///
+    /// #### Returns
+    /// Returns a new instance of [Bucket].
     pub fn new() -> Self {
         Bucket {
             map: VecDeque::new(),
         }
     }
 
-    /// Add a new node to the bucket
+    /// # add
+    /// Add a new node to the [Bucket]
+    ///
+    /// #### Returns
+    /// If the bucket is full, return the top [Node] otherwise return [None].
     pub fn add(&mut self, node: &Node) -> Option<Node> {
         return if self.map.len() < K {
             self.map.push_back(node.clone()); // Add node to the back of the Vector
@@ -33,11 +41,17 @@ impl Bucket {
         }
     }
 
+    /// # replace_node
+    /// Attempts to replace the top node with the one passed as argument.
+    /// Keep in mind that after removing the top node, the new node is added to
+    /// the last position. In kademlia the nodes are stored from the older node contacted to the most recent (top to bottom).
     pub fn replace_node(&mut self, node: &Node){
         self.map.pop_front();
         self.map.push_back(node.clone());
     }
 
+    /// # send_back
+    /// Sends the top node of the bucket to the last position
     pub fn send_back(&mut self) {
         let top = self.map.pop_front();
         if !top.is_none(){
@@ -45,6 +59,9 @@ impl Bucket {
         }
     }
 
+
+    /// # remove
+    /// Attempts to remove a node according to the [id](Identifier) passed.
     pub fn remove(&mut self, id: Identifier){
         let mut i = 0;
         for node in self.map.iter() {

@@ -7,7 +7,7 @@ use crate::proto::packet_sending_server::{PacketSending};
 
 
 
-mod kademlia{
+pub mod kademlia{
     pub mod test_network;
     pub mod kademlia;
     pub mod node;
@@ -18,7 +18,7 @@ mod kademlia{
 }
 pub mod ledger;
 
-mod p2p{
+pub mod p2p{
     pub mod peer;
     pub mod req_handler;
 

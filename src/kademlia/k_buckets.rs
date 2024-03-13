@@ -12,7 +12,11 @@ pub struct KBucket {
     pub buckets: Vec<Bucket>, // The list of nodes in this bucket
 }
 impl KBucket {
-    /// Create a new KBucket Object
+    /// # new
+    /// Create a new [KBucket] object.
+    ///
+    /// #### Returns
+    /// Returns a new [KBucket] instance.
     pub fn new (id: Identifier) -> Self {
         KBucket {
             id,
@@ -20,11 +24,14 @@ impl KBucket {
         }
     }
 
-    // Add a node to it's corresponding bucket
+    /// # add
+    /// Proxy for the [Bucket::add] function.
     /// Adds a node to the corresponding bucket.
-    /// The bucket in which the node will be place
+    /// The bucket in which the node will be placed
     /// is calculated through the XOR distance from the
     /// KBucket origin node
+    /// #### Returns
+    /// If the bucket is full, return the top [Node] otherwise return [None].
     pub fn add (&mut self, node: &Node) -> Option<Node> {
         // Get the index with relation to the buckets
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, &node.id);
@@ -33,6 +40,11 @@ impl KBucket {
         // Node => Bucket was full, but we need to check if the latest contacted node is up, if not substitute
     }
 
+    /// # replace_node
+    /// Proxy for the [Bucket::replace_node] function.
+    /// Attempts to replace the top node with the one passed as argument.
+    /// Keep in mind that after removing the top node, the new node is added to
+    /// the last position. In kademlia the nodes are stored from the older node contacted to the most recent (top to bottom).
     pub fn replace_node(&mut self, node: &Node){
         // This function will be called if a certain bucket is full
         // but we received a packet from a node which would belong to that
@@ -41,6 +53,9 @@ impl KBucket {
         self.buckets[index].replace_node(node); // Remove the top node and push back the passed node
     }
 
+    /// # send_back
+    /// Proxy for the [Bucket::send_back] function.
+    /// Sends the top node of the bucket to the last position
     pub fn send_back(&mut self, node: &Node) {
         // This function will send the element on the top of the list to the back
         // Shifting upwards 1 every other node
@@ -48,8 +63,11 @@ impl KBucket {
         self.buckets[index].send_back();
     }
 
-    /// Get a node with a specific ID.
-    /// If such node does not exist, return None
+    /// # get
+    /// Attempts to get a node from the correct [Bucket] according to the passed [id](Identifier).
+    ///
+    /// #### Returns
+    /// If successful, return the [Node] otherwise return [None].
     pub fn get (&self, id: &Identifier) -> Option<Node>{
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
         let bucket = &self.buckets[index];
@@ -63,7 +81,10 @@ impl KBucket {
         return None
     }
 
-    /// Remove a node from its bucket
+    /// # remove
+    /// Proxy for the [Bucket::remove] function.
+    /// Attempts to remove a node from its bucket.
+    ///
     pub fn remove (&mut self, id: &Identifier){
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
 
@@ -73,7 +94,11 @@ impl KBucket {
         }
     }
 
+    /// # get_nodes_from_bucket
     /// Get all nodes from a specific Bucket
+    ///
+    /// #### Returns
+    /// Attempts to return a [Vec] of [nodes](Node), if none are found, return [None].
     pub fn get_nodes_from_bucket (&self, index: usize) -> Option<Vec<Node>> {
         let bucket = &self.buckets[index];
         let mut return_bucket = Vec::new();
@@ -88,7 +113,12 @@ impl KBucket {
         return Some(return_bucket);
     }
 
+    /// # get_n_closest_nodes
     /// Get the n closest nodes from the given node
+    ///
+    /// #### Returns
+    /// Attempts to fetch at least `n` nodes (the closest to the passed [id](Identifier)). If none are found
+    /// return [None].
     pub fn get_n_closest_nodes (&self, id: Identifier, n: usize) -> Option<Vec<Node>>{
         let mut closest_nodes: Vec<Node> = Vec::new();
         let given_node_index: i64 = (MAX_BUCKETS - auxi::xor_distance(&id, &self.id)) as i64;

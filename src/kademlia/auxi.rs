@@ -18,7 +18,7 @@ pub fn convert_node_id_to_string (node_id: &Identifier) -> String{
     return string;
 }
 
-/// Converts an Identifier (Vec<u8>) into a String
+/// Converts an Identifier (`Vec<u8>`) into a String
 pub fn vec_u8_to_string (v: Identifier) -> String {
     let mut string_result: String = "".parse().unwrap();
     for x in &v.0 {
@@ -79,4 +79,8 @@ pub fn gen_address(id: Identifier, ip: String, port: u32) -> Option<Address> {
         ip,
         port
     })
+}
+
+pub fn return_option<T>(arg: T) -> Option<T> {
+    Some(arg)
 }
