@@ -59,7 +59,6 @@ message FindNodeResponse {
   FindNodeResponseType ResponseType = 1; // This is here so we can now which type of response we are getting
   Node node = 2;
   kNearestNodes list = 3;
-  string error = 4; // In case an error occurs we can communicate that to the "client"
 }
 
 message FindValueRequest {
@@ -78,7 +77,6 @@ message FindValueResponse {
   FindValueType ResponseType = 1;
   kNearestNodes list = 2;
   string value = 3; // Might change later depending on what we choose to store
-  string error = 4;
 
 }
 
@@ -97,5 +95,4 @@ enum StoreType {
 
 message StoreResponse {
   StoreType ResponseType = 1;
-  string error = 2;
 }

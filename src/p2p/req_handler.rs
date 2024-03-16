@@ -149,8 +149,7 @@ impl ReqHandler {
                 let response = FindNodeResponse {
                     response_type: 1, // KNear => Send up to k near nodes to the target
                     node: placeholder_node,
-                    list: auxi::return_option(proto::KNearestNodes{nodes: list}),
-                    error: "".to_string()
+                    list: auxi::return_option(proto::KNearestNodes{nodes: list})
                 };
                 Ok(tonic::Response::new(response))
             }
@@ -160,8 +159,7 @@ impl ReqHandler {
             let response = FindNodeResponse {
                 response_type: 2, // Found the target node
                 node: auxi::return_option(proto::Node{id: target_node.id.0.to_vec(), ip: target_node.ip, port: target_node.port}),
-                list: auxi::return_option(proto::KNearestNodes{nodes: Vec::new()}), // Won't be read
-                error: "".to_string()
+                list: auxi::return_option(proto::KNearestNodes{nodes: Vec::new()}) // Won't be read
             };
             Ok(tonic::Response::new(response))
         }
@@ -204,8 +202,7 @@ impl ReqHandler {
                     nodes: Vec::new()
                 }),
 
-                value: lookup_value.unwrap().clone(),
-                error: "".to_string(),
+                value: lookup_value.unwrap().clone()
             };
 
             Ok(tonic::Response::new(response))
@@ -231,8 +228,7 @@ impl ReqHandler {
                         nodes: new_list
                     }),
 
-                    value: "".to_string(),
-                    error: "".to_string(),
+                    value: "".to_string()
                 };
 
                 Ok(tonic::Response::new(response))
@@ -292,8 +288,7 @@ impl ReqHandler {
             mutex_guard.add_key(Identifier::new(id_array), input.value.clone());
             return if !mutex_guard.get_value(Identifier::new(id_array)).is_none() {
                 let response = StoreResponse {
-                    response_type: 1,
-                    error: "".to_string(),
+                    response_type: 1
                 };
                 Ok(tonic::Response::new(response))
             } else {
@@ -335,8 +330,7 @@ impl ReqHandler {
             // no pool.join() here since we want the response to be sent back
             // regardless if the nodes responded or not
             let response = StoreResponse {
-                response_type: 2, // Forwarded the request to the k near nodes
-                error: "".to_string(),
+                response_type: 2 // Forwarded the request to the k near nodes
             };
             Ok(tonic::Response::new(response))
 

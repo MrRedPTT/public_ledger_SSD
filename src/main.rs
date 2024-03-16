@@ -27,6 +27,8 @@ pub mod p2p{
 pub mod proto {
     tonic::include_proto!("rpcpacket");
 }
+
+pub mod ledger_gui;
 #[tokio::main]
 async fn main() {
 
@@ -64,6 +66,8 @@ async fn main() {
         // This new thread is only listening for CTRL + C signals, and when it detects one, it attempts to send
         // a value through the oneshot channel which, if successful, will return the value to the receiver,
         // proceeding with the execution, but given that it's the last instruction, the program will terminate
+
+        // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;
 
     } else {
@@ -94,3 +98,24 @@ async fn main() {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+fn gui() -> eframe::Result<()>{
+    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([400.0, 300.0])
+            .with_min_inner_size([300.0, 220.0])
+            .with_icon(
+                // NOTE: Adding an icon is optional
+                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon-256.png")[..])
+                    .unwrap(),
+            ),
+        ..Default::default()
+    };
+    eframe::run_native(
+        "Epstein Auction",
+        native_options,
+        Box::new(|cc| Box::new(ledger_gui::TemplateApp::new(cc))),
+    )
+}
