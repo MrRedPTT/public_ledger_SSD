@@ -1,34 +1,24 @@
 extern crate core;
 use std::{env};
-use crate::kademlia::auxi;
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::p2p::peer::Peer;
 use crate::proto::packet_sending_server::{PacketSending};
 
 
 
-pub mod kademlia{
-    pub mod test_network;
-    pub mod kademlia;
-    pub mod node;
-    pub mod k_buckets;
-
-    pub mod bucket;
-    pub mod auxi;
-}
+pub mod kademlia;
 pub mod ledger;
 
-pub mod p2p{
-    pub mod peer;
-    pub mod req_handler;
-
-}
+pub mod p2p;
 
 pub mod proto {
     tonic::include_proto!("rpcpacket");
 }
 
 pub mod ledger_gui;
+pub mod auxi;
+
+
 #[tokio::main]
 async fn main() {
 
@@ -46,22 +36,24 @@ async fn main() {
 
     if server_bool {
         let rpc = Peer::new(&node1).await.unwrap();
-
         // Here we are going to add some random ips
         for i in 1..=255 {
-            let ip = format!("127.0.0.{}", i);
-            let port = 8888 + i;
-            let kademlia_ref = &mut *rpc.kademlia.lock().unwrap();
-            let _ = kademlia_ref.add_node(&Node::new(ip, port).unwrap());
+            for j in 0..=255{
+                let ip = format!("127.0.{}.{}", j, i);
+                let port = 8888 + i + j;
+                let kademlia_ref = &mut *rpc.kademlia.lock().unwrap();
+                let _ = kademlia_ref.add_node(&Node::new(ip, port).unwrap());
+            }
         }
 
         // Add a key value to the hashmap to be looked up
         let _ = rpc.kademlia.lock().unwrap().add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
 
+        // Start Server
         let shutdown_rx = rpc.init_server().await;
-        println!("Test async");
+        println!("Server Loaded!");
 
-        // In order to keep the server running we created a new thread which is the one "holding" the main thread
+        // In order to keep the server running, we created a new thread which is the one "holding" the main thread
         // from terminating (given the following await)
         // This new thread is only listening for CTRL + C signals, and when it detects one, it attempts to send
         // a value through the oneshot channel which, if successful, will return the value to the receiver,

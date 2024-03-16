@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use sha3::{Digest};
 use crate::kademlia;
-use crate::kademlia::auxi;
+use crate::auxi;
 use crate::kademlia::bucket::K;
 use crate::kademlia::k_buckets::{KBucket};
 use crate::kademlia::node::Identifier;

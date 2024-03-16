@@ -1,6 +1,5 @@
 
 use std::{io};
-use std::io::ErrorKind;
 use std::sync::{Arc, Mutex};
 use tokio::signal;
 use tokio::sync::oneshot;
@@ -8,12 +7,11 @@ use tonic::{Request, Response, Status};
 use tonic::transport::Server;
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::{Identifier, Node};
-use crate::p2p::req_handler::ReqHandler;
-use crate::{proto};
-use crate::kademlia::auxi;
+use crate::proto;
+use crate::p2p::private::req_handler::ReqHandler;
+use crate::p2p::private::res_handler::ResHandler;
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
 use crate::proto::{PingPacket, PongPacket, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, StoreRequest, StoreResponse};
-
 
 #[derive(Debug, Clone)]
 pub struct Peer {
@@ -99,165 +97,28 @@ impl Peer {
         shutdown_rx // Channel to receive shutdown signal from the server thread
     }
 
-    /// # Ping
-    /// Sends a ping request to http://ip:port using the gRPC procedures
-    ///
-    /// ### Returns
-    /// This will either return a [proto::PongPacket], indicating a valid response from the target, or an Error which can be caused
-    /// by either problems in the connections or a Status returned by the receiver. In either case, the error message is returned.
+    /// # Ping Request
+    /// Proxy for the [ResHandler::ping] function.
     pub async fn ping(&self, ip: &str, port: u32) -> Result<Response<PongPacket>, io::Error> {
-        let mut url = "http://".to_string();
-        url += &format!("{}:{}", ip, port);
-
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
-
-        match c {
-            Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for find node: {}", e);
-                Err(io::Error::new(ErrorKind::ConnectionRefused, e))
-            },
-            Ok(mut client) => {
-                let req = proto::PingPacket {
-                    src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
-                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
-                };
-
-                let request = tonic::Request::new(req);
-                let res = client.ping(request).await;
-                match res {
-                    Err(e) => {
-                        eprintln!("An error has occurred while trying to ping: {{{}}}", e);
-                        Err(io::Error::new(ErrorKind::ConnectionAborted, e))
-                    },
-                    Ok(response) => {
-                        println!("Ping Response: {:?}", response.get_ref());
-                        Ok(response)
-                    }
-                }
-            }
-        }
+        ResHandler::ping(self, ip, port).await
     }
 
-    /// # find_node
-    /// Sends the find_node gRPC procedure to the target (http://ip:port). The goal of this procedure is to find information about a given node
-    /// `id`. If the receiver holds the node queried (by the id) returns the node object, otherwise returns the k nearest nodes to the target id.
-    ///
-    /// ### Returns
-    /// This function can either return an error, from connection or packet-related issues, or a [proto::FindNodeResponse].
+    /// # Find Node Request
+    /// Proxy for the [ResHandler::find_node] function.
     pub async fn find_node(&self, ip: &str, port: u32, id: Identifier) -> Result<Response<FindNodeResponse> , io::Error>{
-        let mut url = "http://".to_string();
-        url += &format!("{}:{}", ip, port);
-
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
-
-        match c {
-            Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for find node: {}", e);
-                Err(io::Error::new(ErrorKind::ConnectionRefused, e))
-            },
-            Ok(mut client) => {
-                let req = proto::FindNodeRequest { // Ask for a node that the server holds
-                    id: id.0.to_vec(),
-                    src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
-                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
-                };
-
-                let request = tonic::Request::new(req);
-                let res = client.find_node(request).await;
-                match res {
-                    Err(e) => {
-                        eprintln!("An error has occurred while trying to find node: {{{}}}", e);
-                        Err(io::Error::new(ErrorKind::ConnectionAborted, e))
-                    },
-                    Ok(response) => {
-                        println!("Find node Response: {:?}", response.get_ref());
-                        Ok(response)
-                    }
-                }
-            }
-        }
+        ResHandler::find_node(self, ip, port, id).await
     }
 
-    /// # find_value
-    /// Similar to find_node, this gRPC procedure will query a node for value with key [Identifier] and if the receiver node holds that
-    /// entry, returns it, otherwise returns the k nearest nodes to the key.
-    ///
-    /// ### Returns
-    /// This function can either return an error, from connection or packet-related issues, or a [proto::FindValueResponse].
+    /// # Find Value Request
+    /// Proxy for the [ResHandler::find_value] function.
     pub async fn find_value(&self, ip: String, port: u32, id: Identifier) -> Result<Response<FindValueResponse> , io::Error> {
-        let mut url = "http://".to_string();
-        url += &format!("{}:{}", ip, port);
-
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
-
-        match c {
-            Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for find value: {}", e);
-                Err(io::Error::new(ErrorKind::ConnectionRefused, e))
-            },
-            Ok(mut client) => {
-                let req = proto::FindValueRequest {
-                    value_id: id.0.to_vec(),
-                    src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
-                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
-                };
-
-                let request = tonic::Request::new(req);
-                let res = client.find_value(request).await;
-                match res {
-                    Err(e) => {
-                        eprintln!("An error has occurred while trying to find value: {{{}}}", e);
-                        Err(io::Error::new(ErrorKind::ConnectionAborted, e))
-                    },
-                    Ok(response) => {
-                        println!("Find Value Response: {:?}", response.get_ref());
-                        Ok(response)
-                    }
-                }
-            }
-        }
-
+        ResHandler::find_value(self, ip, port, id).await
     }
 
-    /// # store
-    /// This gRPC procedure is only non-query one and so has a slightly different behavior where we request a node to store a certain (key ([Identifier]), Value ([String]))
-    /// and on the receiver side, if the receiver is the closest node to the key than stores it, otherwise the receiver itself will forward the key to the k nearest nodes.
-    /// ### Returns
-    /// This function can either return an error, from connection or packet-related issues, or a [proto::StoreResponse].
+    /// # Store Request
+    /// Proxy for the [ResHandler::store] function.
     pub async fn store(&self, ip: String, port: u32, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
-        let mut url = "http://".to_string();
-        url += &format!("{}:{}", ip, port);
-
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
-        match c {
-            Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for store: {}", e);
-                Err(io::Error::new(ErrorKind::ConnectionRefused, e))
-            },
-            Ok(mut client) => {
-                let req = StoreRequest {
-                    key: key.0.to_vec(),
-                    value,
-                    src: auxi::gen_address(self.node.id.clone(), self.node.ip.clone(), self.node.port),
-                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
-                };
-
-                let request = tonic::Request::new(req);
-                let res = client.store(request).await;
-                match res {
-                    Err(e) => {
-                        eprintln!("An error has occurred while trying to store value: {{{}}}", e);
-                        Err(io::Error::new(ErrorKind::ConnectionAborted, e))
-                    },
-                    Ok(response) => {
-                        println!("Store Response: {:?}", response.get_ref());
-                        Ok(response)
-                    }
-                }
-            }
-        }
-
-
+        ResHandler::store(self, ip, port, key, value).await
     }
 
 

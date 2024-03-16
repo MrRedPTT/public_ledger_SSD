@@ -1,7 +1,7 @@
 use crate::kademlia::kademlia::Kademlia;
 use std::net::IpAddr;
 use std::process::exit;
-use crate::kademlia::auxi;
+use crate::auxi;
 use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 

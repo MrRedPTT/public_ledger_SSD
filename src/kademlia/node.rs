@@ -2,8 +2,7 @@
 use core::fmt;
 use std::net::IpAddr;
 use sha3::{Digest};
-use crate::kademlia::auxi;
-use crate::kademlia::auxi::vec_u8_to_string;
+use crate::auxi;
 
 
 pub const ID_LEN: usize = 256; // Size in bits of SHA3_256 output (This is the hashing algorithm defined in Kademlia's documentation)
@@ -32,7 +31,7 @@ pub struct Node {
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 
-        let id_str = vec_u8_to_string(self.clone().id);
+        let id_str = auxi::vec_u8_to_string(self.clone().id);
         // Customize the formatting of Node here
         write!(f, "Node {{ id:{:?} (SHA3_256: {}), ip: {}, port: {} }}", id_str, auxi::convert_node_id_to_string(&self.id), self.ip, self.port)
     }
@@ -75,7 +74,7 @@ impl Node {
 }
 
 mod test {
-    use crate::kademlia::auxi;
+    use crate::auxi;
 
     #[test]
     fn test_gen_id(){

@@ -2,8 +2,7 @@
 use tonic::{Request, Response, Status};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::p2p::peer::Peer;
-use crate::{kademlia, proto};
-use crate::kademlia::auxi;
+use crate::{auxi, kademlia, proto};
 use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse};
 
 
@@ -13,7 +12,7 @@ use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest,
 /// therefore, this function should not be called directly but by the tonic
 /// server instance when a [Request] is received.
 /// You can see more information about the Request/Response format in the `proto/rpc_packet.proto` file.
-pub struct ReqHandler {}
+pub(crate) struct ReqHandler {}
 
 
 impl ReqHandler {
@@ -26,7 +25,7 @@ impl ReqHandler {
     /// This function will either return a [Response<PongPacket>] or a [Status] indicating that something went wrong while
     /// handling the request or processing the response.
 
-    pub async fn ping(peer: &Peer, request: Request<PingPacket>) -> Result<Response<PongPacket>, Status> {
+    pub(crate) async fn ping(peer: &Peer, request: Request<PingPacket>) -> Result<Response<PongPacket>, Status> {
         let input = request.get_ref();
         if input.src.is_none() || input.dst.is_none() {
             return Err(Status::invalid_argument("Source and/or destination not found"));
@@ -63,7 +62,7 @@ impl ReqHandler {
     /// If the node does not exist in the [KBucket]([kademlia::k_buckets::KBucket]), send back a packet with ResponseType 1, meaning that the package contains up to
     /// k nearest nodes to the target. Finally, if anything goes wrong, a [Status] will be returned back.
     ///
-    pub async fn find_node(peer: &Peer, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
+    pub(crate) async fn find_node(peer: &Peer, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
         let input = request.get_ref();
         let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
@@ -177,7 +176,7 @@ impl ReqHandler {
     /// we still send back a packet however with ResponseType 1, indicating that the `value` field should be ignored and that the [KNearest](KNearestNodes) contains the nearest nodes (a maximum of `k`)
     /// to the target ID. If anything goes wrong, a [Status] will be returned indicating either a request or response related problem.
     ///
-    pub async fn find_value(peer: &Peer, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
+    pub(crate) async fn find_value(peer: &Peer, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
         let input = request.get_ref();
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
@@ -251,7 +250,7 @@ impl ReqHandler {
     /// In order to avoid blocking the sender for too much time, the forwarding is performed within threads, meaning that if a receiver node
     /// deems that it's not the closest node and should forward the request, it will send those requests parallel to the response, so even if none of the nodes
     /// respond the sender will be under the impression that the key was dealt with.
-    pub async fn store(peer: &Peer, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
+    pub(crate) async fn store(peer: &Peer, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
         // Procedure:
         // Check if our node is the closest to the key
         // If it is, store the key and send back a Response informing of the store

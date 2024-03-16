@@ -1,7 +1,7 @@
 #[doc(inline)]
 use crate::kademlia::bucket::Bucket;
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
-use crate::kademlia::auxi;
+use crate::auxi;
 
 pub const MAX_BUCKETS: usize = ID_LEN; // Max amount of Buckets (AKA amount of sub-tries)
 
@@ -173,7 +173,7 @@ impl KBucket {
 
 
 mod tests {
-    use crate::kademlia::auxi;
+    use crate::auxi;
     use crate::kademlia::k_buckets::{KBucket};
     use crate::kademlia::node::Node;
 

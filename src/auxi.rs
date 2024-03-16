@@ -3,7 +3,7 @@ use sha3::{Digest, Sha3_256};
 #[doc(inline)]
 use crate::kademlia::node::{Identifier};
 use crate::kademlia::node::ID_LEN;
-use crate::proto;
+use crate::{p2p, proto};
 use crate::proto::Address;
 
 

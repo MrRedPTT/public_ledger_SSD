@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use crate::kademlia::node::{Identifier, Node};
 
 /// Defines the maximum number of nodes allowed per bucket
-pub const K: usize = 3; // Max bucket size
+pub const K: usize = 20; // Max bucket size
 #[derive(Clone, Debug, Default, PartialEq)]
 /// ## Bucket
 pub struct Bucket {
