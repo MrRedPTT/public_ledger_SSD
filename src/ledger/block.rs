@@ -17,12 +17,12 @@ pub struct Block {
     pub difficulty : usize,
     pub miner_id : String,
     pub merkle_tree_root: String,
+    confirmations: usize,
 
     pub transactions: Vec<Transaction>,
 }
 
 impl Block {
-
     /// creates a new block with a single transaction (the miner reward)
     pub fn new(index: usize, 
                prev_hash: String, 
@@ -37,6 +37,7 @@ impl Block {
             nonce : 0,
             difficulty,
             miner_id: miner_id.clone(),
+            confirmations: 0,
 
             hash: "".to_string(),
             merkle_tree_root: "".to_string()
@@ -167,6 +168,13 @@ impl Block {
         //println!("temp: {:?}", fin);
         self.merkle_tree_root = fin[0].clone();
         return true;
+    }
+
+    pub fn add_confirmation(&mut self) {
+        self.confirmations +=1;
+    }
+    pub fn get_confirmations(&self) -> usize {
+        return self.confirmations;
     }
 }
 

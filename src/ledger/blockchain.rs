@@ -14,13 +14,15 @@ pub struct Blockchain {
     mining_reward: f64, 
     pub is_miner: bool,
     pub temporary_block: Block,
-    pub miner_id: String
+    pub miner_id: String,
+    confirmation_pointer:u64,
 }
 
 impl Blockchain {
     const INITIAL_DIFFICULTY:usize = 1;
     const NETWORK:&'static str = "network";
-    const MAX_TRANSACTIONS:usize = 16;
+    const MAX_TRANSACTIONS:usize = 3;
+    const CONFIRMATION_THRESHOLD:usize = 5;
 
     /// creates a new Blockchain with only the Genesis Block
     pub fn new(is_miner:bool, miner_id:String) -> Blockchain {
@@ -39,6 +41,7 @@ impl Blockchain {
             mining_reward: 0.01,
             is_miner,
             miner_id: miner_id.clone(),
+            confirmation_pointer: 0,
             temporary_block: Block::new(1,
                                         hash.clone(),
                                         Self::INITIAL_DIFFICULTY,
@@ -65,13 +68,24 @@ impl Blockchain {
         }
 
         let prev_hash = self.get_head().hash;
-        if b.hash != prev_hash {
+        if b.prev_hash != prev_hash{
             return false
         }
+
+        let _ = self.chain.iter_mut()
+            .take(Blockchain::CONFIRMATION_THRESHOLD)
+            .for_each(|block| {
+                block.add_confirmation();
+                let c = block.get_confirmations();
+                if c <= Self::CONFIRMATION_THRESHOLD {
+                    self.confirmation_pointer += 1;
+                }
+        });
 
         self.chain.push(b);
         self.adjust_difficulty(); 
         self.adjust_temporary_block(false);
+
         return true
     }
 
@@ -101,7 +115,7 @@ impl Blockchain {
     }
 
 
-    /// returns the most recent Block of the blockchain
+    /// returns the head Block the blockchain
     pub fn get_head(&self) -> Block {
         return self.chain.last().unwrap().clone();
     }
@@ -110,8 +124,6 @@ impl Blockchain {
     /// adds a transaction to a temporary block
     /// when the block is full it will be mined
     /// 
-    /// **status:** not impleemnted
-    ///
     /// **note** this method is only important to miners,
     pub fn add_transaction(&mut self, t:Transaction) {
         let index = self.temporary_block.add_transaction(t);
@@ -126,7 +138,9 @@ impl Blockchain {
     ///adjust the temporary block based on the state of the blockchain
     ///if the parameter `create` is true then a new block is created
     ///
-    ///**Note:** does **not** check for transactions that already exist in other blocks
+    ///**Note:** 
+    /// does **not** check for transactions 
+    /// that already exist in other blocks
     fn adjust_temporary_block(&mut self, create: bool){
         let head = self.get_head();
 
@@ -147,3 +161,49 @@ impl Blockchain {
     }
 
 }
+
+#[cfg(test)]
+mod test {
+    use crate::ledger::blockchain::*;
+    use rand::Rng;
+
+    fn gen_transaction() -> Transaction {
+        let strings = vec![
+            "Alice".to_string(),
+            "Bob".to_string(),
+            "Carlos".to_string(),
+            "Diana".to_string(),
+            "Luna".to_string(),
+        ];
+
+        let mut rng = rand::thread_rng();
+        let from = strings[rng.gen_range(0..strings.len())].clone();
+        let to = strings[rng.gen_range(0..strings.len())].clone();
+        let out = rng.gen_range(4.0..=10.0);
+        let _in = rng.gen_range(1.0..=3.0);
+
+        Transaction::new(out,
+            from,
+            out-_in,
+            to)
+    }    
+
+    #[test]
+    fn test_adding_blocks() {
+        let mut blockchain = Blockchain::new(true,"mario".to_string());
+
+        //block 1
+        blockchain.add_transaction( gen_transaction());
+        blockchain.add_transaction( gen_transaction());
+        //block 2
+        blockchain.add_transaction( gen_transaction());
+        blockchain.add_transaction( gen_transaction());
+        //not added
+        blockchain.add_transaction( gen_transaction());
+
+        println!("{:#?}", blockchain);
+        assert_eq!(blockchain.get_current_index()+1, 3);
+    }
+
+}
+
