@@ -1,17 +1,17 @@
-
-use std::{io};
+use std::io;
 use std::sync::{Arc, Mutex};
+
 use tokio::signal;
 use tokio::sync::oneshot;
 use tonic::{Request, Response, Status};
 use tonic::transport::Server;
+
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::{Identifier, Node};
-use crate::proto;
 use crate::p2p::private::req_handler::ReqHandler;
 use crate::p2p::private::res_handler::ResHandler;
+use crate::proto::{FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, PingPacket, PongPacket, StoreRequest, StoreResponse};
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
-use crate::proto::{PingPacket, PongPacket, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, StoreRequest, StoreResponse};
 
 #[derive(Debug, Clone)]
 pub struct Peer {
@@ -106,7 +106,7 @@ impl Peer {
     /// # Find Node Request
     /// Proxy for the [ResHandler::find_node] function.
     pub async fn find_node(&self, ip: &str, port: u32, id: Identifier) -> Result<Response<FindNodeResponse> , io::Error>{
-        ResHandler::find_node(self, ip, port, id).await
+        ResHandler::find_node(self, ip, port, &id).await
     }
 
     /// # Find Value Request

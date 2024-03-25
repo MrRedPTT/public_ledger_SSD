@@ -1,10 +1,10 @@
 extern crate core;
-use std::{env};
+
+use std::env;
+
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::p2p::peer::Peer;
-use crate::proto::packet_sending_server::{PacketSending};
-
-
+use crate::proto::packet_sending_server::PacketSending;
 
 pub mod kademlia;
 pub mod ledger;
@@ -45,7 +45,6 @@ async fn main() {
                 let _ = kademlia_ref.add_node(&Node::new(ip, port).unwrap());
             }
         }
-
         // Add a key value to the hashmap to be looked up
         let _ = rpc.kademlia.lock().unwrap().add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
 
@@ -77,6 +76,7 @@ async fn main() {
         let _ = peer.find_value(target_node.ip.clone(), target_node.port, auxi::gen_id("Some Key2".to_string())).await;
 
         let mut key = auxi::gen_id(format!("{}:{}", "127.0.0.20", 8888 +20).to_string()); // Generate an id equal to another node
+        let mut key_server_should_have = auxi::gen_id(format!("{}:{}", "127.0.0.1", 8888).to_string());
 
         // Flip the last bit
         if key.0[ID_LEN -2 ] == 0 {
@@ -86,7 +86,8 @@ async fn main() {
         }
 
         let _ = peer.store(target_node.ip.clone(), target_node.port, key, "Some Value2".to_string()).await;
-
+        let _ = peer.store(target_node.ip.clone(), target_node.port, key_server_should_have.clone(), "Value Server Should Have".to_string()).await;
+        let _ = peer.find_value(target_node.ip.clone(), target_node.port, key_server_should_have.clone()).await;
     }
 }
 

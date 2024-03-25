@@ -1,13 +1,14 @@
-#[doc(inline)]
-use crate::kademlia::node::Node;
 use std::collections::HashMap;
 
-use sha3::{Digest};
-use crate::kademlia;
+use sha3::Digest;
+
 use crate::auxi;
+use crate::kademlia;
 use crate::kademlia::bucket::K;
-use crate::kademlia::k_buckets::{KBucket};
+use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
 use crate::kademlia::node::Identifier;
+#[doc(inline)]
+use crate::kademlia::node::Node;
 
 #[derive(Debug, Clone)]
 /// ## Kademlia
@@ -70,7 +71,7 @@ impl Kademlia {
     pub fn is_closest(&self, key: &Identifier) -> Option<Vec<Node>>{
         // Remember that the following function returns the amount of 0's to the left
         // Meaning the higher the amount, the closest the 2 ids are
-        let own_distance = auxi::xor_distance(&self.node.id, key);
+        let own_distance = MAX_BUCKETS - auxi::xor_distance(&self.node.id, key);
 
         let nodes = &self.kbuckets.get_n_closest_nodes(key.clone(), K);
         // If no nodes stored in the bucket with the closest nodes
@@ -82,7 +83,7 @@ impl Kademlia {
         // For each node collected, check if any of them is closer to than ourselfs
         // If any is, return them, otherwise return None
         for i in <Option<Vec<Node>> as Clone>::clone(&nodes).unwrap() {
-            if auxi::xor_distance(&i.id, key) > own_distance {
+            if (MAX_BUCKETS - auxi::xor_distance(&i.id, key)) < own_distance {
                 return nodes.clone();
             }
         }

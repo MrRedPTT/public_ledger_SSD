@@ -1,6 +1,8 @@
 use std::io;
-use std::io::ErrorKind;
+use std::io::{Error, ErrorKind};
+
 use tonic::Response;
+
 use crate::auxi;
 use crate::kademlia::node::Identifier;
 use crate::p2p::peer::Peer;
@@ -56,12 +58,11 @@ impl  ResHandler {
     ///
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::FindNodeResponse].
-    pub(crate) async fn find_node(peer: &Peer, ip: &str, port: u32, id: Identifier) -> Result<Response<FindNodeResponse> , io::Error>{
+
+    pub async fn find_node(peer: &Peer, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
-
         let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
-
         match c {
             Err(e) => {
                 eprintln!("An error has occurred while trying to establish a connection for find node: {}", e);
@@ -73,7 +74,6 @@ impl  ResHandler {
                     src: auxi::gen_address(peer.node.id.clone(), peer.node.ip.clone(), peer.node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
                 };
-
                 let request = tonic::Request::new(req);
                 let res = client.find_node(request).await;
                 match res {
@@ -171,6 +171,5 @@ impl  ResHandler {
 
 
     }
-
 
 }
