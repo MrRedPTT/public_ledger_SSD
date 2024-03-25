@@ -1,6 +1,9 @@
-use std::io;
+use std::{default, io};
+use std::io::ErrorKind;
 use std::sync::{Arc, Mutex};
 
+use async_recursion::async_recursion;
+use log::{debug, error, info};
 use tokio::signal;
 use tokio::sync::oneshot;
 use tonic::{Request, Response, Status};
@@ -10,7 +13,7 @@ use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::{Identifier, Node};
 use crate::p2p::private::req_handler::ReqHandler;
 use crate::p2p::private::res_handler::ResHandler;
-use crate::proto::{FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, PingPacket, PongPacket, StoreRequest, StoreResponse};
+use crate::proto::{FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse};
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
 
 #[derive(Debug, Clone)]
@@ -28,6 +31,12 @@ impl PacketSending for Peer {
         ReqHandler::ping(self, request).await
     }
 
+    /// # Store Handler
+    /// This function acts like a proxy function to the [ReqHandler::store]
+    async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status>{
+        ReqHandler::store(self, request).await
+    }
+
     /// # Find_Node Handler
     /// This function acts like a proxy function to the [ReqHandler::find_node]
     async fn find_node(&self, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
@@ -38,12 +47,6 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::find_value]
     async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
         ReqHandler::find_value(self, request).await
-    }
-
-    /// # Store Handler
-    /// This function acts like a proxy function to the [ReqHandler::store]
-    async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status>{
-        ReqHandler::store(self, request).await
     }
 }
 impl Peer {
@@ -86,12 +89,12 @@ impl Peer {
             let _ = shutdown_tx.send(());
 
             // Print a message indicating the server is shutting down
-            println!("Shutting down server...");
+           info!("Shutting down server...");
         });
 
         tokio::spawn(async move {
             if let Err(e) = server.await {
-                eprintln!("Server error: {}", e);
+                error!("Server error: {}", e);
             }
         });
         shutdown_rx // Channel to receive shutdown signal from the server thread
@@ -103,10 +106,79 @@ impl Peer {
         ResHandler::ping(self, ip, port).await
     }
 
+    #[async_recursion]
     /// # Find Node Request
     /// Proxy for the [ResHandler::find_node] function.
-    pub async fn find_node(&self, ip: &str, port: u32, id: Identifier) -> Result<Response<FindNodeResponse> , io::Error>{
-        ResHandler::find_node(self, ip, port, &id).await
+    pub async fn find_node(&self, id: Identifier, peers: Option<Vec<Node>>) -> Result<Response<FindNodeResponse> , io::Error>{
+
+        let mut nodes = peers.clone(); // This will argument is passed so that this function can be used recursively
+        if peers.is_none() {
+            nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(id.clone());
+        }
+        let mut arguments: Vec<(String, u32)> = Vec::new();
+        if nodes.is_none() {
+            return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
+        } else {
+          for i in nodes.unwrap() {
+              debug!("DEBUGG IN PEER::FIND_NODE -> Peers discovered: {}:{}", i.ip, i.port);
+              arguments.push((i.ip.clone(), i.port))
+          }
+        }
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the amount of threads
+
+        // Process tasks concurrently using Tokio
+        let tasks = arguments.into_iter()
+            .map(|arg| {
+                let semaphore = semaphore.clone();
+                let node = self.node.clone();
+                let ident = id.clone();
+                tokio::spawn(async move {
+                    // Acquire a permit from the semaphore
+                    let permit = semaphore.acquire().await.expect("Failed to acquire permit");
+                    let res = ResHandler::find_node(&node, arg.0.as_ref(), arg.1, &ident).await;
+                    drop(permit);
+                    res
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // Output results
+        let mut errors: Vec<Node> = Vec::new();
+        let mut query_result: Option<Response<FindNodeResponse>> = None;
+        for task in tasks {
+            let result = task.await.expect("Failed to retrieve task result");
+            match result {
+                Err(e) => {
+                    error!("Error found: {}", e);
+                }
+                Ok(res) => {
+                    if res.get_ref().response_type == 2 {
+                        debug!("DEBUG PEER::FIND_NODE -> Find the parça");
+                        query_result = Some(res);
+                        break;
+                    } else {
+                        for n in <std::option::Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
+                            let temp = Node::new(n.ip, n.port).unwrap();
+                            if !errors.contains(&temp) {
+                                errors.push(temp);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        debug!("DEBUG PEER::FIND_NODE -> No node found here are the nodes to communicate next");
+        if !query_result.is_none(){
+            return Ok(query_result.unwrap());
+        } else if errors.len() == 0usize {
+            return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
+        } else {
+            for i in &errors {
+                println!("Node: {}:{}", i.ip, i.port);
+            }
+            Self::find_node(self, id, Some(errors)).await
+        }
+        //ResHandler::find_node(self, ip, port, &id).await
     }
 
     /// # Find Value Request

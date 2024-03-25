@@ -1,11 +1,11 @@
 use sha3::{Digest, Sha3_256};
+
+use crate::kademlia::node::ID_LEN;
 // Auxiliary functions
 #[doc(inline)]
-use crate::kademlia::node::{Identifier};
-use crate::kademlia::node::ID_LEN;
-use crate::{p2p, proto};
+use crate::kademlia::node::Identifier;
+use crate::proto;
 use crate::proto::Address;
-
 
 /// Converts a node identifier (Vec<u8>) into a string, after hashing
 pub fn convert_node_id_to_string (node_id: &Identifier) -> String{

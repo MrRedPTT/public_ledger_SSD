@@ -152,7 +152,7 @@ impl Kademlia {
 
 #[cfg(test)]
 mod tests {
-    use crate::kademlia::auxi;
+    use crate::auxi;
     use crate::kademlia::kademlia::Kademlia;
     use crate::kademlia::node::Node;
 

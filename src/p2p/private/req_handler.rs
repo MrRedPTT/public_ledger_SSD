@@ -1,10 +1,11 @@
+use log::{debug, error, info};
 #[doc(inline)]
 use tonic::{Request, Response, Status};
+
+use crate::{auxi, kademlia, proto};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::p2p::peer::Peer;
-use crate::{auxi, kademlia, proto};
 use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse};
-
 
 /// # Request Handler
 /// This struct is where we define the handlers for all possible gRPC requests.
@@ -42,8 +43,8 @@ impl ReqHandler {
             dst: input.clone().src
         };
 
-        println!("Got a Ping from: {}:{}", input.clone().src.unwrap().ip, input.clone().src.unwrap().port);
-        println!("Sending Pong...");
+        info!("Got a Ping from: {}:{}", input.clone().src.unwrap().ip, input.clone().src.unwrap().port);
+        info!("Sending Pong...");
 
         Ok(tonic::Response::new(pong))
 
@@ -86,7 +87,7 @@ impl ReqHandler {
 
         let lookup_src_node = peer.kademlia.lock().unwrap().get_node(Identifier::new(src_id_array));
         if lookup_src_node.is_none() {
-            println!("Source node not recognized. Adding to the routing table");
+            info!("Source node not recognized. Adding to the routing table");
             let result = peer.kademlia.lock().unwrap().add_node(&Node::new(src.ip.clone(), src.port).unwrap());
             if !result.is_none() {
                 // This means that when we tried to add the node the corresponding bucket was full
@@ -124,7 +125,7 @@ impl ReqHandler {
         if dst.ip != peer.node.ip || dst.port != peer.node.port || dst.id != peer.node.id.0.to_vec() {
             return Err(Status::invalid_argument("The supplied destination is invalid!"));
         }
-        println!("Node: {:?} asked about node: {:?}", request.remote_addr(), input);
+        info!("Node: {:?} asked about node: {:?}", request.remote_addr(), input);
 
         if node_id.len() != ID_LEN {
             return Err(Status::invalid_argument("The supplied ID has an invalid size"));
@@ -297,6 +298,8 @@ impl ReqHandler {
             // Means we are not the closest node
             let mut thread_number = 0;
             let const_input = input.value.clone();
+            // TODO
+            // limit the amount of threads
             for i in nodes.unwrap() {
                 let url = format!("http://{}:{}", i.ip, i.port);
                 let inp = const_input.clone();
@@ -306,10 +309,10 @@ impl ReqHandler {
                     // Here we could use the peer.store() function
                     // However, that would imply consuming the peer object or
                     // forcing the usage of more mutexes, something we are trying to avoid
-                    println!("DEBUG IN REQ_HANDLER::STORE => Thread {} initiated!", thread_number);
+                    debug!("DEBUG IN REQ_HANDLER::STORE => Thread {} initiated!", thread_number);
                     let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
                     if c.is_err() {
-                        eprintln!("Error trying to store. Connection refused/timeout");
+                        error!("Error trying to store. Connection refused/timeout");
                         return;
                     }
                     let mut client = c.unwrap();
@@ -322,7 +325,7 @@ impl ReqHandler {
 
                     let request = tonic::Request::new(req);
                     let _ = client.store(request).await.expect("Error while trying to store");
-                    println!("DEBUG IN REQ_HANDLER::STORE => Thread {} terminated!", thread_number);
+                    debug!("DEBUG IN REQ_HANDLER::STORE => Thread {} terminated!", thread_number);
                 });
                 thread_number += 1;
             }

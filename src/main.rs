@@ -2,7 +2,7 @@ extern crate core;
 
 use std::env;
 
-use crate::kademlia::node::{ID_LEN, Node};
+use crate::kademlia::node::Node;
 use crate::p2p::peer::Peer;
 use crate::proto::packet_sending_server::PacketSending;
 
@@ -17,6 +17,7 @@ pub mod proto {
 
 pub mod ledger_gui;
 pub mod auxi;
+
 
 
 #[tokio::main]
@@ -64,9 +65,15 @@ async fn main() {
     } else {
         let target_node = &node1;
         let peer = &Peer::new(node2).await.unwrap();
+        let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
+        for i in 1..15 {
+            let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
+        }
 
-        let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
-        let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, auxi::gen_id("127.0.0.2:8890".to_string())).await;
+        //let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None).await);
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None).await);
+        /*
         let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, auxi::gen_id("127.0.0.4:8889".to_string())).await;
         let _ = peer.ping("127.0.0.1", 8888).await;
         println!("{:?}", peer.ping("127.0.0.1", 7777).await);
@@ -88,6 +95,7 @@ async fn main() {
         let _ = peer.store(target_node.ip.clone(), target_node.port, key, "Some Value2".to_string()).await;
         let _ = peer.store(target_node.ip.clone(), target_node.port, key_server_should_have.clone(), "Value Server Should Have".to_string()).await;
         let _ = peer.find_value(target_node.ip.clone(), target_node.port, key_server_should_have.clone()).await;
+        */
     }
 }
 

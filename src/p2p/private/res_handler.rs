@@ -1,10 +1,12 @@
 use std::io;
 use std::io::{Error, ErrorKind};
 
+use egui::mutex::MutexGuard;
+use log::{debug, error, info};
 use tonic::Response;
 
 use crate::auxi;
-use crate::kademlia::node::Identifier;
+use crate::kademlia::node::{Identifier, Node};
 use crate::p2p::peer::Peer;
 use crate::proto;
 use crate::proto::{FindNodeResponse, FindValueResponse, PongPacket, StoreRequest, StoreResponse};
@@ -27,7 +29,7 @@ impl  ResHandler {
 
         match c {
             Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for find node: {}", e);
+                error!("An error has occurred while trying to establish a connection for find node: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
             Ok(mut client) => {
@@ -40,11 +42,11 @@ impl  ResHandler {
                 let res = client.ping(request).await;
                 match res {
                     Err(e) => {
-                        eprintln!("An error has occurred while trying to ping: {{{}}}", e);
+                        error!("An error has occurred while trying to ping: {{{}}}", e);
                         Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                     },
                     Ok(response) => {
-                        println!("Ping Response: {:?}", response.get_ref());
+                        info!("Ping Response: {:?}", response.get_ref());
                         Ok(response)
                     }
                 }
@@ -59,30 +61,30 @@ impl  ResHandler {
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::FindNodeResponse].
 
-    pub async fn find_node(peer: &Peer, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
+    pub async fn find_node(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
         let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
             Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for find node: {}", e);
+                error!("An error has occurred while trying to establish a connection for find node: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
             Ok(mut client) => {
                 let req = proto::FindNodeRequest { // Ask for a node that the server holds
                     id: id.0.to_vec(),
-                    src: auxi::gen_address(peer.node.id.clone(), peer.node.ip.clone(), peer.node.port),
+                    src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
                 };
                 let request = tonic::Request::new(req);
                 let res = client.find_node(request).await;
                 match res {
                     Err(e) => {
-                        eprintln!("An error has occurred while trying to find node: {{{}}}", e);
+                        error!("An error has occurred while trying to find node: {{{}}}", e);
                         Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                     },
                     Ok(response) => {
-                        println!("Find node Response: {:?}", response.get_ref());
+                        info!("Find node Response: {:?}", response.get_ref());
                         Ok(response)
                     }
                 }
@@ -104,7 +106,7 @@ impl  ResHandler {
 
         match c {
             Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for find value: {}", e);
+                error!("An error has occurred while trying to establish a connection for find value: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
             Ok(mut client) => {
@@ -118,11 +120,11 @@ impl  ResHandler {
                 let res = client.find_value(request).await;
                 match res {
                     Err(e) => {
-                        eprintln!("An error has occurred while trying to find value: {{{}}}", e);
+                        error!("An error has occurred while trying to find value: {{{}}}", e);
                         Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                     },
                     Ok(response) => {
-                        println!("Find Value Response: {:?}", response.get_ref());
+                        info!("Find Value Response: {:?}", response.get_ref());
                         Ok(response)
                     }
                 }
@@ -143,7 +145,7 @@ impl  ResHandler {
         let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
             Err(e) => {
-                eprintln!("An error has occurred while trying to establish a connection for store: {}", e);
+                error!("An error has occurred while trying to establish a connection for store: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
             Ok(mut client) => {
@@ -158,11 +160,11 @@ impl  ResHandler {
                 let res = client.store(request).await;
                 match res {
                     Err(e) => {
-                        eprintln!("An error has occurred while trying to store value: {{{}}}", e);
+                        error!("An error has occurred while trying to store value: {{{}}}", e);
                         Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                     },
                     Ok(response) => {
-                        println!("Store Response: {:?}", response.get_ref());
+                        info!("Store Response: {:?}", response.get_ref());
                         Ok(response)
                     }
                 }
