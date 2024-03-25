@@ -64,6 +64,7 @@ impl ReqHandler {
     /// k nearest nodes to the target. Finally, if anything goes wrong, a [Status] will be returned back.
     ///
     pub(crate) async fn find_node(peer: &Peer, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
+        println!("DEBUG REQ_HANDLER::FIND_NODE => Got request from: {:?}", request.remote_addr().unwrap());
         let input = request.get_ref();
         let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing

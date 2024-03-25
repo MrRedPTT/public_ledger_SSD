@@ -75,6 +75,7 @@ impl Peer {
     /// be blocked, and the process will only terminate once a CTRL + C is detected.
     pub async fn init_server(self) -> tokio::sync::oneshot::Receiver<()> {
         let node = self.node.clone();
+        println!("DEBUG PEER::INIT_SERVER => Creating server at {}:{}", node.ip, node.port);
         let server = Server::builder()
             .concurrency_limit_per_connection(40)
             .add_service(PacketSendingServer::new(self))
@@ -94,7 +95,7 @@ impl Peer {
 
         tokio::spawn(async move {
             if let Err(e) = server.await {
-                error!("Server error: {}", e);
+                println!("Server error: {}", e);
             }
         });
         shutdown_rx // Channel to receive shutdown signal from the server thread
@@ -113,14 +114,17 @@ impl Peer {
 
         let mut nodes = peers.clone(); // This will argument is passed so that this function can be used recursively
         if peers.is_none() {
+            debug!("DEBUG PEER::FIND_NODE => No nodes as arguments passed");
             nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(id.clone());
+        } else {
+            debug!("DEBUG PEER::FIND_NODE => Argument Nodes: {:?}", peers.clone().unwrap());
         }
         let mut arguments: Vec<(String, u32)> = Vec::new();
         if nodes.is_none() {
             return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
         } else {
           for i in nodes.unwrap() {
-              debug!("DEBUGG IN PEER::FIND_NODE -> Peers discovered: {}:{}", i.ip, i.port);
+              println!("DEBUGG IN PEER::FIND_NODE -> Peers discovered: {}:{}", i.ip, i.port);
               arguments.push((i.ip.clone(), i.port))
           }
         }
@@ -178,7 +182,6 @@ impl Peer {
             }
             Self::find_node(self, id, Some(errors)).await
         }
-        //ResHandler::find_node(self, ip, port, &id).await
     }
 
     /// # Find Value Request

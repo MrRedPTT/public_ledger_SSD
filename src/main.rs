@@ -25,6 +25,8 @@ async fn main() {
 
     let node1 = Node::new("127.0.0.1".to_string(), 8888).expect("Failed to create Node1");
     let node2 = &Node::new("127.0.0.1".to_string(), 9999).expect("Failed to create Node2");
+    let node3 = &Node::new("127.0.46.1".to_string(), 8935).expect("Failed to create Node2");
+    let mut server_node = node1.clone();
 
     let args: Vec<String> = env::args().collect();
 
@@ -33,10 +35,16 @@ async fn main() {
     if server.to_string() == "1" {
         server_bool = true;
         println!("Argument \"1\" passed, creating server...");
+    } else if server.to_string() == "3" {
+        server_bool = true;
+        println!("Argument \"3\" passed, creating server...");
+        server_node = node3.clone();
     }
+    let rpc = Peer::new(&server_node).await.unwrap();
+    if server.to_string() == "3" {let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.54.123.2".to_string(),9981).unwrap());}
 
     if server_bool {
-        let rpc = Peer::new(&node1).await.unwrap();
+
         // Here we are going to add some random ips
         for i in 1..=255 {
             for j in 0..=255{
@@ -71,6 +79,7 @@ async fn main() {
         }
 
         //let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
+        println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
         println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None).await);
         println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None).await);
         /*
