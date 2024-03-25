@@ -67,7 +67,7 @@ impl  ResHandler {
         let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
             Err(e) => {
-                println!("An error has occurred while trying to establish a connection for find node: {}", e);
+                error!("An error has occurred while trying to establish a connection for find node: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
             Ok(mut client) => {
@@ -89,6 +89,8 @@ impl  ResHandler {
                     }
                 }
             }
+            // Here can be placed some Cleanup Code
+
         }
     }
 

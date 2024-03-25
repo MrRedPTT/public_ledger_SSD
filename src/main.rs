@@ -80,8 +80,8 @@ async fn main() {
 
         //let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
         println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None).await);
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
         /*
         let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, auxi::gen_id("127.0.0.4:8889".to_string())).await;
         let _ = peer.ping("127.0.0.1", 8888).await;

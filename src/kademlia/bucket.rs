@@ -1,5 +1,6 @@
 #[doc(inline)]
 use std::collections::VecDeque;
+
 use crate::kademlia::node::{Identifier, Node};
 
 /// Defines the maximum number of nodes allowed per bucket
@@ -59,6 +60,23 @@ impl Bucket {
         }
     }
 
+    /// # send_back_specific_node
+    /// In some instances, the user may send a request
+    /// to a node which is not on top of the list
+    /// This function moves a node in an arbitrary position
+    /// to the back
+    pub fn send_back_specific_node(&mut self, node: Node) {
+        let mut count: usize = 0;
+        for i in self.map.iter() {
+            if *i == node.clone() {
+                self.map.remove(count);
+                self.map.push_back(node.clone());
+                return;
+            }
+            count += 1;
+        }
+    }
+
 
     /// # remove
     /// Attempts to remove a node according to the [id](Identifier) passed.
@@ -78,7 +96,6 @@ impl Bucket {
 mod tests {
     use crate::kademlia::bucket::Bucket;
     use crate::kademlia::node::Node;
-
 
     #[test]
     fn test_add () {

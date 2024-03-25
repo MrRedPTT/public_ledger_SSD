@@ -63,6 +63,11 @@ impl KBucket {
         self.buckets[index].send_back();
     }
 
+    pub fn send_back_specific_node(&mut self, node: &Node) {
+        let index = MAX_BUCKETS - auxi::xor_distance(&self.id, &node.id);
+        self.buckets[index].send_back_specific_node(node.clone());
+    }
+
     /// # get
     /// Attempts to get a node from the correct [Bucket] according to the passed [id](Identifier).
     ///

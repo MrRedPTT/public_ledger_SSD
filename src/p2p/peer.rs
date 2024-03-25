@@ -109,22 +109,36 @@ impl Peer {
 
     #[async_recursion]
     /// # Find Node Request
-    /// Proxy for the [ResHandler::find_node] function.
-    pub async fn find_node(&self, id: Identifier, peers: Option<Vec<Node>>) -> Result<Response<FindNodeResponse> , io::Error>{
+    /// The actual logic used to send the request is defined in [ResHandler::find_node]
+    /// This function will look at the node provide, determine which nodes it should contact in
+    /// order to obtain the information and then send the request to those nodes in parallel
+    /// If any of the nodes return the target node then simply return it back, otherwise, collect the
+    /// forwarding nodes returned, remove duplicates, and call this function recursively over those nodes
+    /// and do that over and over again until either, the target node is found, or the nodes stop responding
+    ///
+    /// #### Info
+    /// If you're calling this function both the [peers] and [already_checked] arguments should be passed as [None]
+    pub async fn find_node(&self, id: Identifier, peers: Option<Vec<Node>>, already_checked: Option<Vec<Node>>) -> Result<Response<FindNodeResponse> , io::Error>{
 
         let mut nodes = peers.clone(); // This will argument is passed so that this function can be used recursively
+        let mut node_list: Vec<Node> = Vec::new();
+        let mut already_checked_list: Vec<Node> = Vec::new();
         if peers.is_none() {
             debug!("DEBUG PEER::FIND_NODE => No nodes as arguments passed");
             nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(id.clone());
         } else {
             debug!("DEBUG PEER::FIND_NODE => Argument Nodes: {:?}", peers.clone().unwrap());
+            if !already_checked.is_none() {
+                already_checked_list = already_checked.unwrap();
+            }
         }
         let mut arguments: Vec<(String, u32)> = Vec::new();
         if nodes.is_none() {
             return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
         } else {
-          for i in nodes.unwrap() {
-              println!("DEBUGG IN PEER::FIND_NODE -> Peers discovered: {}:{}", i.ip, i.port);
+            node_list = nodes.unwrap();
+          for i in &node_list{
+              debug!("DEBUGG IN PEER::FIND_NODE -> Peers discovered: {}:{}", i.ip, i.port);
               arguments.push((i.ip.clone(), i.port))
           }
         }
@@ -149,6 +163,7 @@ impl Peer {
         // Output results
         let mut errors: Vec<Node> = Vec::new();
         let mut query_result: Option<Response<FindNodeResponse>> = None;
+        let mut counter: usize = 0;
         for task in tasks {
             let result = task.await.expect("Failed to retrieve task result");
             match result {
@@ -163,13 +178,17 @@ impl Peer {
                     } else {
                         for n in <std::option::Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
                             let temp = Node::new(n.ip, n.port).unwrap();
-                            if !errors.contains(&temp) {
-                                errors.push(temp);
+                            if !errors.contains(&temp) && !already_checked_list.contains(&temp){
+                                errors.push(temp.clone());
+                                already_checked_list.push(temp);
                             }
                         }
                     }
                 }
             }
+            // Move the node we just contacted to the back of the list
+            let _ = self.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
+            counter += 1;
         }
         debug!("DEBUG PEER::FIND_NODE -> No node found here are the nodes to communicate next");
         if !query_result.is_none(){
@@ -178,9 +197,16 @@ impl Peer {
             return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
         } else {
             for i in &errors {
-                println!("Node: {}:{}", i.ip, i.port);
+                info!("Node: {}:{}", i.ip, i.port);
             }
-            Self::find_node(self, id, Some(errors)).await
+            // Check if the list is empty, if true, send None
+            // otherwise send the already_checked_list as argument
+            if already_checked_list.len() == 0 {
+                Self::find_node(self, id, Some(errors), None).await
+            } else {
+                Self::find_node(self, id, Some(errors), Some(already_checked_list)).await
+            }
+
         }
     }
 

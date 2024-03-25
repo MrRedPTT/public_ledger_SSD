@@ -118,6 +118,8 @@ impl Kademlia {
         self.kbuckets.send_back(node);
     }
 
+    pub fn send_back_specific_node(&mut self, node: &Node){self.kbuckets.send_back_specific_node(node);}
+
     /// # get_node
     /// Proxy for the [KBucket::get] function.
     /// Attempts to fetch a node by a given [id](Identifier).
