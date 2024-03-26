@@ -34,7 +34,7 @@ impl  ResHandler {
             .map(char::from)
             .collect();
 
-        let randID = auxi::gen_id(rand_str);
+        let rand_id = auxi::gen_id(rand_str);
 
         let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
 
@@ -47,7 +47,7 @@ impl  ResHandler {
                 let req = proto::PingPacket {
                     src: auxi::gen_address(peer.node.id.clone(), peer.node.ip.clone(), peer.node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
-                    rand_id: randID.0.to_vec()
+                    rand_id: rand_id.0.to_vec()
                 };
 
                 let request = tonic::Request::new(req);
@@ -59,7 +59,7 @@ impl  ResHandler {
                     },
                     Ok(response) => {
                         info!("Ping Response: {:?}", response.get_ref());
-                        if response.get_ref().rand_id != randID.0.to_vec() {
+                        if response.get_ref().rand_id != rand_id.0.to_vec() {
                             return Err(io::Error::new(ErrorKind::InvalidData, "The random ID provided on the Ping was not echoed back"));
                         }
                         Ok(response)

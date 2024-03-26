@@ -94,6 +94,14 @@ async fn main() {
             key_server1_should_have.0[ID_LEN - 1] = 0;
         }
 
+        let server = peer.clone();
+        // TODO
+        // Right now the we can't have the same object sharing the server and client
+        // This because the init_server method consumes the object.
+        // This is a problem since we want the responses (which contain data) to be accessible by both
+        // but for now we separate them for testing purposes
+        let _ = server.init_server().await;
+
         println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
         println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
         println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);

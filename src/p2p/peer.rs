@@ -34,19 +34,46 @@ impl PacketSending for Peer {
     /// # Store Handler
     /// This function acts like a proxy function to the [ReqHandler::store]
     async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
-        ReqHandler::store(self, request).await
+        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
+        match pong {
+            Err(e) => {
+                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                return Err(Status::aborted(e.to_string()));
+            }
+            Ok(_) => {
+                ReqHandler::store(self, request).await
+            }
+        }
     }
 
     /// # Find_Node Handler
     /// This function acts like a proxy function to the [ReqHandler::find_node]
     async fn find_node(&self, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
-        ReqHandler::find_node(self, request).await
+        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
+        match pong {
+            Err(e) => {
+                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                return Err(Status::aborted(e.to_string()));
+            }
+            Ok(_) => {
+                ReqHandler::find_node(self, request).await
+            }
+        }
     }
 
     /// # Find_Value Handler
     /// This function acts like a proxy function to the [ReqHandler::find_value]
     async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
-        ReqHandler::find_value(self, request).await
+        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
+        match pong {
+            Err(e) => {
+                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                return Err(Status::aborted(e.to_string()));
+            }
+            Ok(_) => {
+                ReqHandler::find_value(self, request).await
+            }
+        }
     }
 }
 impl Peer {
