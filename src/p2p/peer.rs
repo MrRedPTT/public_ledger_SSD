@@ -34,7 +34,6 @@ impl PacketSending for Peer {
     /// # Store Handler
     /// This function acts like a proxy function to the [ReqHandler::store]
     async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
-        println!("DEBUG PEER::STORE_HANDLER -> Got a Store Request");
         ReqHandler::store(self, request).await
     }
 
@@ -76,7 +75,7 @@ impl Peer {
     /// be blocked, and the process will only terminate once a CTRL + C is detected.
     pub async fn init_server(self) -> tokio::sync::oneshot::Receiver<()> {
         let node = self.node.clone();
-        println!("DEBUG PEER::INIT_SERVER => Creating server at {}:{}", node.ip, node.port);
+        debug!("DEBUG PEER::INIT_SERVER => Creating server at {}:{}", node.ip, node.port);
         let server = Server::builder()
             .concurrency_limit_per_connection(40)
             .add_service(PacketSendingServer::new(self))
@@ -315,7 +314,7 @@ impl Peer {
         } else {
             node_list = nodes.unwrap();
             debug!("DEBUGG IN PEER::STORE -> NodeList len: {}", node_list.len());
-            println!("DEBUGG IN PEER:STORE -> Contains server3: {}", node_list.contains(&Node::new("127.0.46.1".to_string(), 8935).unwrap()));
+            debug!("DEBUGG IN PEER:STORE -> Contains server3: {}", node_list.contains(&Node::new("127.0.46.1".to_string(), 8935).unwrap()));
             for i in &node_list{
                 debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
                 arguments.push((i.ip.clone(), i.port))

@@ -78,46 +78,31 @@ async fn main() {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
         }
 
-        let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
-        let mut key_server_should_have = auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string());
+        let mut key_server3_should_have = auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string());
+        let mut key_server1_should_have = node1.id.clone();
 
         // Flip the last bit
-        if key_server_should_have.0[ID_LEN - 1] == 0 {
-            key_server_should_have.0[ID_LEN - 1] = 1;
+        if key_server3_should_have.0[ID_LEN - 1] == 0 {
+            key_server3_should_have.0[ID_LEN - 1] = 1;
         } else {
-            key_server_should_have.0[ID_LEN - 1] = 0;
+            key_server3_should_have.0[ID_LEN - 1] = 0;
         }
-        println!("Distance server:{}\nDistance Key:{}", auxi::xor_distance(&auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string()), &node2.id.clone()), auxi::xor_distance(&key_server_should_have.clone(), &node2.id.clone()));
-        println!("{}\n{}", auxi::vec_u8_to_string(key_server_should_have.clone()), auxi::vec_u8_to_string(auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string())));
+
+        if key_server1_should_have.0[ID_LEN - 1] == 0 {
+            key_server1_should_have.0[ID_LEN - 1] = 1;
+        } else {
+            key_server1_should_have.0[ID_LEN - 1] = 0;
+        }
+
+        println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
         println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
         println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
         println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
-        println!("Result -> {:?}", peer.store(key_server_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        println!("Result -> {:?}", peer.find_value(key_server_should_have, None, None).await);
+        println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
+        println!("Result -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
+        println!("Result -> {:?}", peer.find_value(key_server1_should_have, None, None).await);
 
-        /*
-        let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, auxi::gen_id("127.0.0.4:8889".to_string())).await;
-        let _ = peer.ping("127.0.0.1", 8888).await;
-        println!("{:?}", peer.ping("127.0.0.1", 7777).await);
-        let _ = peer.find_value(target_node.ip.clone(), target_node.port, auxi::gen_id("Some Key".to_string())).await;
-        let _ = peer.find_value(target_node.ip.clone(), target_node.port, auxi::gen_id("Some Key2".to_string())).await;
-        let _ = peer.store(target_node.ip.clone(), target_node.port, auxi::gen_id("Some Key2".to_string()), "Some Value2".to_string()).await; // This returns a LocalStore
-        let _ = peer.find_value(target_node.ip.clone(), target_node.port, auxi::gen_id("Some Key2".to_string())).await;
-
-        let mut key = auxi::gen_id(format!("{}:{}", "127.0.0.20", 8888 +20).to_string()); // Generate an id equal to another node
-        let mut key_server_should_have = auxi::gen_id(format!("{}:{}", "127.0.0.1", 8888).to_string());
-
-        // Flip the last bit
-        if key.0[ID_LEN -2 ] == 0 {
-            key.0[ID_LEN -2 ] = 1;
-        } else {
-            key.0[ID_LEN -2 ] = 0;
-        }
-
-        let _ = peer.store(target_node.ip.clone(), target_node.port, key, "Some Value2".to_string()).await;
-        let _ = peer.store(target_node.ip.clone(), target_node.port, key_server_should_have.clone(), "Value Server Should Have".to_string()).await;
-        let _ = peer.find_value(target_node.ip.clone(), target_node.port, key_server_should_have.clone()).await;
-        */
     }
 }
 

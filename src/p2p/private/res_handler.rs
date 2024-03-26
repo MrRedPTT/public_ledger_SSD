@@ -3,6 +3,8 @@ use std::io::{Error, ErrorKind};
 
 use egui::mutex::MutexGuard;
 use log::{debug, error, info};
+use rand::distributions::Alphanumeric;
+use rand::Rng;
 use tonic::Response;
 
 use crate::auxi;
@@ -25,6 +27,15 @@ impl  ResHandler {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
 
+        // Generate a random string
+        let rand_str: String = rand::thread_rng()
+            .sample_iter(&Alphanumeric)
+            .take(64)
+            .map(char::from)
+            .collect();
+
+        let randID = auxi::gen_id(rand_str);
+
         let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
 
         match c {
@@ -35,7 +46,8 @@ impl  ResHandler {
             Ok(mut client) => {
                 let req = proto::PingPacket {
                     src: auxi::gen_address(peer.node.id.clone(), peer.node.ip.clone(), peer.node.port),
-                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
+                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                    rand_id: randID.0.to_vec()
                 };
 
                 let request = tonic::Request::new(req);
@@ -47,6 +59,9 @@ impl  ResHandler {
                     },
                     Ok(response) => {
                         info!("Ping Response: {:?}", response.get_ref());
+                        if response.get_ref().rand_id != randID.0.to_vec() {
+                            return Err(io::Error::new(ErrorKind::InvalidData, "The random ID provided on the Ping was not echoed back"));
+                        }
                         Ok(response)
                     }
                 }

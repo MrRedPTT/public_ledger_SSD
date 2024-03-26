@@ -26,11 +26,13 @@ message PingPacket {
     // Maybe add the Identifier entry
     Address src = 1;
     Address dst = 2;
+    bytes randID = 3;
 }
 
 message PongPacket {
   Address src = 1;
   Address dst = 2;
+  bytes randID = 3;
 }
 
 message FindNodeRequest {

@@ -32,6 +32,7 @@ impl ReqHandler {
     /// handling the request or processing the response.
 
     pub(crate) async fn ping(peer: &Peer, request: Request<PingPacket>) -> Result<Response<PongPacket>, Status> {
+        println!("Got a Ping from => {:?}", request.remote_addr().unwrap());
         let input = request.get_ref();
         if input.src.is_none() || input.dst.is_none() {
             return Err(Status::invalid_argument("Source and/or destination not found"));
@@ -45,7 +46,8 @@ impl ReqHandler {
 
         let pong = PongPacket {
             src: auxi::return_option(Address{id: node.id.0.to_vec(), ip: node.ip, port: node.port}),
-            dst: input.clone().src
+            dst: input.clone().src,
+            rand_id: input.clone().rand_id
         };
 
         info!("Got a Ping from: {}:{}", input.clone().src.unwrap().ip, input.clone().src.unwrap().port);
@@ -69,7 +71,7 @@ impl ReqHandler {
     /// k nearest nodes to the target. Finally, if anything goes wrong, a [Status] will be returned back.
     ///
     pub(crate) async fn find_node(peer: &Peer, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
-        println!("DEBUG REQ_HANDLER::FIND_NODE => Got request from: {:?}", request.remote_addr().unwrap());
+        println!("Got a Find Node from => {:?}", request.remote_addr().unwrap());
         let input = request.get_ref();
         let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
@@ -274,6 +276,7 @@ impl ReqHandler {
         //
         // We decided to go with the second option given that the first would require the 1st node to wait for the 2nd, the 2nd for the 3rd,
         // the 3rd for the 4th and so on. Which, in a big network would become very problematic
+        println!("Got a Store from => {:?}", request.remote_addr().unwrap());
         let input = request.get_ref();
         let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
