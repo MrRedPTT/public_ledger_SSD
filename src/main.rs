@@ -78,7 +78,7 @@ async fn main() {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
         }
 
-        //let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
+        let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
         let mut key_server_should_have = auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string());
 
         // Flip the last bit
@@ -90,10 +90,10 @@ async fn main() {
         println!("Distance server:{}\nDistance Key:{}", auxi::xor_distance(&auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string()), &node2.id.clone()), auxi::xor_distance(&key_server_should_have.clone(), &node2.id.clone()));
         println!("{}\n{}", auxi::vec_u8_to_string(key_server_should_have.clone()), auxi::vec_u8_to_string(auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string())));
         println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
-        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
-        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
         println!("Result -> {:?}", peer.store(key_server_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        println!("Result -> {:?}", peer.find_value(node3.clone().ip, node3.port, key_server_should_have).await);
+        println!("Result -> {:?}", peer.find_value(key_server_should_have, None, None).await);
 
         /*
         let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, auxi::gen_id("127.0.0.4:8889".to_string())).await;

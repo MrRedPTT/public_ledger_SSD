@@ -89,8 +89,6 @@ impl  ResHandler {
                     }
                 }
             }
-            // Here can be placed some Cleanup Code
-
         }
     }
 
@@ -100,7 +98,7 @@ impl  ResHandler {
     ///
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::FindValueResponse].
-    pub(crate) async fn find_value(peer: &Peer, ip: String, port: u32, id: Identifier) -> Result<Response<FindValueResponse> , io::Error> {
+    pub(crate) async fn find_value(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindValueResponse> , io::Error> {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
 
@@ -114,7 +112,7 @@ impl  ResHandler {
             Ok(mut client) => {
                 let req = proto::FindValueRequest {
                     value_id: id.0.to_vec(),
-                    src: auxi::gen_address(peer.node.id.clone(), peer.node.ip.clone(), peer.node.port),
+                    src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
                 };
 
