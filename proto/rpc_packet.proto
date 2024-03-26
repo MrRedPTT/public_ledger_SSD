@@ -90,7 +90,7 @@ message StoreRequest {
 enum StoreType {
   UNKNOWN_TYPE_STORE = 0; // Error may have occurred
   LocalStore = 1; // The recipient node stored the value
-  Forwarding = 2; // The recipient node forwarded the request to the closest node
+  RemoteStore = 2; // The recipient has received notice that someone else along the line store the value
 }
 
 message StoreResponse {

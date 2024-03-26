@@ -1,3 +1,7 @@
+use std::io;
+use std::io::ErrorKind;
+use std::sync::Arc;
+
 use log::{debug, error, info};
 #[doc(inline)]
 use tonic::{Request, Response, Status};
@@ -5,6 +9,7 @@ use tonic::{Request, Response, Status};
 use crate::{auxi, kademlia, proto};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::p2p::peer::Peer;
+use crate::p2p::private::res_handler::ResHandler;
 use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse};
 
 /// # Request Handler
@@ -282,12 +287,13 @@ impl ReqHandler {
             src_id_array[i] = src.id[i];
         }
 
-        let mut mutex_guard = peer.kademlia.lock().unwrap();
-        let nodes = mutex_guard.is_closest(&Identifier::new(id_array));
+        //let mut mutex_guard = peer.kademlia.lock().unwrap();
+        let nodes = peer.kademlia.lock().unwrap().is_closest(&Identifier::new(id_array));
+        let mut node_list: Vec<Node> = Vec::new();
         if nodes.is_none() {
             // Means we are the closest node to the key
-            mutex_guard.add_key(Identifier::new(id_array), input.value.clone());
-            return if !mutex_guard.get_value(Identifier::new(id_array)).is_none() {
+            peer.kademlia.lock().unwrap().add_key(Identifier::new(id_array), input.value.clone());
+            return if !peer.kademlia.lock().unwrap().get_value(Identifier::new(id_array)).is_none() {
                 let response = StoreResponse {
                     response_type: 1
                 };
@@ -297,43 +303,65 @@ impl ReqHandler {
             }
         } else {
             // Means we are not the closest node
-            let mut thread_number = 0;
             let const_input = input.value.clone();
-            // TODO
-            // limit the amount of threads
-            for i in nodes.unwrap() {
-                let url = format!("http://{}:{}", i.ip, i.port);
-                let inp = const_input.clone();
-                let my_node = peer.node.clone();
-                let d = dst.clone(); // Since the thread will continue after the return we need a way to a hard copy of the object
-                tokio::spawn(async move {
-                    // Here we could use the peer.store() function
-                    // However, that would imply consuming the peer object or
-                    // forcing the usage of more mutexes, something we are trying to avoid
-                    debug!("DEBUG IN REQ_HANDLER::STORE => Thread {} initiated!", thread_number);
-                    let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
-                    if c.is_err() {
-                        error!("Error trying to store. Connection refused/timeout");
-                        return;
-                    }
-                    let mut client = c.unwrap();
-                    let req = StoreRequest {
-                        key: id_array.to_vec(),
-                        value: inp.clone(),
-                        src: auxi::gen_address(my_node.id.clone(), my_node.ip.clone(), my_node.port),
-                        dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", d.ip.clone(), dst.port.clone()).to_string()), d.ip.clone().to_string(), dst.port),
-                    };
 
-                    let request = tonic::Request::new(req);
-                    let _ = client.store(request).await.expect("Error while trying to store");
-                    debug!("DEBUG IN REQ_HANDLER::STORE => Thread {} terminated!", thread_number);
-                });
-                thread_number += 1;
+            let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the amount of threads
+
+            let mut arguments: Vec<(String, u32)> = Vec::new();
+            if nodes.is_none() {
+                return Err(tonic::Status::internal("Failed to find any nodes to send the request to"));
+            } else {
+                node_list = nodes.unwrap();
+                for i in &node_list{
+                    debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
+                    arguments.push((i.ip.clone(), i.port))
+                }
             }
-            // no pool.join() here since we want the response to be sent back
-            // regardless if the nodes responded or not
+
+            let value = input.clone().value;
+            // Process tasks concurrently using Tokio
+            let tasks = arguments.into_iter()
+                .map(|arg| {
+                    let semaphore = semaphore.clone();
+                    let node = peer.node.clone();
+                    let ident = id_array.clone();
+                    let val = value.clone();
+                    tokio::spawn(async move {
+                        // Acquire a permit from the semaphore
+                        let permit = semaphore.acquire().await.expect("Failed to acquire permit");
+                        debug!("DEBUG REQ_HANDLER::STORE -> Contacting: {}:{}", arg.0, arg.1);
+                        let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val).await;
+                        drop(permit);
+                        res
+                    })
+                })
+                .collect::<Vec<_>>();
+
+            let mut errors: Vec<Node> = Vec::new();
+            let mut type_of_return = 0;
+            let mut counter: usize = 0;
+            for task in tasks {
+                let result = task.await.expect("Failed to retrieve task result");
+                match result {
+                    Err(e) => {
+                        error!("Error found: {}", e);
+                    }
+                    Ok(res) => {
+                        let resp_type = res.get_ref().response_type;
+                        if resp_type == 1 || resp_type == 2 {
+                            debug!("DEBUG PEER::STORE -> The node stored it");
+                            type_of_return = 2; // The node stored it (or someone else along the line) so we need to return RemoteStore
+                            break;
+                        }
+                    }
+                }
+                // Move the node we just contacted to the back of the list
+                let _ = peer.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
+                counter += 1;
+            }
+
             let response = StoreResponse {
-                response_type: 2 // Forwarded the request to the k near nodes
+                response_type: type_of_return // Return if someone else along the line stored it or not
             };
             Ok(tonic::Response::new(response))
 

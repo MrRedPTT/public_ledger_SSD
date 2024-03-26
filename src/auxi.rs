@@ -36,7 +36,11 @@ pub fn xor_distance(id1: &Identifier, id2: &Identifier) -> usize {
         res[i] = id1.0[i] ^ id2.0[i];
     }
 
-    return get_leading(res) as usize;
+    let leading = get_leading(res) as usize;
+    if leading == 0 {
+        return 1;
+    }
+    return leading;
 }
 
 // Return the number of leading zeros (aka number of bits different between the two nodes)
@@ -46,6 +50,8 @@ fn get_leading(v: [u8; ID_LEN]) -> u32 {
     for i in v {
         if i == 0 {
             count += 1;
+        } else {
+            return count;
         }
     }
     return count;

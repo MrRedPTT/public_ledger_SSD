@@ -2,7 +2,7 @@ extern crate core;
 
 use std::env;
 
-use crate::kademlia::node::Node;
+use crate::kademlia::node::{ID_LEN, Node};
 use crate::p2p::peer::Peer;
 use crate::proto::packet_sending_server::PacketSending;
 
@@ -46,12 +46,12 @@ async fn main() {
     if server_bool {
 
         // Here we are going to add some random ips
+        let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.0.46.1".to_string(), 8935).unwrap()); // Add server 3
         for i in 1..=255 {
             for j in 0..=255{
                 let ip = format!("127.0.{}.{}", j, i);
                 let port = 8888 + i + j;
-                let kademlia_ref = &mut *rpc.kademlia.lock().unwrap();
-                let _ = kademlia_ref.add_node(&Node::new(ip, port).unwrap());
+                let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new(ip, port).unwrap());
             }
         }
         // Add a key value to the hashmap to be looked up
@@ -79,9 +79,22 @@ async fn main() {
         }
 
         //let _ = peer.ping(target_node.ip.as_ref(), target_node.port).await;
+        let mut key_server_should_have = auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string());
+
+        // Flip the last bit
+        if key_server_should_have.0[ID_LEN - 1] == 0 {
+            key_server_should_have.0[ID_LEN - 1] = 1;
+        } else {
+            key_server_should_have.0[ID_LEN - 1] = 0;
+        }
+        println!("Distance server:{}\nDistance Key:{}", auxi::xor_distance(&auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string()), &node2.id.clone()), auxi::xor_distance(&key_server_should_have.clone(), &node2.id.clone()));
+        println!("{}\n{}", auxi::vec_u8_to_string(key_server_should_have.clone()), auxi::vec_u8_to_string(auxi::gen_id(format!("{}:{}", "127.0.46.1", 8935).to_string())));
         println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
+        println!("Result -> {:?}", peer.store(key_server_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        println!("Result -> {:?}", peer.find_value(node3.clone().ip, node3.port, key_server_should_have).await);
+
         /*
         let _ = peer.find_node(target_node.ip.as_ref(), target_node.port, auxi::gen_id("127.0.0.4:8889".to_string())).await;
         let _ = peer.ping("127.0.0.1", 8888).await;

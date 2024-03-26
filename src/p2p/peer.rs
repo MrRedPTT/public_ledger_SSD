@@ -33,7 +33,8 @@ impl PacketSending for Peer {
 
     /// # Store Handler
     /// This function acts like a proxy function to the [ReqHandler::store]
-    async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status>{
+    async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
+        println!("DEBUG PEER::STORE_HANDLER -> Got a Store Request");
         ReqHandler::store(self, request).await
     }
 
@@ -190,7 +191,6 @@ impl Peer {
             let _ = self.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
             counter += 1;
         }
-        debug!("DEBUG PEER::FIND_NODE -> No node found here are the nodes to communicate next");
         if !query_result.is_none(){
             return Ok(query_result.unwrap());
         } else if errors.len() == 0usize {
@@ -218,8 +218,64 @@ impl Peer {
 
     /// # Store Request
     /// Proxy for the [ResHandler::store] function.
-    pub async fn store(&self, ip: String, port: u32, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
-        ResHandler::store(self, ip, port, key, value).await
+    pub async fn store(&self, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
+
+        let nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(key.clone());
+        let mut node_list: Vec<Node> = Vec::new();
+        let mut arguments: Vec<(String, u32)> = Vec::new();
+        if nodes.is_none() {
+            return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
+        } else {
+            node_list = nodes.unwrap();
+            debug!("DEBUGG IN PEER::STORE -> NodeList len: {}", node_list.len());
+            println!("DEBUGG IN PEER:STORE -> Contains server3: {}", node_list.contains(&Node::new("127.0.46.1".to_string(), 8935).unwrap()));
+            for i in &node_list{
+                debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
+                arguments.push((i.ip.clone(), i.port))
+            }
+        }
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the amount of threads
+
+        // Process tasks concurrently using Tokio
+        let tasks = arguments.into_iter()
+            .map(|arg| {
+                let semaphore = semaphore.clone();
+                let node = self.node.clone();
+                let ident = key.clone();
+                let val = value.clone();
+                tokio::spawn(async move {
+                    // Acquire a permit from the semaphore
+                    let permit = semaphore.acquire().await.expect("Failed to acquire permit");
+                    let res = ResHandler::store(&node, arg.0, arg.1, ident, val).await;
+                    drop(permit);
+                    res
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // Output results
+        let mut errors: Vec<Node> = Vec::new();
+        let mut query_result: Option<Response<StoreResponse>> = None;
+        let mut counter: usize = 0;
+        for task in tasks {
+            let result = task.await.expect("Failed to retrieve task result");
+            match result {
+                Err(e) => {
+                    error!("Error found: {}", e);
+                }
+                Ok(res) => {
+                    if res.get_ref().response_type != 0 {
+                        debug!("DEBUG PEER::STORE -> Either Forwarded or Stored");
+                        return Ok(res);
+                    }
+                }
+            }
+            // Move the node we just contacted to the back of the list
+            let _ = self.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
+            counter += 1;
+        }
+
+        return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
     }
 
 

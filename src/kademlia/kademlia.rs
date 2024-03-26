@@ -72,7 +72,6 @@ impl Kademlia {
         // Remember that the following function returns the amount of 0's to the left
         // Meaning the higher the amount, the closest the 2 ids are
         let own_distance = MAX_BUCKETS - auxi::xor_distance(&self.node.id, key);
-
         let nodes = &self.kbuckets.get_n_closest_nodes(key.clone(), K);
         // If no nodes stored in the bucket with the closest nodes
         // Return None
@@ -118,6 +117,12 @@ impl Kademlia {
         self.kbuckets.send_back(node);
     }
 
+
+    /// # send_back_specific_node
+    /// This function will take a node at an arbitrary position and move it to the back
+    /// of the list
+    /// This is needed in cases where the user contacts a node which is not currently at the top
+    /// of the bucket, in which case [Kademlia::send_back] would be used.
     pub fn send_back_specific_node(&mut self, node: &Node){self.kbuckets.send_back_specific_node(node);}
 
     /// # get_node

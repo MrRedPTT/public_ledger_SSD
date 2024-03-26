@@ -140,7 +140,7 @@ impl  ResHandler {
     /// and on the receiver side, if the receiver is the closest node to the key than stores it, otherwise the receiver itself will forward the key to the k nearest nodes.
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::StoreResponse].
-    pub(crate) async fn store(peer: &Peer, ip: String, port: u32, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
+    pub(crate) async fn store(node: &Node, ip: String, port: u32, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
 
@@ -154,7 +154,7 @@ impl  ResHandler {
                 let req = StoreRequest {
                     key: key.0.to_vec(),
                     value,
-                    src: auxi::gen_address(peer.node.id.clone(), peer.node.ip.clone(), peer.node.port),
+                    src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
                 };
 
