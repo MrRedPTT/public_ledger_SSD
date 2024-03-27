@@ -1,6 +1,7 @@
 extern crate core;
 
 use std::env;
+use std::sync::Arc;
 
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::p2p::peer::Peer;
@@ -40,7 +41,7 @@ async fn main() {
         println!("Argument \"3\" passed, creating server...");
         server_node = node3.clone();
     }
-    let rpc = Peer::new(&server_node).await.unwrap();
+    let rpc = Peer::new(&server_node, None).await.unwrap();
     if server.to_string() == "3" {let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.54.123.2".to_string(),9981).unwrap());}
 
     if server_bool {
@@ -58,21 +59,34 @@ async fn main() {
         let _ = rpc.kademlia.lock().unwrap().add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
 
         // Start Server
+        let kademlia = rpc.get_kad().await;
+        let kademlia_clone = Arc::clone(kademlia);
         let shutdown_rx = rpc.init_server().await;
         println!("Server Loaded!");
+        let client = Peer::new(&node1, Some(kademlia_clone)).await.unwrap();
 
         // In order to keep the server running, we created a new thread which is the one "holding" the main thread
         // from terminating (given the following await)
         // This new thread is only listening for CTRL + C signals, and when it detects one, it attempts to send
         // a value through the oneshot channel which, if successful, will return the value to the receiver,
         // proceeding with the execution, but given that it's the last instruction, the program will terminate
+        let mut key_server1_should_have = node1.id.clone();
+        if key_server1_should_have.0[ID_LEN - 1] == 0 {
+            key_server1_should_have.0[ID_LEN - 1] = 1;
+        } else {
+            key_server1_should_have.0[ID_LEN - 1] = 0;
+        }
+
+        println!("Do I have the key?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        tokio::time::sleep(std::time::Duration::from_secs(40)).await;
+        println!("Do I have the key?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
 
         // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;
 
     } else {
         let target_node = &node1;
-        let peer = &Peer::new(node2).await.unwrap();
+        let peer = &Peer::new(node2, None).await.unwrap();
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
@@ -96,18 +110,17 @@ async fn main() {
 
         let server = peer.clone();
         // TODO
-        // Right now the we can't have the same object sharing the server and client
-        // This because the init_server method consumes the object.
-        // This is a problem since we want the responses (which contain data) to be accessible by both
-        // but for now we separate them for testing purposes
+        // To avoid the previous problem we are now getting a reference to the kademlia attribute
+        // from the server object, but now we need to specify that in order to create the Peer object
+        // we have to implicitly pass the kademlia object, that way we can use the same.
         let _ = server.init_server().await;
 
         println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
         println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
-        println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
+        //println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        //println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
         println!("Result -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
         println!("Result -> {:?}", peer.find_value(key_server1_should_have, None, None).await);
 

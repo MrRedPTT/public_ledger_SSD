@@ -80,13 +80,27 @@ impl Peer {
 
     /// # new
     /// Creates a new instance of the Peer Object
-    pub async fn new(node: &Node) -> Result<Peer, io::Error> {
+    pub async fn new(node: &Node, kad: Option<Arc<Mutex<Kademlia>>>) -> Result<Peer, io::Error> {
+        let mut kademlia;
+        if kad.is_none() {
+            kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
+        } else {
+            kademlia = kad.unwrap();
+        }
+
         Ok(Peer {
             node: node.clone(),
-            kademlia: Arc::new(Mutex::new(Kademlia::new(node.clone())))
+            kademlia
         })
     }
 
+    /// # get_kad
+    /// Just like my father used to say "A tropa manda desenrascar"
+    /// and so we use this method to get a reference to the Kademlia attribute
+    /// before consuming the object
+    pub async fn get_kad(&self) -> &Arc<Mutex<Kademlia>> {
+        return &self.kademlia;
+    }
     /// # init_server
     /// Instantiates a tonic server that will listen for RPC calls. The information used,
     /// namely ip and port, is the one provided through the node.
