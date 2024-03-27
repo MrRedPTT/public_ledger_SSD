@@ -79,28 +79,27 @@ impl PacketSending for Peer {
 impl Peer {
 
     /// # new
-    /// Creates a new instance of the Peer Object
-    pub async fn new(node: &Node, kad: Option<Arc<Mutex<Kademlia>>>) -> Result<Peer, io::Error> {
-        let mut kademlia;
-        if kad.is_none() {
-            kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
-        } else {
-            kademlia = kad.unwrap();
-        }
+    /// Creates two new instances of Peer, the
+    /// server and the client which share the same kademlia attribute.
+    /// They can do the same, however the server should be used only for the init_server()
+    /// given that this function will consume the object. The client will be used to initiate connections
+    /// but with acess to the same information (kademlia object) as the server. This share is made through
+    /// [Arc<Mutex<Kademlia>>] meaning that it's thread safe.
+    pub fn new(node: &Node) -> (Peer, Peer) {
+        let kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
+        let server = Peer {
+            node: node.clone(),
+            kademlia: Arc::clone(&kademlia)
+        };
 
-        Ok(Peer {
+        let client = Peer {
             node: node.clone(),
             kademlia
-        })
+        };
+
+        (server, client) // Return 2 instances of Peer that share the same kademlia object
     }
 
-    /// # get_kad
-    /// Just like my father used to say "A tropa manda desenrascar"
-    /// and so we use this method to get a reference to the Kademlia attribute
-    /// before consuming the object
-    pub async fn get_kad(&self) -> &Arc<Mutex<Kademlia>> {
-        return &self.kademlia;
-    }
     /// # init_server
     /// Instantiates a tonic server that will listen for RPC calls. The information used,
     /// namely ip and port, is the one provided through the node.

@@ -1,7 +1,6 @@
 extern crate core;
 
 use std::env;
-use std::sync::Arc;
 
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::p2p::peer::Peer;
@@ -41,7 +40,7 @@ async fn main() {
         println!("Argument \"3\" passed, creating server...");
         server_node = node3.clone();
     }
-    let rpc = Peer::new(&server_node, None).await.unwrap();
+    let (rpc, client) = Peer::new(&server_node);
     if server.to_string() == "3" {let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.54.123.2".to_string(),9981).unwrap());}
 
     if server_bool {
@@ -59,11 +58,8 @@ async fn main() {
         let _ = rpc.kademlia.lock().unwrap().add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
 
         // Start Server
-        let kademlia = rpc.get_kad().await;
-        let kademlia_clone = Arc::clone(kademlia);
         let shutdown_rx = rpc.init_server().await;
         println!("Server Loaded!");
-        let client = Peer::new(&node1, Some(kademlia_clone)).await.unwrap();
 
         // In order to keep the server running, we created a new thread which is the one "holding" the main thread
         // from terminating (given the following await)
@@ -86,7 +82,7 @@ async fn main() {
 
     } else {
         let target_node = &node1;
-        let peer = &Peer::new(node2, None).await.unwrap();
+        let (peer, client) = &Peer::new(node2);
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
