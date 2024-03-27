@@ -28,7 +28,40 @@ impl PacketSending for Peer {
     /// # Ping Handler
     /// This function acts like a proxy function to the [ReqHandler::ping]
     async fn ping(&self, request: Request<PingPacket>) -> Result<Response<PongPacket>, Status> {
-        ReqHandler::ping(self, request).await
+        let addr = request.remote_addr().unwrap().clone();
+        let src = request.get_ref().src.as_ref().unwrap().clone();
+        let res = ReqHandler::ping(self, request).await;
+        match res {
+            Err(e) => {
+                error!("An error has occurred while receiving the Pong from {}: {}", addr, e);
+                return Err(Status::aborted(e.to_string()));
+            }
+            Ok(pong) => {
+                let node = Node::new(src.ip.clone(), src.port).unwrap();
+                let add_result = self.kademlia.lock().unwrap().add_node(&node);
+                if add_result.is_none() {
+                    // Node was added
+                    return Ok(pong);
+                } else {
+                    let ip = add_result.clone().unwrap().ip;
+                    let port = add_result.clone().unwrap().port;
+                    let top_node_pong = self.ping(ip.as_ref(), port).await;
+                    match top_node_pong {
+                        Err(e) => {
+                            // This means that the top node of the bucket is offline, so let's replace it with the new one
+                            error!("Error while trying to ping {}:{}: {}\nReplacing it with new node", ip, port, e);
+                            self.kademlia.lock().unwrap().replace_node(&node);
+                            return Ok(pong);
+                        }
+                        Ok(_) => {
+                            info!("Top node of the bucket is on, sending it to the back of the list");
+                            self.kademlia.lock().unwrap().send_back(&add_result.unwrap());
+                            return Ok(pong);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// # Store Handler
