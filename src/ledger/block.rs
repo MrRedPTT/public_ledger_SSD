@@ -8,18 +8,21 @@ use crate::ledger::transaction::*;
 
 /// ## BLock
 pub struct Block {
+    pub hash: String,
+
     pub index : usize,
     pub timestamp: u64,
     pub prev_hash: String,
-    pub transactions: Vec<Transaction>,
     pub nonce: u64,
     pub difficulty : usize,
     pub miner_id : String,
-    pub hash: String,
+    pub merkle_tree_root: String,
+    confirmations: usize,
+
+    pub transactions: Vec<Transaction>,
 }
 
 impl Block {
-
     /// creates a new block with a single transaction (the miner reward)
     pub fn new(index: usize, 
                prev_hash: String, 
@@ -34,7 +37,10 @@ impl Block {
             nonce : 0,
             difficulty,
             miner_id: miner_id.clone(),
-            hash: "".to_string()
+            confirmations: 0,
+
+            hash: "".to_string(),
+            merkle_tree_root: "".to_string()
         };
 
         block.add_transaction( Transaction::new(miner_reward,
@@ -51,6 +57,7 @@ impl Block {
     ///- **outputs:**
     ///    returns true when the block is mined with success
     pub fn mine(&mut self) -> bool {
+        self.calculate_merkle_tree();
         loop {
             if self.check_hash() {
                 self.hash = self.calculate_hash();
@@ -71,8 +78,11 @@ impl Block {
     pub fn calculate_hash(&self) -> String {
         // Use Sha512 to hash the concatenated string of data, timestamp, prev_hash and a nonce
         let mut hasher = Sha512::new();
-        let trans = self.transactions_to_string();
-        hasher.update(format!("{}{}{}{}",trans, self.timestamp, &self.prev_hash, self.nonce));
+        hasher.update(format!("{}{}{}{}",
+                              self.merkle_tree_root, 
+                              self.timestamp, 
+                              &self.prev_hash, 
+                              self.nonce));
         let hash_result = hasher.finalize();
 
         let hash_hex = hash_result.iter()
@@ -92,11 +102,79 @@ impl Block {
         return self.transactions.len()
     }
 
-    /// returns a string of all the transactions inside this block 
-    pub fn transactions_to_string(&self) -> String{
-        return  self.transactions.iter()
-            .map(|t| t.to_string())
-            .collect::<String>();
+    /// returns the root of the merkle tree 
+    /// Sets the object property to the result of the computation
+    /// returns true if successful 
+    pub fn calculate_merkle_tree(&mut self) -> bool {
+        fn hash2(s1:String, s2:String) -> String {
+            let mut hasher = Sha512::new();
+            hasher.update(format!("{}{}",s1,s2));
+            let hash_result = hasher.finalize();
+
+            let hash_hex = hash_result.iter()
+                .map(|byte| format!("{:02x}",byte))
+                .collect::<Vec<String>>()
+                .join("");
+            hash_hex
+        }
+
+        let n_transac = self.transactions.len();
+
+        if n_transac  == 0 {
+            return false;
+        }
+        else if n_transac == 1 {
+            self.merkle_tree_root = self.transactions[0].to_hash();
+            return true;
+        }
+
+        let mut fin: Vec<String>;
+
+
+        if n_transac % 2 == 1 && n_transac >= 3 {
+            let (first, rest) = self.transactions.split_at(2);
+            let a = hash2(first[0].to_hash(),first[1].to_hash());
+            fin = vec![a];
+            fin.extend(rest.iter()
+                    .map(|trans| trans.to_hash() )
+                    .collect::<Vec<String>>());
+        }else {
+            fin = self.transactions.iter()
+                    .map(|trans| trans.to_hash() )
+                    .collect::<Vec<String>>();
+        }
+        
+        
+        loop {
+            if fin.len() == 1 {
+                break;
+            }
+            
+            let mut  temp = Vec::new();
+            
+            for pair in fin.chunks(2) {
+                let first = pair[0].clone();
+                if pair.len() == 1 {
+                    temp.push(first);
+                    continue;
+                }
+                
+                let second = pair[1].clone();
+                temp.push(hash2(first, second));
+            }
+           // println!("temp: {:?}", temp);
+            fin = temp;
+        }
+        //println!("temp: {:?}", fin);
+        self.merkle_tree_root = fin[0].clone();
+        return true;
+    }
+
+    pub fn add_confirmation(&mut self) {
+        self.confirmations +=1;
+    }
+    pub fn get_confirmations(&self) -> usize {
+        return self.confirmations;
     }
 }
 
