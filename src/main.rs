@@ -3,6 +3,7 @@ extern crate core;
 use std::env;
 
 use crate::kademlia::node::{ID_LEN, Node};
+use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
 use crate::proto::packet_sending_server::PacketSending;
 
@@ -67,15 +68,23 @@ async fn main() {
         // a value through the oneshot channel which, if successful, will return the value to the receiver,
         // proceeding with the execution, but given that it's the last instruction, the program will terminate
         let mut key_server1_should_have = node1.id.clone();
+        let mut key_server3_should_have = node3.id.clone();
         if key_server1_should_have.0[ID_LEN - 1] == 0 {
             key_server1_should_have.0[ID_LEN - 1] = 1;
         } else {
             key_server1_should_have.0[ID_LEN - 1] = 0;
         }
+        if key_server3_should_have.0[ID_LEN - 1] == 0 {
+            key_server3_should_have.0[ID_LEN - 1] = 1;
+        } else {
+            key_server3_should_have.0[ID_LEN - 1] = 0;
+        }
 
-        println!("Do I have the key?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
-        tokio::time::sleep(std::time::Duration::from_secs(40)).await;
-        println!("Do I have the key?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        println!("Do I have the key1?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        println!("Do I have the key3?: {}", !client.kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        println!("Do I have the key1?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        println!("Do I have the key3?: {}", !client.kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
 
         // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;
@@ -104,6 +113,14 @@ async fn main() {
             key_server1_should_have.0[ID_LEN - 1] = 0;
         }
 
+        let transaction = Transaction {
+            from: "".to_string(),
+            to: "".to_string(),
+            amount_in: 0.0,
+            amount_out: 0.0,
+            miner_fee: 0.0,
+        };
+
         let server = peer.clone();
         // TODO
         // To avoid the previous problem we are now getting a reference to the kademlia attribute
@@ -111,12 +128,14 @@ async fn main() {
         // we have to implicitly pass the kademlia object, that way we can use the same.
         let _ = server.init_server().await;
 
+
+        println!("{:?}", peer.send_transaction(transaction, None, None).await);
         println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
         println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
-        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
-        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
-        //println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        //println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
+        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
+        println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
         println!("Result -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
         println!("Result -> {:?}", peer.find_value(key_server1_should_have, None, None).await);
 

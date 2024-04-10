@@ -1,5 +1,6 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
 package rpcpacket;
 
 service PacketSending {
@@ -7,7 +8,7 @@ service PacketSending {
   rpc Store(StoreRequest) returns (StoreResponse);  // Kademlia
   rpc FindNode(FindNodeRequest) returns (FindNodeResponse); // Kademlia
   rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
-  // rpc SendTransaction // BlockChain
+  rpc SendTransaction(TransactionBroadcast) returns (google.protobuf.Empty); // BlockChain
   // rpc SendBlock // BlockChain
   // rpc GetBlock(id) // BlockChain => Ask for a block already in the blockchain
 }
@@ -97,4 +98,38 @@ enum StoreType {
 
 message StoreResponse {
   StoreType ResponseType = 1;
+}
+
+message Transaction {
+  string from = 1;
+  string to = 2;
+  double amount_in = 3;
+  double amount_out = 4;
+  double miner_fee = 5;
+}
+
+message Block {
+  string hash = 1;
+  uint64 index = 2;
+  uint64 timestamp = 3;
+  string prev_hash = 4;
+  uint64 nonce = 5;
+  uint64 difficulty = 6;
+  string miner_id = 7;
+  string merkle_tree_root = 8;
+  uint64 confirmations = 9;
+  repeated Transaction transactions = 10;
+}
+
+message TransactionBroadcast {
+  Address src = 1;
+  Address dst = 2;
+  Transaction transaction = 3;
+  uint32 ttl = 4; // Limit the amount of hops the request will make to avoid overloading the network (let's make 15)
+}
+
+message BlockBroadcast {
+  Address src = 1;
+  Address dst = 2;
+  Block block = 3;
 }

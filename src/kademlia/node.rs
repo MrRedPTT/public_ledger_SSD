@@ -1,9 +1,10 @@
 #[doc(inline)]
 use core::fmt;
 use std::net::IpAddr;
-use sha3::{Digest};
-use crate::auxi;
 
+use sha3::Digest;
+
+use crate::auxi;
 
 pub const ID_LEN: usize = 256; // Size in bits of SHA3_256 output (This is the hashing algorithm defined in Kademlia's documentation)
 /// Identifier Type
@@ -49,7 +50,7 @@ impl Node {
 
         match ip.parse::<IpAddr>(){
             Ok(ip) => {
-                if port > 65535 || port < 0 {
+                if port > 65535 {
                     eprintln!("{} is an invalid port, try a value between 0 - 65535", port);
                     return None; // Return none if port is invalid
                 }

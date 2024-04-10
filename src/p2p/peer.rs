@@ -11,10 +11,14 @@ use tonic::transport::Server;
 
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::{Identifier, Node};
+use crate::ledger::transaction::Transaction;
+use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler::ReqHandler;
 use crate::p2p::private::res_handler::ResHandler;
-use crate::proto::{FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse};
+use crate::proto::{FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
+
+pub const TTL: u32 = 15; // The default ttl for broadcast messages
 
 #[derive(Debug, Clone)]
 pub struct Peer {
@@ -108,15 +112,48 @@ impl PacketSending for Peer {
             }
         }
     }
+
+    // ===================== BlockChain Network APIs (Server Side) ============================ //
+    async fn send_transaction(&self, request: Request<TransactionBroadcast>) -> Result<Response<()>, Status> {
+        // This is a broadcast so there is no need to ping back the sender
+        let input = request.get_ref();
+        let packed = input.transaction.clone();
+        if packed.is_none() {
+            return Err(Status::invalid_argument("The provided transaction is invalid"));
+        }
+        let unpacked = packed.unwrap();
+        let mut transaction: Transaction = Transaction{
+            from: unpacked.from,
+            to: unpacked.to,
+            amount_in: unpacked.amount_in,
+            amount_out: unpacked.amount_out,
+            miner_fee: unpacked.miner_fee,
+        };
+        println!("Reveived a Transaction: {:?} with TTL: {}", transaction, input.ttl);
+
+        // TODO
+        // Verify if the transaction we just received is one we already have, if yes then drop the request
+        // Add the function handler which will deal with what to do with the transaction
+
+        if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
+            // Propagate
+            let ttl: u32 = input.ttl.clone() - 1;
+            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
+            BroadCastReq::send_transaction(self, transaction, Some(ttl), Some(sender)).await;
+        }
+        return Ok(tonic::Response::new(()));
+    }
+
+
 }
 impl Peer {
 
     /// # new
     /// Creates two new instances of Peer, the
     /// server and the client which share the same kademlia attribute.
-    /// They can do the same, however the server should be used only for the init_server()
+    /// They can do the same, however, the server should be used only for the init_server()
     /// given that this function will consume the object. The client will be used to initiate connections
-    /// but with acess to the same information (kademlia object) as the server. This share is made through
+    /// but with access to the same information (kademlia object) as the server. This share is made through
     /// [Arc<Mutex<Kademlia>>] meaning that it's thread safe.
     pub fn new(node: &Node) -> (Peer, Peer) {
         let kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
@@ -413,8 +450,6 @@ impl Peer {
             .collect::<Vec<_>>();
 
         // Output results
-        let mut errors: Vec<Node> = Vec::new();
-        let mut query_result: Option<Response<StoreResponse>> = None;
         let mut counter: usize = 0;
         for task in tasks {
             let result = task.await.expect("Failed to retrieve task result");
@@ -437,6 +472,10 @@ impl Peer {
         return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
     }
 
+    // ===================== BlockChain Network APIs (Client Side) ============================ //
 
+    pub async fn send_transaction(&self, transaction: Transaction, ttl: Option<u32>, sender: Option<Node>) {
+        BroadCastReq::send_transaction(self, transaction, ttl, sender).await;
+    }
 
 }

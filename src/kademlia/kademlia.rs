@@ -6,7 +6,7 @@ use crate::auxi;
 use crate::kademlia;
 use crate::kademlia::bucket::K;
 use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
-use crate::kademlia::node::Identifier;
+use crate::kademlia::node::{ID_LEN, Identifier};
 #[doc(inline)]
 use crate::kademlia::node::Node;
 
@@ -143,6 +143,16 @@ impl Kademlia {
     /// Will return up K nearest nodes to the given node. If no node was found return [None].
     pub fn get_k_nearest_to_node(&self, id: Identifier) -> Option<Vec<Node>> {
         self.kbuckets.get_n_closest_nodes(id, K)
+    }
+
+    /// # get_all_nodes
+    /// This function is used in order to retrieve all nodes from the kbucket.
+    /// It's typically used for broadcast purposes.
+    ///
+    /// #### Returns
+    /// Will return up to K * ID_LEN nodes (meaning all nodes in the kbucket). If none are found, return [None].
+    pub fn get_all_nodes(&self) -> Option<Vec<Node>> {
+        self.kbuckets.get_n_closest_nodes(self.node.id.clone(), K * ID_LEN)
     }
 
     /// # remove_node
