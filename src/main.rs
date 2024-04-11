@@ -3,6 +3,7 @@ extern crate core;
 use std::env;
 
 use crate::kademlia::node::{ID_LEN, Node};
+use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
 use crate::proto::packet_sending_server::PacketSending;
@@ -91,7 +92,7 @@ async fn main() {
 
     } else {
         let target_node = &node1;
-        let (peer, client) = &Peer::new(node2);
+        let (peer, fclient) = &Peer::new(node2);
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
@@ -120,6 +121,19 @@ async fn main() {
             amount_out: 0.0,
             miner_fee: 0.0,
         };
+        
+        let block = Block {
+            hash: "".to_string(),
+            index: 0,
+            timestamp: 0,
+            prev_hash: "".to_string(),
+            nonce: 0,
+            difficulty: 0,
+            miner_id: "".to_string(),
+            merkle_tree_root: "".to_string(),
+            confirmations: 0,
+            transactions: vec![],
+        };
 
         let server = peer.clone();
         // TODO
@@ -129,15 +143,16 @@ async fn main() {
         let _ = server.init_server().await;
 
 
-        println!("{:?}", peer.send_transaction(transaction, None, None).await);
-        println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
-        println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
-        println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
-        println!("Result -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
-        println!("Result -> {:?}", peer.find_value(key_server1_should_have, None, None).await);
+        println!("Broadcast Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
+        println!("Broadcast Block -> {:?}", peer.send_block(block, None, None).await);
+        //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
+        //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
+        //println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        //println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
+        //println!("Result -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
+        //println!("Result -> {:?}", peer.find_value(key_server1_should_have, None, None).await);
 
     }
 }

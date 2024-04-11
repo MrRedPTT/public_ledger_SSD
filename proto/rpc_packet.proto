@@ -9,7 +9,7 @@ service PacketSending {
   rpc FindNode(FindNodeRequest) returns (FindNodeResponse); // Kademlia
   rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
   rpc SendTransaction(TransactionBroadcast) returns (google.protobuf.Empty); // BlockChain
-  // rpc SendBlock // BlockChain
+  rpc SendBlock(BlockBroadcast) returns (google.protobuf.Empty); // BlockChain
   // rpc GetBlock(id) // BlockChain => Ask for a block already in the blockchain
 }
 
@@ -132,4 +132,5 @@ message BlockBroadcast {
   Address src = 1;
   Address dst = 2;
   Block block = 3;
+  uint32 ttl = 4;
 }

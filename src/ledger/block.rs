@@ -1,6 +1,7 @@
 #[doc(inline)]
 use std::time::{SystemTime, UNIX_EPOCH};
-use sha2::{Sha512, Digest};
+
+use sha2::{Digest, Sha512};
 
 use crate::ledger::transaction::*;
 
@@ -17,7 +18,7 @@ pub struct Block {
     pub difficulty : usize,
     pub miner_id : String,
     pub merkle_tree_root: String,
-    confirmations: usize,
+    pub(crate) confirmations: usize,
 
     pub transactions: Vec<Transaction>,
 }
@@ -182,7 +183,7 @@ impl Block {
 #[cfg(test)]
 mod test {
     use crate::ledger::block::*;
-    
+
     #[test]
     fn test_mining() {
         let mut block = Block::new(1,

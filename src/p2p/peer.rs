@@ -11,11 +11,13 @@ use tonic::transport::Server;
 
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::{Identifier, Node};
+use crate::ledger::block::Block;
+use crate::ledger::blockchain::Blockchain;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler::ReqHandler;
 use crate::p2p::private::res_handler::ResHandler;
-use crate::proto::{FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
+use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
 
 pub const TTL: u32 = 15; // The default ttl for broadcast messages
@@ -113,7 +115,7 @@ impl PacketSending for Peer {
         }
     }
 
-    // ===================== BlockChain Network APIs (Server Side) ============================ //
+    // ===================== block_chain Network APIs (Server Side) ============================ //
     async fn send_transaction(&self, request: Request<TransactionBroadcast>) -> Result<Response<()>, Status> {
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
@@ -122,7 +124,7 @@ impl PacketSending for Peer {
             return Err(Status::invalid_argument("The provided transaction is invalid"));
         }
         let unpacked = packed.unwrap();
-        let mut transaction: Transaction = Transaction{
+        let transaction: Transaction = Transaction{
             from: unpacked.from,
             to: unpacked.to,
             amount_in: unpacked.amount_in,
@@ -131,15 +133,67 @@ impl PacketSending for Peer {
         };
         println!("Reveived a Transaction: {:?} with TTL: {}", transaction, input.ttl);
 
-        // TODO
-        // Verify if the transaction we just received is one we already have, if yes then drop the request
-        // Add the function handler which will deal with what to do with the transaction
+        // Transaction Handler
+        // If we already have the transaction don't propagate it further, else propagate
+        // Note: We are using locks on the BlockChain to avoid multiple accesses which, although unlikely, are still possible
+        /*
+        let transaction_stored = self.block_chain.lock().unwrap().handleTransactionArrival(transaction.clone());
+        if transaction_stored {
+            return Ok(tonic::Response::new(()));
+        }
+        */
+        if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
+            // Propagate
+            let ttl: u32 = input.ttl.clone() - 1;
+            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
+            BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), Some(sender)).await;
+        }
+        return Ok(tonic::Response::new(()));
+    }
+
+    async fn send_block(&self, request: Request<BlockBroadcast>) -> Result<Response<()>, Status> {
+        // This is a broadcast so there is no need to ping back the sender
+        let input = request.get_ref();
+        let packed = input.block.clone();
+        if packed.is_none() {
+            return Err(Status::invalid_argument("The provided transaction is invalid"));
+        }
+        let unpacked = packed.unwrap();
+
+        let mut trans: Vec<Transaction> = Vec::new();
+        for i in unpacked.transactions {
+            trans.push(Transaction {
+                from: i.from,
+                to: i.to,
+                amount_in: i.amount_in,
+                amount_out: i.amount_out,
+                miner_fee: i.miner_fee,
+            });
+        }
+
+        let block: Block = Block {
+            hash: unpacked.hash,
+            index: unpacked.index as usize,
+            timestamp: unpacked.timestamp,
+            prev_hash: unpacked.prev_hash,
+            nonce: unpacked.nonce,
+            difficulty: unpacked.difficulty as usize,
+            miner_id: unpacked.miner_id,
+            merkle_tree_root: unpacked.merkle_tree_root,
+            confirmations: unpacked.confirmations as usize,
+            transactions: trans
+        }
+;
+        println!("Reveived a Block: {:?} with TTL: {}", block, input.ttl);
+
+        // Block Handler
+        // If we already have the Block don't propagate it further, else propagate
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
             let ttl: u32 = input.ttl.clone() - 1;
             let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
-            BroadCastReq::send_transaction(self, transaction, Some(ttl), Some(sender)).await;
+            BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(sender)).await;
         }
         return Ok(tonic::Response::new(()));
     }
@@ -472,10 +526,14 @@ impl Peer {
         return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
     }
 
-    // ===================== BlockChain Network APIs (Client Side) ============================ //
+    // ===================== block_chain Network APIs (Client Side) ============================ //
 
     pub async fn send_transaction(&self, transaction: Transaction, ttl: Option<u32>, sender: Option<Node>) {
-        BroadCastReq::send_transaction(self, transaction, ttl, sender).await;
+        BroadCastReq::broadcast(self, Some(transaction), None, ttl, sender).await;
+    }
+
+    pub async fn send_block(&self, block: Block, ttl: Option<u32>, sender: Option<Node>) {
+        BroadCastReq::broadcast(self, None, Some(block), ttl, sender).await;
     }
 
 }
