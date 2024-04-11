@@ -4,6 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use sha2::{Digest, Sha512};
 
 use crate::ledger::transaction::*;
+use crate::proto;
 
 #[derive(Debug, Clone)]
 
@@ -18,7 +19,7 @@ pub struct Block {
     pub difficulty : usize,
     pub miner_id : String,
     pub merkle_tree_root: String,
-    pub(crate) confirmations: usize,
+    confirmations: usize,
 
     pub transactions: Vec<Transaction>,
 }
@@ -50,6 +51,31 @@ impl Block {
                                                   miner_id));
 
         return block
+    }
+
+    pub fn proto_to_block(proto_block: proto::Block) -> Self {
+        let mut trans: Vec<Transaction> = Vec::new();
+        for i in &proto_block.transactions {
+            trans.push(Transaction {
+                from: i.from.clone(),
+                to: i.to.clone(),
+                amount_in: i.amount_in,
+                amount_out: i.amount_out,
+                miner_fee: i.miner_fee,
+            });
+        }
+        Block {
+            hash: proto_block.hash.clone(),
+            index: proto_block.index as usize,
+            timestamp: proto_block.timestamp,
+            prev_hash: proto_block.prev_hash.clone(),
+            nonce: proto_block.nonce,
+            difficulty: proto_block.difficulty as usize,
+            miner_id: proto_block.miner_id.clone(),
+            merkle_tree_root: proto_block.merkle_tree_root.clone(),
+            confirmations: 0,
+            transactions: trans,
+        }
     }
 
 

@@ -134,7 +134,7 @@ impl BroadCastReq {
                             difficulty: block.difficulty as u64,
                             miner_id: block.miner_id,
                             merkle_tree_root: block.merkle_tree_root,
-                            confirmations: block.confirmations as u64,
+                            confirmations: 0,
                             transactions: trans,
                         }),
                         ttl

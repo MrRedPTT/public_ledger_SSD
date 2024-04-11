@@ -92,7 +92,7 @@ async fn main() {
 
     } else {
         let target_node = &node1;
-        let (peer, fclient) = &Peer::new(node2);
+        let (peer, client) = &Peer::new(node2);
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
@@ -122,18 +122,7 @@ async fn main() {
             miner_fee: 0.0,
         };
         
-        let block = Block {
-            hash: "".to_string(),
-            index: 0,
-            timestamp: 0,
-            prev_hash: "".to_string(),
-            nonce: 0,
-            difficulty: 0,
-            miner_id: "".to_string(),
-            merkle_tree_root: "".to_string(),
-            confirmations: 0,
-            transactions: vec![],
-        };
+        let block = Block::new(1, "ahsahsahsa".to_string(), 1, "jose".to_string(), 0.0);
 
         let server = peer.clone();
         // TODO

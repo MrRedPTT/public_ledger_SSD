@@ -20,7 +20,7 @@ use crate::p2p::private::res_handler::ResHandler;
 use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
 use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
 
-pub const TTL: u32 = 15; // The default ttl for broadcast messages
+pub const TTL: u32 = 15; // The default ttl for the broadcast of messages
 
 #[derive(Debug, Clone)]
 pub struct Peer {
@@ -37,17 +37,17 @@ impl PacketSending for Peer {
         let addr = request.remote_addr().unwrap().clone();
         let src = request.get_ref().src.as_ref().unwrap().clone();
         let res = ReqHandler::ping(self, request).await;
-        match res {
+        return match res {
             Err(e) => {
                 error!("An error has occurred while receiving the Pong from {}: {}", addr, e);
-                return Err(Status::aborted(e.to_string()));
+                Err(Status::aborted(e.to_string()))
             }
             Ok(pong) => {
                 let node = Node::new(src.ip.clone(), src.port).unwrap();
                 let add_result = self.kademlia.lock().unwrap().add_node(&node);
                 if add_result.is_none() {
                     // Node was added
-                    return Ok(pong);
+                    Ok(pong)
                 } else {
                     let ip = add_result.clone().unwrap().ip;
                     let port = add_result.clone().unwrap().port;
@@ -57,12 +57,12 @@ impl PacketSending for Peer {
                             // This means that the top node of the bucket is offline, so let's replace it with the new one
                             error!("Error while trying to ping {}:{}: {}\nReplacing it with new node", ip, port, e);
                             self.kademlia.lock().unwrap().replace_node(&node);
-                            return Ok(pong);
+                            Ok(pong)
                         }
                         Ok(_) => {
                             info!("Top node of the bucket is on, sending it to the back of the list");
                             self.kademlia.lock().unwrap().send_back(&add_result.unwrap());
-                            return Ok(pong);
+                            Ok(pong)
                         }
                     }
                 }
@@ -71,7 +71,8 @@ impl PacketSending for Peer {
     }
 
     /// # Store Handler
-    /// This function acts like a proxy function to the [ReqHandler::store]
+    /// This function acts like a proxy function to the [ReqHandler::store],
+    /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
         match pong {
@@ -86,7 +87,8 @@ impl PacketSending for Peer {
     }
 
     /// # Find_Node Handler
-    /// This function acts like a proxy function to the [ReqHandler::find_node]
+    /// This function acts like a proxy function to the [ReqHandler::find_node],
+    /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn find_node(&self, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
         match pong {
@@ -101,7 +103,8 @@ impl PacketSending for Peer {
     }
 
     /// # Find_Value Handler
-    /// This function acts like a proxy function to the [ReqHandler::find_value]
+    /// This function acts like a proxy function to the [ReqHandler::find_value],
+    /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
         match pong {
@@ -148,7 +151,7 @@ impl PacketSending for Peer {
             let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
             BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), Some(sender)).await;
         }
-        return Ok(tonic::Response::new(()));
+        return Ok(Response::new(()));
     }
 
     async fn send_block(&self, request: Request<BlockBroadcast>) -> Result<Response<()>, Status> {
@@ -160,30 +163,7 @@ impl PacketSending for Peer {
         }
         let unpacked = packed.unwrap();
 
-        let mut trans: Vec<Transaction> = Vec::new();
-        for i in unpacked.transactions {
-            trans.push(Transaction {
-                from: i.from,
-                to: i.to,
-                amount_in: i.amount_in,
-                amount_out: i.amount_out,
-                miner_fee: i.miner_fee,
-            });
-        }
-
-        let block: Block = Block {
-            hash: unpacked.hash,
-            index: unpacked.index as usize,
-            timestamp: unpacked.timestamp,
-            prev_hash: unpacked.prev_hash,
-            nonce: unpacked.nonce,
-            difficulty: unpacked.difficulty as usize,
-            miner_id: unpacked.miner_id,
-            merkle_tree_root: unpacked.merkle_tree_root,
-            confirmations: unpacked.confirmations as usize,
-            transactions: trans
-        }
-;
+        let block = Block::proto_to_block(unpacked);
         println!("Reveived a Block: {:?} with TTL: {}", block, input.ttl);
 
         // Block Handler
@@ -195,7 +175,7 @@ impl PacketSending for Peer {
             let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
             BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(sender)).await;
         }
-        return Ok(tonic::Response::new(()));
+        return Ok(Response::new(()));
     }
 
 
@@ -237,7 +217,7 @@ impl Peer {
     /// it ends, it will shut down every other thread. For that, the second thread will return a receiver
     /// with which you can do something like `let _ = init_server().await`. This way, the main thread will
     /// be blocked, and the process will only terminate once a CTRL + C is detected.
-    pub async fn init_server(self) -> tokio::sync::oneshot::Receiver<()> {
+    pub async fn init_server(self) -> oneshot::Receiver<()> {
         let node = self.node.clone();
         debug!("DEBUG PEER::INIT_SERVER => Creating server at {}:{}", node.ip, node.port);
         let server = Server::builder()
@@ -306,7 +286,7 @@ impl Peer {
               arguments.push((i.ip.clone(), i.port))
           }
         }
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the amount of threads
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
 
         // Process tasks concurrently using Tokio
         let tasks = arguments.into_iter()
@@ -340,7 +320,7 @@ impl Peer {
                         query_result = Some(res);
                         break;
                     } else {
-                        for n in <std::option::Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
+                        for n in <Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
                             let temp = Node::new(n.ip, n.port).unwrap();
                             if !errors.contains(&temp) && !already_checked_list.contains(&temp){
                                 errors.push(temp.clone());
@@ -399,7 +379,7 @@ impl Peer {
                 arguments.push((i.ip.clone(), i.port))
             }
         }
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the amount of threads
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
 
         // Process tasks concurrently using Tokio
         let tasks = arguments.into_iter()
@@ -433,7 +413,7 @@ impl Peer {
                         query_result = Some(res);
                         break;
                     } else {
-                        for n in <std::option::Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
+                        for n in <Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
                             let temp = Node::new(n.ip, n.port).unwrap();
                             if !errors.contains(&temp) && !already_checked_list.contains(&temp){
                                 errors.push(temp.clone());
@@ -484,7 +464,7 @@ impl Peer {
                 arguments.push((i.ip.clone(), i.port))
             }
         }
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the amount of threads
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
 
         // Process tasks concurrently using Tokio
         let tasks = arguments.into_iter()
