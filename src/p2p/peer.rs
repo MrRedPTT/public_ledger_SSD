@@ -6,7 +6,7 @@ use async_recursion::async_recursion;
 use log::{debug, error, info};
 use tokio::signal;
 use tokio::sync::oneshot;
-use tonic::{Request, Response, Status};
+use tonic::{async_trait, Request, Response, Status};
 use tonic::transport::Server;
 
 use crate::kademlia::kademlia::Kademlia;
@@ -14,7 +14,7 @@ use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
 use crate::ledger::blockchain::Blockchain;
 use crate::ledger::transaction::Transaction;
-use crate::observer::{BlockchainEventSystem, Observer};
+use crate::observer::{BlockchainEventSystem, BlockchainObserver, NetworkObserver};
 use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler::ReqHandler;
 use crate::p2p::private::res_handler::ResHandler;
@@ -210,7 +210,7 @@ impl Peer {
         (server, client) // Return 2 instances of Peer that share the same kademlia object
     }
 
-    pub fn add_observer(&mut self, observer: Arc<Mutex<dyn Observer>>) {
+    pub fn add_observer(&mut self, observer: Arc<Mutex<dyn NetworkObserver>>) {
         self.event_observer.lock().unwrap().add_observer(observer);
     }
 
@@ -527,4 +527,19 @@ impl Peer {
         BroadCastReq::broadcast(self, None, Some(block), ttl, sender).await;
     }
 
+}
+
+
+// =========================== CODE FOR BLOCKCHAIN OBSERVER =========================== //
+#[async_trait]
+impl BlockchainObserver for Peer {
+    async fn on_block_mined(&mut self, block: &Block) {
+        println!("A Block was just mined: {:?}\nBroadcasting...", block.clone());
+        self.send_block(block.clone(), None, None).await;
+    }
+
+    async fn on_transaction_created(&mut self, transaction: &Transaction) {
+        println!("A Transaction was just created: {:?}\nBroadcasting...", transaction.clone());
+        self.send_transaction(transaction.clone(), None, None).await;
+    }
 }

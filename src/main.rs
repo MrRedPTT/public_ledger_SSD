@@ -7,6 +7,7 @@ use crate::kademlia::node::{ID_LEN, Node};
 use crate::ledger::block::Block;
 use crate::ledger::blockchain::Blockchain;
 use crate::ledger::transaction::Transaction;
+use crate::observer::NetworkEventSystem;
 use crate::p2p::peer::Peer;
 use crate::proto::packet_sending_server::PacketSending;
 
@@ -87,13 +88,26 @@ async fn main() {
         let observer = Arc::new(Mutex::new(test_block_events));
         let blockchainclient = Arc::clone(&observer);
         client.add_observer(observer);
+        let client1 = Arc::new(Mutex::new(client));
+        let client2 = Arc::clone(&client1);
+        let mut net_system = NetworkEventSystem::new();
+        net_system.add_observer(client1);
 
-        println!("Do I have the key1?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
-        println!("Do I have the key3?: {}", !client.kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
+        println!("Do I have the key1?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        println!("Do I have the key3?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-        println!("Do I have the key1?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
-        println!("Do I have the key3?: {}", !client.kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
+        println!("Do I have the key1?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        println!("Do I have the key3?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
         println!("Do I have the Block?: {:?}", blockchainclient.lock().unwrap().chain);
+        net_system.notify_block_mined(&Block::new(1, "Block Mined for Broadcast".to_string(), 1, "jose".to_string(), 0.0)).await;
+        let transaction = Transaction {
+            from: "Transaction Mined".to_string(),
+            to: "".to_string(),
+            amount_in: 0.0,
+            amount_out: 0.0,
+            miner_fee: 0.0,
+        };
+        net_system.notify_transaction_created(&transaction).await;
 
         // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;

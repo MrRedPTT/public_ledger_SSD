@@ -166,7 +166,7 @@ impl Blockchain {
 
 // =========================== OBSERVER CODE ==================================== //
 
-impl Observer for Blockchain {
+impl NetworkObserver for Blockchain {
     fn on_block_received(&mut self, block: &Block) -> bool{
         println!("on_block_received event Triggered on BlockChain: {} => Received Block: {:?}", self.miner_id, block.clone());
         // Check if we already have this block
