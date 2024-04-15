@@ -182,7 +182,7 @@ impl NetworkObserver for Blockchain {
         // Check if we already have this transaction
         // If we do return true and stop here
         // else add the transaction and return true
-
+        self.chain[0].add_transaction(transaction.clone()); // Just here to check if the transaction is being saved or not (TESTING PURPOSES)
         return false; // It's here while we don't have the "contains_transaction"
     }
 }

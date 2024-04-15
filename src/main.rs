@@ -98,7 +98,7 @@ async fn main() {
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
         println!("Do I have the key1?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
         println!("Do I have the key3?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
-        println!("Do I have the Block?: {:?}", blockchainclient.lock().unwrap().chain);
+        println!("Do I have the Block/Transaction?: {:?}", blockchainclient.lock().unwrap().chain);
         net_system.notify_block_mined(&Block::new(1, "Block Mined for Broadcast".to_string(), 1, "jose".to_string(), 0.0)).await;
         let transaction = Transaction {
             from: "Transaction Mined".to_string(),
@@ -137,7 +137,7 @@ async fn main() {
         }
 
         let transaction = Transaction {
-            from: "".to_string(),
+            from: "Test Transaction Observer".to_string(),
             to: "".to_string(),
             amount_in: 0.0,
             amount_out: 0.0,
@@ -154,8 +154,8 @@ async fn main() {
         let _ = server.init_server().await;
 
 
-        //println!("Broadcast Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
-        println!("Broadcast Block -> {:?}", peer.send_block(block, None, None).await);
+        println!("Broadcast Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
+        //println!("Broadcast Block -> {:?}", peer.send_block(block, None, None).await);
         //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
         //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
         //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);

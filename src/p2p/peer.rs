@@ -138,15 +138,11 @@ impl PacketSending for Peer {
         };
         println!("Reveived a Transaction: {:?} with TTL: {}", transaction, input.ttl);
 
-        // Transaction Handler
-        // If we already have the transaction don't propagate it further, else propagate
-        // Note: We are using locks on the BlockChain to avoid multiple accesses which, although unlikely, are still possible
-        /*
-        let transaction_stored = self.block_chain.lock().unwrap().handleTransactionArrival(transaction.clone());
-        if transaction_stored {
-            return Ok(tonic::Response::new(()));
+
+        if self.event_observer.lock().unwrap().notify_transaction_received(&transaction) {
+            return Ok(Response::new(()));
         }
-        */
+
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
             let ttl: u32 = input.ttl.clone() - 1;
@@ -170,7 +166,9 @@ impl PacketSending for Peer {
 
         // Block Handler
         // If we already have the Block don't propagate it further, else propagate
-        println!("Do we have the block: {}", self.event_observer.lock().unwrap().notify_block_received(&block));
+        if self.event_observer.lock().unwrap().notify_block_received(&block) {
+            return Ok(Response::new(()));
+        }
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
