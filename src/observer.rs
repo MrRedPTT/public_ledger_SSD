@@ -73,6 +73,19 @@ impl Debug for BlockchainEventSystem {
     }
 }
 
+impl Debug for NetworkEventSystem {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "BlockchainEventSystem {{ observers: [")?;
+        for (i, _) in self.observers.iter().enumerate() {
+            write!(f, "{}", i)?;
+            if i < self.observers.len() - 1 {
+                write!(f, ", ")?;
+            }
+        }
+        write!(f, "] }}")
+    }
+}
+
 impl NetworkEventSystem {
     pub fn new() -> NetworkEventSystem {
         NetworkEventSystem {

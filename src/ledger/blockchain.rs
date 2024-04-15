@@ -1,3 +1,5 @@
+use std::sync::{Arc, Mutex};
+
 use crate::ledger::block::*;
 #[doc(inline)]
 use crate::ledger::transaction::*;
@@ -18,6 +20,7 @@ pub struct Blockchain {
     pub temporary_block: Block,
     pub miner_id: String,
     confirmation_pointer:u64,
+    event_observer: Arc<Mutex<NetworkEventSystem>>
 }
 
 impl Blockchain {
@@ -48,8 +51,13 @@ impl Blockchain {
                                         hash.clone(),
                                         Self::INITIAL_DIFFICULTY,
                                         miner_id.clone(),
-                                        0.0)
+                                        0.0),
+            event_observer: Arc::new(Mutex::new(NetworkEventSystem::new()))
         }
+    }
+
+    pub fn add_observer(&mut self, observer: Arc<Mutex<dyn BlockchainObserver>>) {
+        self.event_observer.lock().unwrap().add_observer(observer);
     }
 
     /// adds a block to the blockchain,
@@ -127,11 +135,12 @@ impl Blockchain {
     /// when the block is full it will be mined
     /// 
     /// **note** this method is only important to miners,
-    pub fn add_transaction(&mut self, t:Transaction) {
-        let index = self.temporary_block.add_transaction(t);
-
+    pub async fn add_transaction(&mut self, t:Transaction) {
+        let index = self.temporary_block.add_transaction(t.clone());
+        self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
         if self.is_miner && index >= Self::MAX_TRANSACTIONS {
             self.temporary_block.mine();
+            self.event_observer.lock().unwrap().notify_block_mined(&self.temporary_block).await;
             self.add_block(self.temporary_block.clone());
             self.adjust_temporary_block(true);
         }
@@ -145,7 +154,6 @@ impl Blockchain {
     /// that already exist in other blocks
     fn adjust_temporary_block(&mut self, create: bool){
         let head = self.get_head();
-
 
         if !create {
             self.temporary_block.index = head.index + 1;
@@ -167,7 +175,7 @@ impl Blockchain {
 // =========================== OBSERVER CODE ==================================== //
 
 impl NetworkObserver for Blockchain {
-    fn on_block_received(&mut self, block: &Block) -> bool{
+    fn on_block_received(&mut self, block: &Block) -> bool {
         println!("on_block_received event Triggered on BlockChain: {} => Received Block: {:?}", self.miner_id, block.clone());
         // Check if we already have this block
         // If we do return true and stop here
@@ -177,7 +185,7 @@ impl NetworkObserver for Blockchain {
         return false; // It's here while we don't have the "contains_block"
     }
 
-    fn on_transaction_received(&mut self, transaction: &Transaction) -> bool{
+    fn on_transaction_received(&mut self, transaction: &Transaction) -> bool {
         println!("on_transaction_received event Triggered on BlockChain: {} => Received Transaction: {:?}", self.miner_id, transaction.clone());
         // Check if we already have this transaction
         // If we do return true and stop here
