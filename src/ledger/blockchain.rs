@@ -23,6 +23,7 @@ pub struct Blockchain {
     event_observer: Arc<Mutex<NetworkEventSystem>>
 }
 
+/// Implementation of the basic BlockChain methods
 impl Blockchain {
     const INITIAL_DIFFICULTY:usize = 1;
     const NETWORK:&'static str = "network";
@@ -170,31 +171,58 @@ impl Blockchain {
                                           self.mining_reward.clone())
     }
 
+    pub fn get_block_by_id(&self, id: u64) -> Option<Block> {
+        if id >= self.chain.length {
+                return None;
+        }
+        return Some(self.chain[id].clone());
+    }
+
 }
 
 // =========================== OBSERVER CODE ==================================== //
-
+// Implementation of the blockchain events
 impl NetworkObserver for Blockchain {
+    ///
     fn on_block_received(&mut self, block: &Block) -> bool {
         println!("on_block_received event Triggered on BlockChain: {} => Received Block: {:?}", self.miner_id, block.clone());
+
+        let b = self.get_block_by_id(block.id);
+        match b {
+            Some(x) => {
+                if x.hash == block.hash {
+                    return True;
+                }
+                else {
+                    // TODO wtf happens when block is not the same as the one we got
+                    panic!("oh no!");
+                }
+            }
+            None => {
+                    add_block(block.clone()); 
+                    return false;
+            },
+        }
+
         // Check if we already have this block
         // If we do return true and stop here
-        // else add the block and return true
-        self.add_block(block.clone());
+        // else add the block and return false
 
         return false; // It's here while we don't have the "contains_block"
     }
 
     fn on_transaction_received(&mut self, transaction: &Transaction) -> bool {
         println!("on_transaction_received event Triggered on BlockChain: {} => Received Transaction: {:?}", self.miner_id, transaction.clone());
+        // TODO check if transaction was already added
         // Check if we already have this transaction
         // If we do return true and stop here
-        // else add the transaction and return true
-        self.chain[0].add_transaction(transaction.clone()); // Just here to check if the transaction is being saved or not (TESTING PURPOSES)
+        // else add the transaction and return false
+        self.add_transaction(transaction.clone()); // Just here to check if the transaction is being saved or not (TESTING PURPOSES)
         return false; // It's here while we don't have the "contains_transaction"
     }
 }
 
+// =============================== TESTS ======================================== //
 #[cfg(test)]
 mod test {
     use rand::Rng;
@@ -238,6 +266,5 @@ mod test {
         println!("{:#?}", blockchain);
         assert_eq!(blockchain.get_current_index()+1, 3);
     }
-
 }
 
