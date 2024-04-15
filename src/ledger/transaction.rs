@@ -1,6 +1,6 @@
+use sha2::{Digest, Sha512};
 
-use sha2::{Sha512, Digest};
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 
 ///##Transactions
 pub struct Transaction {

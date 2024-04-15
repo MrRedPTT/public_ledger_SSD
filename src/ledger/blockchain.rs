@@ -1,6 +1,8 @@
+use crate::ledger::block::*;
 #[doc(inline)]
 use crate::ledger::transaction::*;
-use crate::ledger::block::*;
+
+use super::super::observer::*;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated
@@ -162,10 +164,34 @@ impl Blockchain {
 
 }
 
+// =========================== OBSERVER CODE ==================================== //
+
+impl Observer for Blockchain {
+    fn on_block_received(&mut self, block: &Block) -> bool{
+        println!("on_block_received event Triggered on BlockChain: {} => Received Block: {:?}", self.miner_id, block.clone());
+        // Check if we already have this block
+        // If we do return true and stop here
+        // else add the block and return true
+        self.add_block(block.clone());
+
+        return false; // It's here while we don't have the "contains_block"
+    }
+
+    fn on_transaction_received(&mut self, transaction: &Transaction) -> bool{
+        println!("on_transaction_received event Triggered on BlockChain: {} => Received Transaction: {:?}", self.miner_id, transaction.clone());
+        // Check if we already have this transaction
+        // If we do return true and stop here
+        // else add the transaction and return true
+
+        return false; // It's here while we don't have the "contains_transaction"
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::ledger::blockchain::*;
     use rand::Rng;
+
+    use crate::ledger::blockchain::*;
 
     fn gen_transaction() -> Transaction {
         let strings = vec![

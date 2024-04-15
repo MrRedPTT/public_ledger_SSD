@@ -6,7 +6,7 @@ use sha2::{Digest, Sha512};
 use crate::ledger::transaction::*;
 use crate::proto;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 
 /// ## BLock
 pub struct Block {

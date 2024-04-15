@@ -1,9 +1,11 @@
 extern crate core;
 
 use std::env;
+use std::sync::{Arc, Mutex};
 
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::ledger::block::Block;
+use crate::ledger::blockchain::Blockchain;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
 use crate::proto::packet_sending_server::PacketSending;
@@ -19,7 +21,7 @@ pub mod proto {
 
 pub mod ledger_gui;
 pub mod auxi;
-
+mod observer;
 
 
 #[tokio::main]
@@ -42,7 +44,7 @@ async fn main() {
         println!("Argument \"3\" passed, creating server...");
         server_node = node3.clone();
     }
-    let (rpc, client) = Peer::new(&server_node);
+    let (rpc, mut client) = Peer::new(&server_node);
     if server.to_string() == "3" {let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.54.123.2".to_string(),9981).unwrap());}
 
     if server_bool {
@@ -81,11 +83,17 @@ async fn main() {
             key_server3_should_have.0[ID_LEN - 1] = 0;
         }
 
+        let test_block_events = Blockchain::new(false, "BlockHey".to_string());
+        let observer = Arc::new(Mutex::new(test_block_events));
+        let blockchainclient = Arc::clone(&observer);
+        client.add_observer(observer);
+
         println!("Do I have the key1?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
         println!("Do I have the key3?: {}", !client.kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
-        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
         println!("Do I have the key1?: {}", !client.kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
         println!("Do I have the key3?: {}", !client.kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
+        println!("Do I have the Block?: {:?}", blockchainclient.lock().unwrap().chain);
 
         // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;
@@ -132,7 +140,7 @@ async fn main() {
         let _ = server.init_server().await;
 
 
-        println!("Broadcast Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
+        //println!("Broadcast Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
         println!("Broadcast Block -> {:?}", peer.send_block(block, None, None).await);
         //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
         //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
