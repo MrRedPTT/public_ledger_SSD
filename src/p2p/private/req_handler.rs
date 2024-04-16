@@ -104,7 +104,7 @@ impl ReqHandler {
                 // In order to avoid locking the response we might create a new thread that will deal with
                 // the ping to the stored node
 
-                let res = peer.ping(&src.ip.clone(), src.port).await;
+                let res = peer.ping(&src.ip.clone(), src.port, Identifier::new(src.id.clone().try_into().unwrap())).await;
                 match res{
                     Err(_) => {
                         // This means we couldn't contact the node on top of the list

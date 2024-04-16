@@ -1,7 +1,11 @@
+use std::borrow::Borrow;
+use std::borrow::BorrowMut;
+
 use crate::auxi;
 #[doc(inline)]
 use crate::kademlia::bucket::Bucket;
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
+use crate::kademlia::trust_score::TrustScore;
 
 pub const MAX_BUCKETS: usize = ID_LEN; // Max amount of Buckets (AKA amount of sub-tries)
 
@@ -78,8 +82,8 @@ impl KBucket {
         let bucket = &self.buckets[index];
 
         for i in bucket.map.iter() {
-            if i.id == *id {
-                return Some(i.clone())
+            if i.0.id == *id {
+                return Some(i.0.clone())
             }
         }
 
@@ -109,7 +113,7 @@ impl KBucket {
         let mut return_bucket = Vec::new();
         for k in bucket.map.iter() {
 
-            return_bucket.push(k.clone());
+            return_bucket.push(k.0.clone());
         }
 
         if return_bucket.is_empty() {
@@ -172,6 +176,30 @@ impl KBucket {
         // So we return the nodes we were able to gather
         Some(closest_nodes)
 
+    }
+
+    pub fn reputation_penalty(&mut self, identifier: Identifier) {
+        let given_node_index = (MAX_BUCKETS - auxi::xor_distance(&self.id, &identifier)) as usize;
+        self.buckets[given_node_index].reputation_penalty(identifier);
+    }
+
+    pub fn risk_penalty(&mut self, identifier: Identifier) {
+        let given_node_index = (MAX_BUCKETS - auxi::xor_distance(&self.id, &identifier)) as usize;
+        self.buckets[given_node_index].risk_penalty(identifier);
+    }
+
+    pub fn increment_interactions(&mut self, identifier: Identifier) {
+        let given_node_index = (MAX_BUCKETS - auxi::xor_distance(&self.id, &identifier)) as usize;
+        self.buckets[given_node_index].increment_interactions(identifier);
+    }
+    pub fn get_all_trust_scores(&mut self) -> Vec<(Node, TrustScore)> {
+        let mut trust_scores: Vec<(Node, TrustScore)> = Vec::new();
+        for i in 0..MAX_BUCKETS {
+            for j in self.buckets[i].map.iter_mut() {
+                trust_scores.push((j.0.clone(), j.1.clone()));
+            }
+        }
+        trust_scores
     }
 
 }

@@ -42,6 +42,7 @@ impl PacketSending for Peer {
         return match res {
             Err(e) => {
                 error!("An error has occurred while receiving the Pong from {}: {}", addr, e);
+                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 Err(Status::aborted(e.to_string()))
             }
             Ok(pong) => {
@@ -53,7 +54,8 @@ impl PacketSending for Peer {
                 } else {
                     let ip = add_result.clone().unwrap().ip;
                     let port = add_result.clone().unwrap().port;
-                    let top_node_pong = self.ping(ip.as_ref(), port).await;
+                    let id = add_result.clone().unwrap().id;
+                    let top_node_pong = self.ping(ip.as_ref(), port, id).await;
                     match top_node_pong {
                         Err(e) => {
                             // This means that the top node of the bucket is offline, so let's replace it with the new one
@@ -76,10 +78,13 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::store],
     /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
-        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
+        let id = request.get_ref().src.as_ref().unwrap().id.clone();
+        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(id.try_into().unwrap())).await;
+        let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
                 eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
             Ok(_) => {
@@ -92,10 +97,12 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::find_node],
     /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn find_node(&self, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
-        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
+        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
+        let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
                 eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
             Ok(_) => {
@@ -108,10 +115,12 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::find_value],
     /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
-        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port).await;
+        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
+        let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
                 eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
             Ok(_) => {
@@ -125,7 +134,10 @@ impl PacketSending for Peer {
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
         let packed = input.transaction.clone();
+        let src = request.get_ref().src.as_ref().unwrap();
+        self.kademlia.lock().unwrap().increment_interactions(Identifier::new(src.id.clone().try_into().unwrap()));
         if packed.is_none() {
+            self.kademlia.lock().unwrap().reputation_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
             return Err(Status::invalid_argument("The provided transaction is invalid"));
         }
         let unpacked = packed.unwrap();
@@ -156,7 +168,10 @@ impl PacketSending for Peer {
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
         let packed = input.block.clone();
+        let src = request.get_ref().src.as_ref().unwrap();
+        self.kademlia.lock().unwrap().increment_interactions(Identifier::new(src.id.clone().try_into().unwrap()));
         if packed.is_none() {
+            self.kademlia.lock().unwrap().reputation_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
             return Err(Status::invalid_argument("The provided transaction is invalid"));
         }
         let unpacked = packed.unwrap();
@@ -256,8 +271,16 @@ impl Peer {
 
     /// # Ping Request
     /// Proxy for the [ResHandler::ping] function.
-    pub async fn ping(&self, ip: &str, port: u32) -> Result<Response<PongPacket>, io::Error> {
-        ResHandler::ping(self, ip, port).await
+    pub async fn ping(&self, ip: &str, port: u32, id: Identifier) -> Result<Response<PongPacket>, io::Error> {
+        self.kademlia.lock().unwrap().increment_interactions(id.clone());
+        let res = ResHandler::ping(self, ip, port).await;
+        match res {
+            Err(e) => {
+                self.kademlia.lock().unwrap().risk_penalty(id.clone());
+                Err(e)
+            },
+            Ok(res) => return Ok(res)
+        }
     }
 
     #[async_recursion]
@@ -285,14 +308,15 @@ impl Peer {
                 already_checked_list = already_checked.unwrap();
             }
         }
-        let mut arguments: Vec<(String, u32)> = Vec::new();
+        let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
         if nodes.is_none() {
             return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
         } else {
             node_list = nodes.unwrap();
           for i in &node_list{
               debug!("DEBUGG IN PEER::FIND_NODE -> Peers discovered: {}:{}", i.ip, i.port);
-              arguments.push((i.ip.clone(), i.port))
+              arguments.push((i.ip.clone(), i.port, i.id.clone()));
+              self.kademlia.lock().unwrap().increment_interactions(i.clone().id);
           }
         }
         let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
@@ -308,7 +332,7 @@ impl Peer {
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
                     let res = ResHandler::find_node(&node, arg.0.as_ref(), arg.1, &ident).await;
                     drop(permit);
-                    res
+                    (res, arg.2)
                 })
             })
             .collect::<Vec<_>>();
@@ -318,10 +342,11 @@ impl Peer {
         let mut query_result: Option<Response<FindNodeResponse>> = None;
         let mut counter: usize = 0;
         for task in tasks {
-            let result = task.await.expect("Failed to retrieve task result");
+            let (result, id) = task.await.expect("Failed to retrieve task result");
             match result {
                 Err(e) => {
                     error!("Error found: {}", e);
+                    self.kademlia.lock().unwrap().risk_penalty(id);
                 }
                 Ok(res) => {
                     if res.get_ref().response_type == 2 {
@@ -378,14 +403,15 @@ impl Peer {
                 already_checked_list = already_checked.unwrap();
             }
         }
-        let mut arguments: Vec<(String, u32)> = Vec::new();
+        let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
         if nodes.is_none() {
             return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
         } else {
             node_list = nodes.unwrap();
             for i in &node_list{
                 debug!("DEBUGG IN PEER::FIND_VALUE -> Peers discovered: {}:{}", i.ip, i.port);
-                arguments.push((i.ip.clone(), i.port))
+                arguments.push((i.ip.clone(), i.port, i.id.clone()));
+                self.kademlia.lock().unwrap().increment_interactions(i.clone().id);
             }
         }
         let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
@@ -401,7 +427,7 @@ impl Peer {
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
                     let res = ResHandler::find_value(&node, arg.0.as_ref(), arg.1, &ident).await;
                     drop(permit);
-                    res
+                    (res, arg.2)
                 })
             })
             .collect::<Vec<_>>();
@@ -411,10 +437,11 @@ impl Peer {
         let mut query_result: Option<Response<FindValueResponse>> = None;
         let mut counter: usize = 0;
         for task in tasks {
-            let result = task.await.expect("Failed to retrieve task result");
+            let (result, id) = task.await.expect("Failed to retrieve task result");
             match result {
                 Err(e) => {
                     error!("Error found: {}", e);
+                    self.kademlia.lock().unwrap().risk_penalty(id);
                 }
                 Ok(res) => {
                     if res.get_ref().response_type == 2 {
@@ -461,7 +488,7 @@ impl Peer {
 
         let nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(key.clone());
         let mut node_list: Vec<Node> = Vec::new();
-        let mut arguments: Vec<(String, u32)> = Vec::new();
+        let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
         if nodes.is_none() {
             return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
         } else {
@@ -470,7 +497,8 @@ impl Peer {
             debug!("DEBUGG IN PEER:STORE -> Contains server3: {}", node_list.contains(&Node::new("127.0.46.1".to_string(), 8935).unwrap()));
             for i in &node_list{
                 debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
-                arguments.push((i.ip.clone(), i.port))
+                arguments.push((i.ip.clone(), i.port, i.id.clone()));
+                self.kademlia.lock().unwrap().increment_interactions(i.clone().id);
             }
         }
         let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
@@ -487,7 +515,7 @@ impl Peer {
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
                     let res = ResHandler::store(&node, arg.0, arg.1, ident, val).await;
                     drop(permit);
-                    res
+                    (res, arg.2)
                 })
             })
             .collect::<Vec<_>>();
@@ -495,10 +523,11 @@ impl Peer {
         // Output results
         let mut counter: usize = 0;
         for task in tasks {
-            let result = task.await.expect("Failed to retrieve task result");
+            let (result, id) = task.await.expect("Failed to retrieve task result");
             match result {
                 Err(e) => {
                     error!("Error found: {}", e);
+                    self.kademlia.lock().unwrap().risk_penalty(id);
                 }
                 Ok(res) => {
                     if res.get_ref().response_type != 0 {

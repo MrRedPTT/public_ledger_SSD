@@ -9,6 +9,7 @@ use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
 use crate::kademlia::node::{ID_LEN, Identifier};
 #[doc(inline)]
 use crate::kademlia::node::Node;
+use crate::kademlia::trust_score::TrustScore;
 
 #[derive(Debug, Clone)]
 /// ## Kademlia
@@ -163,6 +164,22 @@ impl Kademlia {
     pub fn remove_node (&mut self, id: Identifier) -> bool {
         self.kbuckets.remove(&id);
         return Self::get_node(self, id).is_none();
+    }
+
+    pub fn reputation_penalty(&mut self, identifier: Identifier) {
+        self.kbuckets.reputation_penalty(identifier);
+    }
+
+    pub fn risk_penalty(&mut self, identifier: Identifier) {
+        self.kbuckets.risk_penalty(identifier);
+    }
+
+    pub fn increment_interactions(&mut self, identifier: Identifier) {
+        self.kbuckets.increment_interactions(identifier);
+    }
+
+    pub fn get_all_trust_scores(&mut self) -> Vec<(Node, TrustScore)>{
+        self.kbuckets.get_all_trust_scores()
     }
 
 }
