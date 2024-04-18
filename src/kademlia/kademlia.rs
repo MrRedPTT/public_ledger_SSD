@@ -170,6 +170,10 @@ impl Kademlia {
         self.kbuckets.reputation_penalty(identifier);
     }
 
+    pub fn reputation_reward(&mut self, identifier: Identifier) {
+        self.kbuckets.reputation_reward(identifier);
+    }
+
     pub fn risk_penalty(&mut self, identifier: Identifier) {
         self.kbuckets.risk_penalty(identifier);
     }
@@ -178,8 +182,19 @@ impl Kademlia {
         self.kbuckets.increment_interactions(identifier);
     }
 
+    pub fn increment_lookups(&mut self, identifier: Identifier) {
+        self.kbuckets.increment_lookups(identifier);
+    }
+
+    pub fn get_trust_score(&mut self, identifier: Identifier) -> TrustScore {
+        self.kbuckets.get_trust_score(&identifier).unwrap_or(TrustScore::new())
+    }
     pub fn get_all_trust_scores(&mut self) -> Vec<(Node, TrustScore)>{
         self.kbuckets.get_all_trust_scores()
+    }
+
+    pub fn sort_by_new_distance(&self, nodes: Vec<Node>) -> Vec<Node> {
+        self.kbuckets.sort_by_new_distance(nodes)
     }
 
 }

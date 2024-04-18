@@ -1,29 +1,30 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, RwLock};
 
 use tonic::async_trait;
 
 use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 
-pub trait NetworkObserver: Send {
+#[async_trait]
+pub trait NetworkObserver: Send + Sync + 'static{
     fn on_block_received(&mut self, block: &Block) -> bool;
-    fn on_transaction_received(&mut self, transaction: &Transaction) -> bool;
+   fn on_transaction_received(&mut self, transaction: &Transaction) -> bool;
 }
 
 #[async_trait]
-pub trait BlockchainObserver: Send {
-    async fn on_block_mined(&mut self, block: &Block);
-    async fn on_transaction_created(&mut self, transaction: &Transaction);
+pub trait BlockchainObserver: Send + Sync + 'static{
+    async fn on_block_mined(&self, block: &Block);
+    async fn on_transaction_created(&self, transaction: &Transaction);
 }
 
 pub struct BlockchainEventSystem {
-    observers: Vec<Arc<Mutex<dyn NetworkObserver>>>
+    observers: Vec<Arc<RwLock<dyn NetworkObserver>>>
 }
 
 pub struct NetworkEventSystem {
-    observers: Vec<Arc<Mutex<dyn BlockchainObserver>>>
+    observers: Vec<Arc<RwLock<dyn BlockchainObserver>>>
 }
 
 
@@ -36,9 +37,8 @@ impl BlockchainEventSystem {
 
     pub fn notify_block_received(&self, block: &Block) -> bool {
         let mut flag = false;
-        for wrapped_observer in self.observers.clone() {
-            let mut observer = wrapped_observer.lock().unwrap();
-            if observer.on_block_received(&block) {
+        for wrapped_observer in self.observers.iter() {
+            if wrapped_observer.write().unwrap().on_block_received(&block) {
                 flag = true;
             }
         }
@@ -47,16 +47,18 @@ impl BlockchainEventSystem {
 
     pub fn notify_transaction_received(&self, transaction: &Transaction) -> bool{
         let mut flag = false;
-        for wrapped_observer in self.observers.clone() {
-            let mut observer = wrapped_observer.lock().unwrap();
-            if observer.on_transaction_received(&transaction) {
+        let mut DEBUG_count = 0;
+        for wrapped_observer in self.observers.iter() {
+            println!("Iter: {}", DEBUG_count);
+            if wrapped_observer.write().unwrap().on_transaction_received(&transaction) {
                 flag = true;
             }
+            DEBUG_count += 1;
         }
         return flag;
     }
 
-    pub fn add_observer(&mut self, observer: Arc<Mutex<dyn NetworkObserver>>) {
+    pub fn add_observer(&mut self, observer: Arc<RwLock<dyn NetworkObserver>>) {
         self.observers.push(observer);
     }
 }
@@ -94,20 +96,18 @@ impl NetworkEventSystem {
     }
 
     pub async fn notify_block_mined(&self, block: &Block){
-        for wrapped_observer in self.observers.clone() {
-            let mut observer = wrapped_observer.lock().unwrap();
-            observer.on_block_mined(&block).await;
+        for wrapped_observer in self.observers.iter() {
+            wrapped_observer.read().unwrap().on_block_mined(&block).await;
         }
     }
 
     pub async fn notify_transaction_created(&self, transaction: &Transaction){
-        for wrapped_observer in self.observers.clone() {
-            let mut observer = wrapped_observer.lock().unwrap();
-            observer.on_transaction_created(&transaction).await;
+        for wrapped_observer in self.observers.iter() {
+            wrapped_observer.read().unwrap().on_transaction_created(&transaction).await;
         }
     }
 
-    pub fn add_observer(&mut self, observer: Arc<Mutex<dyn BlockchainObserver>>) {
+    pub fn add_observer(&mut self, observer: Arc<RwLock<dyn BlockchainObserver>>) {
         self.observers.push(observer);
     }
 }

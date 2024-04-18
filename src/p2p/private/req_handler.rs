@@ -32,7 +32,7 @@ impl ReqHandler {
     /// handling the request or processing the response.
 
     pub(crate) async fn ping(peer: &Peer, request: Request<PingPacket>) -> Result<Response<PongPacket>, Status> {
-        println!("Got a Ping from => {:?}", request.remote_addr().unwrap());
+        println!("Got a Ping from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         if input.src.is_none() || input.dst.is_none() {
             return Err(Status::invalid_argument("Source and/or destination not found"));
@@ -71,7 +71,7 @@ impl ReqHandler {
     /// k nearest nodes to the target. Finally, if anything goes wrong, a [Status] will be returned back.
     ///
     pub(crate) async fn find_node(peer: &Peer, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
-        println!("Got a Find Node from => {:?}", request.remote_addr().unwrap());
+        println!("Got a Find Node from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
@@ -186,7 +186,7 @@ impl ReqHandler {
     /// to the target ID. If anything goes wrong, a [Status] will be returned indicating either a request or response related problem.
     ///
     pub(crate) async fn find_value(peer: &Peer, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
-        println!("Got a Find Value from => {:?}", request.remote_addr().unwrap());
+        println!("Got a Find_value from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
@@ -276,7 +276,8 @@ impl ReqHandler {
         //
         // We decided to go with the second option given that the first would require the 1st node to wait for the 2nd, the 2nd for the 3rd,
         // the 3rd for the 4th and so on. Which, in a big network would become very problematic
-        println!("Got a Store from => {:?}", request.remote_addr().unwrap());
+        println!("Got a Store from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        println!("Key to be stored: {}", request.get_ref().value.clone());
         let input = request.get_ref();
         let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
@@ -333,7 +334,9 @@ impl ReqHandler {
                     tokio::spawn(async move {
                         // Acquire a permit from the semaphore
                         let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                        debug!("DEBUG REQ_HANDLER::STORE -> Contacting: {}:{}", arg.0, arg.1);
+                        if arg.1 == 8935 {
+                            println!("DEBUG REQ_HANDLER::STORE -> Contacting: {}:{}", arg.0, arg.1);
+                        }
                         let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val).await;
                         drop(permit);
                         res

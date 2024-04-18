@@ -1,13 +1,16 @@
 use std::borrow::Borrow;
 use std::borrow::BorrowMut;
+use std::cmp::Ordering;
 
 use crate::auxi;
 #[doc(inline)]
 use crate::kademlia::bucket::Bucket;
+use crate::kademlia::bucket::K;
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::kademlia::trust_score::TrustScore;
 
 pub const MAX_BUCKETS: usize = ID_LEN; // Max amount of Buckets (AKA amount of sub-tries)
+pub const B: f64 = 0.65;
 
 /// ## Kbucket
 #[derive(Debug, Clone)]
@@ -37,6 +40,11 @@ impl KBucket {
     /// #### Returns
     /// If the bucket is full, return the top [Node] otherwise return [None].
     pub fn add (&mut self, node: &Node) -> Option<Node> {
+        // Don't add myself
+        if node.id == self.id {
+            return None;
+        }
+
         // Get the index with relation to the buckets
         let index = MAX_BUCKETS - auxi::xor_distance(&self.id, &node.id);
         self.buckets[index].add(node)
@@ -84,6 +92,19 @@ impl KBucket {
         for i in bucket.map.iter() {
             if i.0.id == *id {
                 return Some(i.0.clone())
+            }
+        }
+
+        return None
+    }
+
+    pub fn get_trust_score(&self, id: &Identifier) -> Option<TrustScore> {
+        let index = MAX_BUCKETS - auxi::xor_distance(&self.id, id);
+        let bucket = &self.buckets[index];
+
+        for i in bucket.map.iter() {
+            if i.0.id == *id {
+                return Some(i.1.clone())
             }
         }
 
@@ -183,6 +204,11 @@ impl KBucket {
         self.buckets[given_node_index].reputation_penalty(identifier);
     }
 
+    pub fn reputation_reward(&mut self, identifier: Identifier) {
+        let given_node_index = (MAX_BUCKETS - auxi::xor_distance(&self.id, &identifier)) as usize;
+        self.buckets[given_node_index].good_reputation(identifier);
+    }
+
     pub fn risk_penalty(&mut self, identifier: Identifier) {
         let given_node_index = (MAX_BUCKETS - auxi::xor_distance(&self.id, &identifier)) as usize;
         self.buckets[given_node_index].risk_penalty(identifier);
@@ -192,6 +218,11 @@ impl KBucket {
         let given_node_index = (MAX_BUCKETS - auxi::xor_distance(&self.id, &identifier)) as usize;
         self.buckets[given_node_index].increment_interactions(identifier);
     }
+
+    pub fn increment_lookups(&mut self, identifier: Identifier) {
+        let given_node_index = (MAX_BUCKETS - auxi::xor_distance(&self.id, &identifier)) as usize;
+        self.buckets[given_node_index].increment_lookups(identifier);
+    }
     pub fn get_all_trust_scores(&mut self) -> Vec<(Node, TrustScore)> {
         let mut trust_scores: Vec<(Node, TrustScore)> = Vec::new();
         for i in 0..MAX_BUCKETS {
@@ -200,6 +231,37 @@ impl KBucket {
             }
         }
         trust_scores
+    }
+
+    pub fn sort_by_new_distance(&self, nodes: Vec<Node>) -> Vec<Node> {
+        let mut temp: Vec<(Node, TrustScore)> = Vec::new();
+        for i in nodes {
+            let mut trust = self.get_trust_score(&i.id);
+            if !trust.is_none() {
+                trust = Some(TrustScore::new());
+            }
+            temp.push((i, trust.unwrap()))
+        }
+        // Sort the nodes based in new_distance
+        temp.sort_by(|mut a, mut b| {
+            let old_distance1 = MAX_BUCKETS - auxi::xor_distance(&self.id, &a.0.id);
+            let old_distance2 = MAX_BUCKETS - auxi::xor_distance(&self.id, &b.0.id);
+            let score1 = a.1.clone().get_score();
+            let score2 = b.1.clone().get_score();
+            let new_distance1 = old_distance1 as f64 * B + (1f64 - B) * (1f64 / score1);
+            let new_distance2 = old_distance2 as f64 * B + (1f64 - B) * (1f64 / score2);
+            new_distance2.partial_cmp(&new_distance1).unwrap_or(Ordering::Equal)
+        });
+        let mut res: Vec<Node> = Vec::new();
+        for (i, entry) in temp.iter().enumerate() {
+            // Only return the K nearest
+            if i == K {
+                break;
+            }
+            res.push(entry.0.clone());
+        }
+
+        return res;
     }
 
 }

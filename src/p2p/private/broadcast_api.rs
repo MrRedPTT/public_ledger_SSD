@@ -1,9 +1,12 @@
 use std::io;
 use std::io::ErrorKind;
 use std::sync::Arc;
+use std::time::Duration;
 
 use log::{debug, error, info};
+use tokio::time::error::Elapsed;
 use tonic::Request;
+use tonic::transport::{Channel, Error};
 
 use crate::{auxi, proto};
 use crate::kademlia::bucket::K;
@@ -12,6 +15,7 @@ use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::{Peer, TTL};
 use crate::p2p::private::res_handler::ResHandler;
+use crate::proto::packet_sending_client::PacketSendingClient;
 
 pub struct BroadCastReq {}
 
@@ -86,7 +90,7 @@ impl BroadCastReq {
                         } else {
                             Self::send_request(&node, target.ip, target.port, trans.clone(), None, time).await;
                         }
-                        }
+                    }
                     drop(permit);
                 })
             })
@@ -103,13 +107,21 @@ impl BroadCastReq {
     async fn send_request(node: &Node, ip: String, port: u32, transaction_op: Option<Transaction>, block_op: Option<Block>, ttl: u32) {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        // Set the timeout duration
+        let timeout_duration = Duration::from_secs(5); // 5 seconds
+
+        // Wrap the connect call with a timeout
+        let c = tokio::time::timeout(timeout_duration, async {
+            // Establish the gRPC connection
+            proto::packet_sending_client::PacketSendingClient::connect(url).await
+        }).await;
+
         match c {
-            Err(e) => {
+            Ok(Err(e)) => {
                 error!("An error has occurred while trying to establish a connection for transaction broadcast: {}", e);
                 return;
             },
-            Ok(mut client) => {
+            Ok(Ok(mut client)) => {
                 if transaction_op.is_none() {
                     let block = block_op.unwrap();
                     let mut trans: Vec<proto::Transaction> = Vec::new();
@@ -178,6 +190,10 @@ impl BroadCastReq {
                         }
                     }
                 }
+            }
+            Err(e) => {
+                error!("Connection Timeout");
+                return;
             }
         }
     }

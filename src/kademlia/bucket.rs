@@ -118,6 +118,15 @@ impl Bucket {
         }
     }
 
+    pub fn good_reputation(&mut self, identifier: Identifier) {
+        for node in self.map.iter_mut() {
+            if node.0.id == identifier {
+                node.1.good_reputation();
+                return;
+            }
+        }
+    }
+
     pub fn risk_penalty(&mut self, identifier: Identifier) {
         for node in self.map.iter_mut() {
             if node.0.id == identifier {
@@ -128,11 +137,18 @@ impl Bucket {
     }
 
     pub fn increment_interactions(&mut self, identifier: Identifier) {
-        println!("Got inside the Increment Interactions id is server1?: {}", identifier == Node::new("127.0.0.1".to_string(), 8888).unwrap().id.clone());
         for node in self.map.iter_mut() {
             if node.0.id == identifier {
                 node.1.borrow_mut().new_interaction();
-                println!("Current score: {}", node.1.borrow_mut().get_score());
+                return;
+            }
+        }
+    }
+
+    pub fn increment_lookups(&mut self, identifier: Identifier) {
+        for node in self.map.iter_mut() {
+            if node.0.id == identifier {
+                node.1.borrow_mut().new_lookup();
                 return;
             }
         }

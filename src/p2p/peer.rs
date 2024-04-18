@@ -1,6 +1,7 @@
 use std::{default, io};
+use std::borrow::BorrowMut;
 use std::io::ErrorKind;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use async_recursion::async_recursion;
 use log::{debug, error, info};
@@ -27,175 +28,9 @@ pub const TTL: u32 = 15; // The default ttl for the broadcast of messages
 pub struct Peer {
     pub node: Node,
     pub kademlia: Arc<Mutex<Kademlia>>,
-    event_observer: Arc<Mutex<BlockchainEventSystem>>
+    pub event_observer: Arc<RwLock<BlockchainEventSystem>>
 }
 
-#[tonic::async_trait]
-impl PacketSending for Peer {
-
-    /// # Ping Handler
-    /// This function acts like a proxy function to the [ReqHandler::ping]
-    async fn ping(&self, request: Request<PingPacket>) -> Result<Response<PongPacket>, Status> {
-        let addr = request.remote_addr().unwrap().clone();
-        let src = request.get_ref().src.as_ref().unwrap().clone();
-        let res = ReqHandler::ping(self, request).await;
-        return match res {
-            Err(e) => {
-                error!("An error has occurred while receiving the Pong from {}: {}", addr, e);
-                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-                Err(Status::aborted(e.to_string()))
-            }
-            Ok(pong) => {
-                let node = Node::new(src.ip.clone(), src.port).unwrap();
-                let add_result = self.kademlia.lock().unwrap().add_node(&node);
-                if add_result.is_none() {
-                    // Node was added
-                    Ok(pong)
-                } else {
-                    let ip = add_result.clone().unwrap().ip;
-                    let port = add_result.clone().unwrap().port;
-                    let id = add_result.clone().unwrap().id;
-                    let top_node_pong = self.ping(ip.as_ref(), port, id).await;
-                    match top_node_pong {
-                        Err(e) => {
-                            // This means that the top node of the bucket is offline, so let's replace it with the new one
-                            error!("Error while trying to ping {}:{}: {}\nReplacing it with new node", ip, port, e);
-                            self.kademlia.lock().unwrap().replace_node(&node);
-                            Ok(pong)
-                        }
-                        Ok(_) => {
-                            info!("Top node of the bucket is on, sending it to the back of the list");
-                            self.kademlia.lock().unwrap().send_back(&add_result.unwrap());
-                            Ok(pong)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// # Store Handler
-    /// This function acts like a proxy function to the [ReqHandler::store],
-    /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
-    async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
-        let id = request.get_ref().src.as_ref().unwrap().id.clone();
-        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(id.try_into().unwrap())).await;
-        let src = request.get_ref().src.as_ref().unwrap();
-        match pong {
-            Err(e) => {
-                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
-                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-                return Err(Status::aborted(e.to_string()));
-            }
-            Ok(_) => {
-                ReqHandler::store(self, request).await
-            }
-        }
-    }
-
-    /// # Find_Node Handler
-    /// This function acts like a proxy function to the [ReqHandler::find_node],
-    /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
-    async fn find_node(&self, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
-        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
-        let src = request.get_ref().src.as_ref().unwrap();
-        match pong {
-            Err(e) => {
-                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
-                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-                return Err(Status::aborted(e.to_string()));
-            }
-            Ok(_) => {
-                ReqHandler::find_node(self, request).await
-            }
-        }
-    }
-
-    /// # Find_Value Handler
-    /// This function acts like a proxy function to the [ReqHandler::find_value],
-    /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
-    async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
-        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
-        let src = request.get_ref().src.as_ref().unwrap();
-        match pong {
-            Err(e) => {
-                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
-                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-                return Err(Status::aborted(e.to_string()));
-            }
-            Ok(_) => {
-                ReqHandler::find_value(self, request).await
-            }
-        }
-    }
-
-    // ===================== block_chain Network APIs (Server Side) ============================ //
-    async fn send_transaction(&self, request: Request<TransactionBroadcast>) -> Result<Response<()>, Status> {
-        // This is a broadcast so there is no need to ping back the sender
-        let input = request.get_ref();
-        let packed = input.transaction.clone();
-        let src = request.get_ref().src.as_ref().unwrap();
-        self.kademlia.lock().unwrap().increment_interactions(Identifier::new(src.id.clone().try_into().unwrap()));
-        if packed.is_none() {
-            self.kademlia.lock().unwrap().reputation_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-            return Err(Status::invalid_argument("The provided transaction is invalid"));
-        }
-        let unpacked = packed.unwrap();
-        let transaction: Transaction = Transaction{
-            from: unpacked.from,
-            to: unpacked.to,
-            amount_in: unpacked.amount_in,
-            amount_out: unpacked.amount_out,
-            miner_fee: unpacked.miner_fee,
-        };
-        println!("Reveived a Transaction: {:?} with TTL: {}", transaction, input.ttl);
-
-
-        if self.event_observer.lock().unwrap().notify_transaction_received(&transaction) {
-            return Ok(Response::new(()));
-        }
-
-        if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
-            // Propagate
-            let ttl: u32 = input.ttl.clone() - 1;
-            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
-            BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), Some(sender)).await;
-        }
-        return Ok(Response::new(()));
-    }
-
-    async fn send_block(&self, request: Request<BlockBroadcast>) -> Result<Response<()>, Status> {
-        // This is a broadcast so there is no need to ping back the sender
-        let input = request.get_ref();
-        let packed = input.block.clone();
-        let src = request.get_ref().src.as_ref().unwrap();
-        self.kademlia.lock().unwrap().increment_interactions(Identifier::new(src.id.clone().try_into().unwrap()));
-        if packed.is_none() {
-            self.kademlia.lock().unwrap().reputation_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-            return Err(Status::invalid_argument("The provided transaction is invalid"));
-        }
-        let unpacked = packed.unwrap();
-
-        let block = Block::proto_to_block(unpacked);
-        println!("Reveived a Block: {:?} with TTL: {}", block, input.ttl);
-
-        // Block Handler
-        // If we already have the Block don't propagate it further, else propagate
-        if self.event_observer.lock().unwrap().notify_block_received(&block) {
-            return Ok(Response::new(()));
-        }
-
-        if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
-            // Propagate
-            let ttl: u32 = input.ttl.clone() - 1;
-            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
-            BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(sender)).await;
-        }
-        return Ok(Response::new(()));
-    }
-
-
-}
 impl Peer {
 
     /// # new
@@ -207,7 +42,7 @@ impl Peer {
     /// [Arc<Mutex<Kademlia>>] meaning that it's thread safe.
     pub fn new(node: &Node) -> (Peer, Peer) {
         let kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
-        let event_observer = Arc::new(Mutex::new(BlockchainEventSystem::new()));
+        let event_observer = Arc::new(RwLock::new(BlockchainEventSystem::new()));
         let server = Peer {
             node: node.clone(),
             kademlia: Arc::clone(&kademlia),
@@ -223,8 +58,8 @@ impl Peer {
         (server, client) // Return 2 instances of Peer that share the same kademlia object
     }
 
-    pub fn add_observer(&mut self, observer: Arc<Mutex<dyn NetworkObserver>>) {
-        self.event_observer.lock().unwrap().add_observer(observer);
+    pub fn add_observer(&mut self, observer: Arc<RwLock<dyn NetworkObserver>>) {
+        self.event_observer.write().unwrap().add_observer(observer);
     }
 
 
@@ -269,290 +104,6 @@ impl Peer {
         shutdown_rx // Channel to receive shutdown signal from the server thread
     }
 
-    /// # Ping Request
-    /// Proxy for the [ResHandler::ping] function.
-    pub async fn ping(&self, ip: &str, port: u32, id: Identifier) -> Result<Response<PongPacket>, io::Error> {
-        self.kademlia.lock().unwrap().increment_interactions(id.clone());
-        let res = ResHandler::ping(self, ip, port).await;
-        match res {
-            Err(e) => {
-                self.kademlia.lock().unwrap().risk_penalty(id.clone());
-                Err(e)
-            },
-            Ok(res) => return Ok(res)
-        }
-    }
-
-    #[async_recursion]
-    /// # Find Node Request
-    /// The actual logic used to send the request is defined in [ResHandler::find_node]
-    /// This function will look at the node provide, determine which nodes it should contact in
-    /// order to obtain the information and then send the request to those nodes in parallel
-    /// If any of the nodes return the target node then simply return it back, otherwise, collect the
-    /// forwarding nodes returned, remove duplicates, and call this function recursively over those nodes
-    /// and do that over and over again until either, the target node is found, or the nodes stop responding
-    ///
-    /// #### Info
-    /// If you're calling this function both the [peers] and [already_checked] arguments should be passed as [None]
-    pub async fn find_node(&self, id: Identifier, peers: Option<Vec<Node>>, already_checked: Option<Vec<Node>>) -> Result<Response<FindNodeResponse> , io::Error>{
-
-        let mut nodes = peers.clone(); // This will argument is passed so that this function can be used recursively
-        let mut node_list: Vec<Node> = Vec::new();
-        let mut already_checked_list: Vec<Node> = Vec::new();
-        if peers.is_none() {
-            debug!("DEBUG PEER::FIND_NODE => No nodes as arguments passed");
-            nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(id.clone());
-        } else {
-            debug!("DEBUG PEER::FIND_NODE => Argument Nodes: {:?}", peers.clone().unwrap());
-            if !already_checked.is_none() {
-                already_checked_list = already_checked.unwrap();
-            }
-        }
-        let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
-        if nodes.is_none() {
-            return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
-        } else {
-            node_list = nodes.unwrap();
-          for i in &node_list{
-              debug!("DEBUGG IN PEER::FIND_NODE -> Peers discovered: {}:{}", i.ip, i.port);
-              arguments.push((i.ip.clone(), i.port, i.id.clone()));
-              self.kademlia.lock().unwrap().increment_interactions(i.clone().id);
-          }
-        }
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
-
-        // Process tasks concurrently using Tokio
-        let tasks = arguments.into_iter()
-            .map(|arg| {
-                let semaphore = semaphore.clone();
-                let node = self.node.clone();
-                let ident = id.clone();
-                tokio::spawn(async move {
-                    // Acquire a permit from the semaphore
-                    let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::find_node(&node, arg.0.as_ref(), arg.1, &ident).await;
-                    drop(permit);
-                    (res, arg.2)
-                })
-            })
-            .collect::<Vec<_>>();
-
-        // Output results
-        let mut errors: Vec<Node> = Vec::new();
-        let mut query_result: Option<Response<FindNodeResponse>> = None;
-        let mut counter: usize = 0;
-        for task in tasks {
-            let (result, id) = task.await.expect("Failed to retrieve task result");
-            match result {
-                Err(e) => {
-                    error!("Error found: {}", e);
-                    self.kademlia.lock().unwrap().risk_penalty(id);
-                }
-                Ok(res) => {
-                    if res.get_ref().response_type == 2 {
-                        debug!("DEBUG PEER::FIND_NODE -> Found the Node");
-                        query_result = Some(res);
-                        break;
-                    } else {
-                        for n in <Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
-                            let temp = Node::new(n.ip, n.port).unwrap();
-                            if !errors.contains(&temp) && !already_checked_list.contains(&temp){
-                                errors.push(temp.clone());
-                                already_checked_list.push(temp);
-                            }
-                        }
-                    }
-                }
-            }
-            // Move the node we just contacted to the back of the list
-            let _ = self.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
-            counter += 1;
-        }
-        if !query_result.is_none(){
-            return Ok(query_result.unwrap());
-        } else if errors.len() == 0usize {
-            return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
-        } else {
-            for i in &errors {
-                info!("Node: {}:{}", i.ip, i.port);
-            }
-            // Check if the list is empty, if true, send None
-            // otherwise send the already_checked_list as argument
-            if already_checked_list.len() == 0 {
-                Self::find_node(self, id, Some(errors), None).await
-            } else {
-                Self::find_node(self, id, Some(errors), Some(already_checked_list)).await
-            }
-
-        }
-    }
-
-    #[async_recursion]
-    /// # Find Value Request
-    /// Proxy for the [ResHandler::find_value] function.
-    pub async fn find_value(&self, id: Identifier, peers: Option<Vec<Node>>, already_checked: Option<Vec<Node>>) -> Result<Response<FindValueResponse> , io::Error> {
-        let mut nodes = peers.clone(); // This will argument is passed so that this function can be used recursively
-        let mut node_list: Vec<Node> = Vec::new();
-        let mut already_checked_list: Vec<Node> = Vec::new();
-        if peers.is_none() {
-            debug!("DEBUG PEER::FIND_VALUE => No nodes as arguments passed");
-            nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(id.clone());
-        } else {
-            debug!("DEBUG PEER::FIND_VALUE => Argument Nodes: {:?}", peers.clone().unwrap());
-            if !already_checked.is_none() {
-                already_checked_list = already_checked.unwrap();
-            }
-        }
-        let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
-        if nodes.is_none() {
-            return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
-        } else {
-            node_list = nodes.unwrap();
-            for i in &node_list{
-                debug!("DEBUGG IN PEER::FIND_VALUE -> Peers discovered: {}:{}", i.ip, i.port);
-                arguments.push((i.ip.clone(), i.port, i.id.clone()));
-                self.kademlia.lock().unwrap().increment_interactions(i.clone().id);
-            }
-        }
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
-
-        // Process tasks concurrently using Tokio
-        let tasks = arguments.into_iter()
-            .map(|arg| {
-                let semaphore = semaphore.clone();
-                let node = self.node.clone();
-                let ident = id.clone();
-                tokio::spawn(async move {
-                    // Acquire a permit from the semaphore
-                    let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::find_value(&node, arg.0.as_ref(), arg.1, &ident).await;
-                    drop(permit);
-                    (res, arg.2)
-                })
-            })
-            .collect::<Vec<_>>();
-
-        // Output results
-        let mut errors: Vec<Node> = Vec::new();
-        let mut query_result: Option<Response<FindValueResponse>> = None;
-        let mut counter: usize = 0;
-        for task in tasks {
-            let (result, id) = task.await.expect("Failed to retrieve task result");
-            match result {
-                Err(e) => {
-                    error!("Error found: {}", e);
-                    self.kademlia.lock().unwrap().risk_penalty(id);
-                }
-                Ok(res) => {
-                    if res.get_ref().response_type == 2 {
-                        debug!("DEBUG PEER::FIND_VALUE -> Found the Value");
-                        query_result = Some(res);
-                        break;
-                    } else {
-                        for n in <Option<KNearestNodes> as Clone>::clone(&res.get_ref().list).unwrap().nodes {
-                            let temp = Node::new(n.ip, n.port).unwrap();
-                            if !errors.contains(&temp) && !already_checked_list.contains(&temp){
-                                errors.push(temp.clone());
-                                already_checked_list.push(temp);
-                            }
-                        }
-                    }
-                }
-            }
-            // Move the node we just contacted to the back of the list
-            let _ = self.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
-            counter += 1;
-        }
-        if !query_result.is_none(){
-            return Ok(query_result.unwrap());
-        } else if errors.len() == 0usize {
-            return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
-        } else {
-            for i in &errors {
-                info!("Node: {}:{}", i.ip, i.port);
-            }
-            // Check if the list is empty, if true, send None
-            // otherwise send the already_checked_list as argument
-            if already_checked_list.len() == 0 {
-                Self::find_value(self, id, Some(errors), None).await
-            } else {
-                Self::find_value(self, id, Some(errors), Some(already_checked_list)).await
-            }
-
-        }
-    }
-
-    /// # Store Request
-    /// Proxy for the [ResHandler::store] function.
-    pub async fn store(&self, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
-
-        let nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(key.clone());
-        let mut node_list: Vec<Node> = Vec::new();
-        let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
-        if nodes.is_none() {
-            return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
-        } else {
-            node_list = nodes.unwrap();
-            debug!("DEBUGG IN PEER::STORE -> NodeList len: {}", node_list.len());
-            debug!("DEBUGG IN PEER:STORE -> Contains server3: {}", node_list.contains(&Node::new("127.0.46.1".to_string(), 8935).unwrap()));
-            for i in &node_list{
-                debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
-                arguments.push((i.ip.clone(), i.port, i.id.clone()));
-                self.kademlia.lock().unwrap().increment_interactions(i.clone().id);
-            }
-        }
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
-
-        // Process tasks concurrently using Tokio
-        let tasks = arguments.into_iter()
-            .map(|arg| {
-                let semaphore = semaphore.clone();
-                let node = self.node.clone();
-                let ident = key.clone();
-                let val = value.clone();
-                tokio::spawn(async move {
-                    // Acquire a permit from the semaphore
-                    let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::store(&node, arg.0, arg.1, ident, val).await;
-                    drop(permit);
-                    (res, arg.2)
-                })
-            })
-            .collect::<Vec<_>>();
-
-        // Output results
-        let mut counter: usize = 0;
-        for task in tasks {
-            let (result, id) = task.await.expect("Failed to retrieve task result");
-            match result {
-                Err(e) => {
-                    error!("Error found: {}", e);
-                    self.kademlia.lock().unwrap().risk_penalty(id);
-                }
-                Ok(res) => {
-                    if res.get_ref().response_type != 0 {
-                        debug!("DEBUG PEER::STORE -> Either Forwarded or Stored");
-                        return Ok(res);
-                    }
-                }
-            }
-            // Move the node we just contacted to the back of the list
-            let _ = self.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
-            counter += 1;
-        }
-
-        return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
-    }
-
-    // ===================== block_chain Network APIs (Client Side) ============================ //
-
-    pub async fn send_transaction(&self, transaction: Transaction, ttl: Option<u32>, sender: Option<Node>) {
-        BroadCastReq::broadcast(self, Some(transaction), None, ttl, sender).await;
-    }
-
-    pub async fn send_block(&self, block: Block, ttl: Option<u32>, sender: Option<Node>) {
-        BroadCastReq::broadcast(self, None, Some(block), ttl, sender).await;
-    }
 
 }
 
@@ -560,12 +111,12 @@ impl Peer {
 // =========================== CODE FOR BLOCKCHAIN OBSERVER =========================== //
 #[async_trait]
 impl BlockchainObserver for Peer {
-    async fn on_block_mined(&mut self, block: &Block) {
+    async fn on_block_mined(&self, block: &Block) {
         println!("A Block was just mined: {:?}\nBroadcasting...", block.clone());
         self.send_block(block.clone(), None, None).await;
     }
 
-    async fn on_transaction_created(&mut self, transaction: &Transaction) {
+    async fn on_transaction_created(&self, transaction: &Transaction) {
         println!("A Transaction was just created: {:?}\nBroadcasting...", transaction.clone());
         self.send_transaction(transaction.clone(), None, None).await;
     }

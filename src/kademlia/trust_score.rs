@@ -48,6 +48,8 @@ impl TrustScore {
         self.total_interactions += 1;
     }
 
+    pub fn new_lookup(&mut self) {self.total_lookups += 1;}
+
     fn update_values(&mut self) {
         if self.total_interactions == 0 {
             self.risk = 0.0;
@@ -58,14 +60,17 @@ impl TrustScore {
 
     fn update_score(&mut self) {
         self.update_values();
-        self.score = WEIGHT_REPUTATION * self.reputation + WEIGHT_RISK * self.risk;
-        if self.score == 0.0 || self.score.is_nan(){
+        // Here the formula we use is based one of the original papers from where the S/Kademlia paper
+        // is based upon, given that we assume the formula on the S/Kademlia paper is wrong
+        self.score = WEIGHT_REPUTATION * self.reputation + WEIGHT_RISK * ( 1f64 - self.risk );
+        if self.score <= 0.0 || self.score.is_nan(){
             self.score = 0.000001; // Avoid division by 0
         }
     }
 
     pub fn get_score(&mut self) -> f64 {
         self.update_score();
+        //println!("Values: Risk: {}, Reputation: {}, Total Interactions: {}, Bad Interactions: {}, Total Lookups: {}", self.risk, self.reputation, self.total_interactions, self.bad_interactions, self.total_lookups);
         return self.score;
     }
 }

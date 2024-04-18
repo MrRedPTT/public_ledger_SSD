@@ -21,7 +21,7 @@ impl Identifier {
 }
 
 /// ## Node
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, Hash)]
 pub struct Node {
     pub id: Identifier, // Assuming Identifier is represented as a fixed-size array of 160 bytes
     pub ip: String,

@@ -1,4 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+
+use tokio::sync::RwLock;
 
 use crate::ledger::block::*;
 #[doc(inline)]
@@ -20,7 +22,7 @@ pub struct Blockchain {
     pub temporary_block: Block,
     pub miner_id: String,
     confirmation_pointer:u64,
-    event_observer: Arc<Mutex<NetworkEventSystem>>
+    event_observer: Arc<RwLock<NetworkEventSystem>>
 }
 
 impl Blockchain {
@@ -52,12 +54,12 @@ impl Blockchain {
                                         Self::INITIAL_DIFFICULTY,
                                         miner_id.clone(),
                                         0.0),
-            event_observer: Arc::new(Mutex::new(NetworkEventSystem::new()))
+            event_observer: Arc::new(RwLock::new(NetworkEventSystem::new()))
         }
     }
 
-    pub fn add_observer(&mut self, observer: Arc<Mutex<dyn BlockchainObserver>>) {
-        self.event_observer.lock().unwrap().add_observer(observer);
+    pub async fn add_observer(&mut self, observer: Arc<std::sync::RwLock<dyn BlockchainObserver>>) {
+        self.event_observer.write().await.add_observer(observer);
     }
 
     /// adds a block to the blockchain,
@@ -135,12 +137,15 @@ impl Blockchain {
     /// when the block is full it will be mined
     /// 
     /// **note** this method is only important to miners,
-    pub async fn add_transaction(&mut self, t:Transaction) {
+    pub async fn add_transaction(&mut self, t:Transaction, from_observer: bool) {
+        println!("GOT TO ADD TRANSACTION FROM OBSERVER? {}", from_observer);
         let index = self.temporary_block.add_transaction(t.clone());
-        self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
+        if !from_observer {
+            self.event_observer.read().await.notify_transaction_created(&t).await;
+        }
         if self.is_miner && index >= Self::MAX_TRANSACTIONS {
             self.temporary_block.mine();
-            self.event_observer.lock().unwrap().notify_block_mined(&self.temporary_block).await;
+            self.event_observer.read().await.notify_block_mined(&self.temporary_block).await;
             self.add_block(self.temporary_block.clone());
             self.adjust_temporary_block(true);
         }
@@ -190,7 +195,7 @@ impl NetworkObserver for Blockchain {
         // Check if we already have this transaction
         // If we do return true and stop here
         // else add the transaction and return true
-        self.chain[0].add_transaction(transaction.clone()); // Just here to check if the transaction is being saved or not (TESTING PURPOSES)
+        let index = self.temporary_block.add_transaction(transaction.clone());
         return false; // It's here while we don't have the "contains_transaction"
     }
 }
