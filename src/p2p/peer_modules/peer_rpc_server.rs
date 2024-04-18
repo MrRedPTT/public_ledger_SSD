@@ -6,8 +6,9 @@ use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::private::broadcast_api::BroadCastReq;
-use crate::p2p::private::req_handler::ReqHandler;
-use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
+use crate::p2p::private::req_handler_modules::req_handler_lookups::ReqHandler;
+use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
+use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
 use crate::proto::packet_sending_server::PacketSending;
 
 use super::super::peer::Peer;
@@ -169,5 +170,20 @@ impl PacketSending for Peer {
             BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(sender)).await;
         }
         return Ok(Response::new(()));
+    }
+
+    async fn get_block(&self, request: Request<GetBlockRequest>) -> Result<Response<GetBlockResponse>, Status> {
+        let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
+        let src = request.get_ref().src.as_ref().unwrap();
+        match pong {
+            Err(e) => {
+                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
+                return Err(Status::aborted(e.to_string()));
+            }
+            Ok(_) => {
+                ReqHandler::get_block(self, request).await
+            }
+        }
     }
 }

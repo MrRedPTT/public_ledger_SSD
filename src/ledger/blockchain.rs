@@ -159,6 +159,16 @@ impl Blockchain{
                                           self.mining_reward.clone())
     }
 
+    // Dummy function serving as placeholder for the get_block by hash function
+    pub(crate) fn dummy_get_block(&self, id: String) -> Option<Block> {
+        // Make sure only server3 has the block to test rerouting
+        if id == "server3".to_string() {
+            return Some(Block::new(1, "Testing GetBlock(id)".to_string(), 10, "Miner Id Here".to_string(), 0.0001));
+        }
+        None
+
+    }
+
 }
 
 

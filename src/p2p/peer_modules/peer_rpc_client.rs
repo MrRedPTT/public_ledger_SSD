@@ -5,12 +5,13 @@ use std::io;
 use std::io::ErrorKind;
 
 use crate::kademlia::node::{Identifier, Node};
+use crate::ledger::block::Block;
 use crate::p2p::peer::Peer;
 
 #[derive(Clone)]
-struct NodeNewDistance {
-    node: Node,
-    new_distance: f64
+pub(crate) struct NodeNewDistance {
+    pub node: Node,
+    pub new_distance: f64
 }
 
 impl NodeNewDistance {
@@ -151,6 +152,60 @@ impl Peer {
 
 
         return Err(io::Error::new(ErrorKind::NotFound, "The value was not found"));
+    }
+
+    pub async fn get_block(&self, id: String) -> Result<Block, io::Error>
+    {
+        let nodes = &mut self.kademlia.lock().unwrap().get_k_nodes_new_distance().unwrap_or(Vec::new());
+        if nodes.len() == 0 {
+            return Err(io::Error::new(ErrorKind::InvalidData, "No nodes found to communicate with"));
+        }
+        let mut reroute_table: HashMap<Node, Vec<Node>> = HashMap::new();
+        let mut already_checked: Vec<Node> = Vec::new();
+        // First iterate through our own nodes (according to old distance)
+        let mut priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
+        while !&nodes.is_empty(){
+            let res = self.get_block_handler(id.clone(), self.get_batch(Some(nodes), None, 14), already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
+
+            match res {
+                Ok(res_node) => {
+                    if !res_node.is_none() {
+                        self.kademlia.lock().unwrap().reputation_reward(res_node.clone().unwrap().1.id);
+                        return Ok(res_node.unwrap().0);
+                    }
+                }
+                Err(list) => {
+                    if !list.is_none() {
+                        for i in list.clone().unwrap() {
+                            priority_queue.push(NodeNewDistance::new(i.clone(), self.kademlia.lock().unwrap().get_trust_score(i.id.clone()).get_score()));
+                        }
+                    }
+                }
+            }
+        }
+
+        while !priority_queue.is_empty() {
+            let batch = self.get_batch(None, Some(priority_queue), 14);
+            let res = self.get_block_handler(id.clone(), batch, already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
+            match res {
+                Ok(res_node) => {
+                    if !res_node.is_none() {
+                        self.reward(reroute_table.borrow_mut(), &already_checked, res_node.clone().unwrap().1);
+                        return Ok(res_node.unwrap().0);
+                    }
+                }
+                Err(e) => {
+                    if !e.is_none() {
+                        for i in e.unwrap() {
+                            priority_queue.push(NodeNewDistance::new(i.clone(), self.kademlia.lock().unwrap().get_trust_score(i.id.clone()).get_score()));
+                        }
+                    }
+                }
+            }
+        }
+
+
+        return Err(io::Error::new(ErrorKind::NotFound, "The block was not found"));
     }
 
 

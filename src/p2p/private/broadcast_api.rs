@@ -14,7 +14,7 @@ use crate::kademlia::node::{ID_LEN, Node};
 use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::{Peer, TTL};
-use crate::p2p::private::res_handler::ResHandler;
+use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
 use crate::proto::packet_sending_client::PacketSendingClient;
 
 pub struct BroadCastReq {}
@@ -196,7 +196,7 @@ impl BroadCastReq {
                     }
                 }
             }
-            Err(e) => {
+            Err(_) => {
                 error!("Connection Timeout");
                 return;
             }

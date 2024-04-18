@@ -1,37 +1,14 @@
 use std::collections::HashMap;
-use std::io;
-use std::io::ErrorKind;
 use std::sync::Arc;
 
-use async_recursion::async_recursion;
-use log::{debug, error, info};
-use tonic::Response;
+use log::{error, info};
 
-use crate::kademlia::node;
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
-use crate::p2p::private::broadcast_api::BroadCastReq;
-use crate::p2p::private::res_handler::ResHandler;
-use crate::proto::{FindNodeResponse, FindValueResponse, KNearestNodes, PongPacket, StoreResponse};
+use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
 
 impl Peer {
-    /// # Ping Request
-    /// Proxy for the [ResHandler::ping] function.
-    pub async fn ping(&self, ip: &str, port: u32, id: Identifier) -> Result<Response<PongPacket>, io::Error> {
-        self.kademlia.lock().unwrap().increment_interactions(id.clone());
-        let res = ResHandler::ping(self, ip, port).await;
-        match res {
-            Err(e) => {
-                self.kademlia.lock().unwrap().risk_penalty(id.clone());
-                Err(e)
-            },
-            Ok(res) => return Ok(res)
-        }
-    }
-
-
     /// # Find Node Request
     /// The actual logic used to send the request is defined in [ResHandler::find_node]
     /// This function will look at the node provide, determine which nodes it should contact in
@@ -110,7 +87,7 @@ impl Peer {
                     }
 
                 },
-                Err(e) => {
+                Err(_) => {
                     error!("Got an error on the response");
                     self.kademlia.lock().unwrap().risk_penalty(node.id);
                 }
@@ -189,7 +166,7 @@ impl Peer {
                     }
 
                 },
-                Err(e) => {
+                Err(_) => {
                     error!("Got an error on the response");
                     self.kademlia.lock().unwrap().risk_penalty(node.id);
                 }
@@ -200,81 +177,82 @@ impl Peer {
 
 
     }
+    pub async fn get_block_handler(&self, id: String, peers: Vec<Node>, already_checked: &mut Vec<Node>, recommended_map: &mut HashMap<Node, Vec<Node>>) -> Result<Option<(Block, Node)>, Option<Vec<Node>>> {
 
-
-    /// # Store Request
-    /// Proxy for the [ResHandler::store] function.
-    pub async fn store(&self, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
-
-        let nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(key.clone());
-        let mut node_list: Vec<Node> = Vec::new();
-        let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
-        if nodes.is_none() {
-            return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
-        } else {
-            node_list = nodes.unwrap();
-            debug!("DEBUGG IN PEER::STORE -> NodeList len: {}", node_list.len());
-            debug!("DEBUGG IN PEER:STORE -> Contains server3: {}", node_list.contains(&Node::new("127.0.46.1".to_string(), 8935).unwrap()));
-            for i in &node_list{
-                debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
-                // Exclude the possibility of creating a loop within it self
-                if i == &self.node {
-                    continue;
-                }
-                arguments.push((i.ip.clone(), i.port, i.id.clone()));
-                self.kademlia.lock().unwrap().increment_interactions(i.clone().id);
-            }
+        for peer in &peers {
+            self.kademlia.lock().unwrap().increment_interactions(peer.id.clone());
+            self.kademlia.lock().unwrap().increment_lookups(peer.id.clone());
+            self.kademlia.lock().unwrap().send_back_specific_node(&peer);
+            already_checked.push(peer.clone());
         }
-        let semaphore = Arc::new(tokio::sync::Semaphore::new(5)); // Limit the number of threads
 
-        // Process tasks concurrently using Tokio
+        let mut arguments: Vec<(String, u32, Node)> = Vec::new();
+        for i in &peers{
+            arguments.push((i.ip.clone(), i.port, i.clone()));
+        }
+        let semaphore = Arc::new(tokio::sync::Semaphore::new(7)); // Limit the number of threads
+
         let tasks = arguments.into_iter()
             .map(|arg| {
                 let semaphore = semaphore.clone();
                 let node = self.node.clone();
-                let ident = key.clone();
-                let val = value.clone();
+                let ident = id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::store(&node, arg.0, arg.1, ident, val).await;
+                    let res = ResHandler::get_block(&node, arg.0.as_ref(), arg.1, &ident).await;
                     drop(permit);
                     (res, arg.2)
                 })
             })
             .collect::<Vec<_>>();
 
-        // Output results
-        let mut counter: usize = 0;
+
+        let mut recommendation: Vec<Node> = Vec::new();
         for task in tasks {
-            let (result, id) = task.await.expect("Failed to retrieve task result");
-            match result {
-                Err(e) => {
-                    error!("Error found: {}", e);
-                    self.kademlia.lock().unwrap().risk_penalty(id);
-                }
-                Ok(res) => {
-                    if res.get_ref().response_type != 0 {
-                        debug!("DEBUG PEER::STORE -> Either Forwarded or Stored");
-                        return Ok(res);
+            let (res, node) = task.await.expect("Task failed");
+            match res {
+                Ok(result) => {
+                    if result.get_ref().response_type == 2 && !result.get_ref().block.is_none(){
+                        info!("Found the Block");
+                        if let Some(target_block) = result.get_ref().clone().block {
+                            return Ok(Some((Block::proto_to_block(target_block), node.clone())));
+                        }
+                        return Err(None);
+                    } else if result.get_ref().response_type == 1 {
+                        info!("Got K nearest nodes");
+                        let knearest = result.get_ref().clone().list;
+                        if knearest.is_none() {
+                            return Err(None);
+                        }
+                        let list = knearest.unwrap().nodes;
+                        let mut temp = &mut Vec::new();
+                        temp.push(node.clone());
+                        for i in list {
+                            let node = Node::new(i.ip, i.port).unwrap();
+                            // Add the recommendation
+                            if let Some(list_of_nodes) = recommended_map.get_mut(&node) {
+                                temp.extend(list_of_nodes.clone());
+                            } else {
+                                // If Node X does not exist in the map, insert it with the new mentioning nodes
+                                recommended_map.insert(node.clone(), temp.to_vec());
+                            }
+                            recommendation.push(node.clone())
+                        }
+                    } else {
+                        error!("An error has occurred during the processing of the request");
                     }
+
+                },
+                Err(_) => {
+                    error!("Got an error on the response");
+                    self.kademlia.lock().unwrap().risk_penalty(node.id);
                 }
             }
-            // Move the node we just contacted to the back of the list
-            let _ = self.kademlia.lock().unwrap().send_back_specific_node(&node_list[counter]);
-            counter += 1;
         }
 
-        return Err(io::Error::new(ErrorKind::NotFound, "Node not found"));
-    }
+        return Err(Some(recommendation));
 
-    // ===================== block_chain Network APIs (Client Side) ============================ //
 
-    pub async fn send_transaction(&self, transaction: Transaction, ttl: Option<u32>, sender: Option<Node>) {
-        BroadCastReq::broadcast(self, Some(transaction), None, ttl, sender).await;
-    }
-
-    pub async fn send_block(&self, block: Block, ttl: Option<u32>, sender: Option<Node>) {
-        BroadCastReq::broadcast(self, None, Some(block), ttl, sender).await;
     }
 }

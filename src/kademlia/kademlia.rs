@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BinaryHeap, HashMap};
 
 use sha3::Digest;
 
@@ -10,6 +10,7 @@ use crate::kademlia::node::{ID_LEN, Identifier};
 #[doc(inline)]
 use crate::kademlia::node::Node;
 use crate::kademlia::trust_score::TrustScore;
+use crate::p2p::peer_modules::peer_rpc_client::NodeNewDistance;
 
 #[derive(Debug, Clone)]
 /// ## Kademlia
@@ -154,6 +155,41 @@ impl Kademlia {
     /// Will return up to K * ID_LEN nodes (meaning all nodes in the kbucket). If none are found, return [None].
     pub fn get_all_nodes(&self) -> Option<Vec<Node>> {
         self.kbuckets.get_n_closest_nodes(self.node.id.clone(), K * ID_LEN)
+    }
+
+    // This function will return K nodes based on the new distance
+    // Will be used to return nodes for the GetBlock RPC given that
+    // we can't really get the closest nodes to a block in the blockchain
+    // so we will base our selves in the reputation
+    pub fn get_k_nodes_new_distance(&mut self) -> Option<Vec<Node>> {
+        let mut priority_queue: &mut BinaryHeap<crate::p2p::peer_modules::peer_rpc_client::NodeNewDistance> = &mut BinaryHeap::new();
+        let all_nodes = self.get_all_nodes();
+        if all_nodes.is_none() {
+            return None;
+        }
+        for i in all_nodes.unwrap() {
+            priority_queue.push(NodeNewDistance::new(i.clone(), self.get_trust_score(i.id.clone()).get_score()));
+        }
+
+        let mut closest_nodes: Vec<Node> = Vec::new();
+        let mut count = 0;
+
+        while !priority_queue.is_empty() || count < K {
+            let element = priority_queue.pop();
+            if element.is_none() {
+                if closest_nodes.len() == 0 {
+                    return None;
+                } else {
+                    return Some(closest_nodes);
+                }
+            }
+            closest_nodes.push(element.unwrap().node);
+        }
+        if closest_nodes.len() == 0 {
+            return None;
+        }
+        return Some(closest_nodes);
+
     }
 
     /// # remove_node
