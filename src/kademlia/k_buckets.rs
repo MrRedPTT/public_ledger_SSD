@@ -237,10 +237,11 @@ impl KBucket {
         let mut temp: Vec<(Node, TrustScore)> = Vec::new();
         for i in nodes {
             let mut trust = self.get_trust_score(&i.id);
-            if !trust.is_none() {
+            if trust.is_none() {
                 trust = Some(TrustScore::new());
+            } else {
+                temp.push((i, trust.unwrap()))
             }
-            temp.push((i, trust.unwrap()))
         }
         // Sort the nodes based in new_distance
         temp.sort_by(|mut a, mut b| {

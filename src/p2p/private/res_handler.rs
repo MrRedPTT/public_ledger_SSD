@@ -194,7 +194,6 @@ impl  ResHandler {
                         Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                     },
                     Ok(response) => {
-                        println!("Store Response: {:?}", response.get_ref());
                         Ok(response)
                     }
                 }
