@@ -129,11 +129,12 @@ impl PacketSending for Peer {
             amount_out: unpacked.amount_out,
             miner_fee: unpacked.miner_fee,
         };
-        println!("Reveived a Transaction: {:?} with TTL: {} from: {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
-        if self.event_observer.read().unwrap().notify_transaction_received(&transaction) {
-            return Ok(Response::new(()));
-        }
-        println!("Dropped Lock on observer");
+
+        println!("Reveived a Transaction: {:?} with TTL: {} from : {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+
+        // Transaction received
+        let _ = self.blockchain.lock().unwrap().add_transaction(transaction.clone());
+
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
             let ttl: u32 = input.ttl.clone() - 1;
@@ -159,10 +160,7 @@ impl PacketSending for Peer {
         println!("Reveived a Block: {:?} with TTL: {} from : {}:{}", block, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
 
         // Block Handler
-        // If we already have the Block don't propagate it further, else propagate
-        if self.event_observer.read().unwrap().notify_block_received(&block) {
-            return Ok(Response::new(()));
-        }
+        self.blockchain.lock().unwrap().add_block(block.clone());
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate

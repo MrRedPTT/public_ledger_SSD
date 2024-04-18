@@ -101,7 +101,12 @@ impl BroadCastReq {
         }
 
         // Propagate message
-        println!("Transaction propagated!");
+        if transaction.is_none(){
+            println!("Block propagated!");
+        } else {
+            println!("Transaction propagated!");
+        }
+
     }
 
     async fn send_request(node: &Node, ip: String, port: u32, transaction_op: Option<Transaction>, block_op: Option<Block>, ttl: u32) {

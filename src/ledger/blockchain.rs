@@ -1,12 +1,6 @@
-use std::sync::Arc;
-
-use tokio::sync::RwLock;
-
 use crate::ledger::block::*;
 #[doc(inline)]
 use crate::ledger::transaction::*;
-
-use super::super::observer::*;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated
@@ -14,18 +8,17 @@ use super::super::observer::*;
 
 
 /// Representation of the Blockchain
-pub struct Blockchain { 
+pub struct Blockchain {
     pub chain: Vec<Block>, 
     pub difficulty: usize,
     mining_reward: f64, 
     pub is_miner: bool,
     pub temporary_block: Block,
     pub miner_id: String,
-    confirmation_pointer:u64,
-    event_observer: Arc<RwLock<NetworkEventSystem>>
+    confirmation_pointer:u64
 }
 
-impl Blockchain {
+impl Blockchain{
     const INITIAL_DIFFICULTY:usize = 1;
     const NETWORK:&'static str = "network";
     const MAX_TRANSACTIONS:usize = 3;
@@ -53,14 +46,10 @@ impl Blockchain {
                                         hash.clone(),
                                         Self::INITIAL_DIFFICULTY,
                                         miner_id.clone(),
-                                        0.0),
-            event_observer: Arc::new(RwLock::new(NetworkEventSystem::new()))
+                                        0.0)
         }
     }
 
-    pub async fn add_observer(&mut self, observer: Arc<std::sync::RwLock<dyn BlockchainObserver>>) {
-        self.event_observer.write().await.add_observer(observer);
-    }
 
     /// adds a block to the blockchain,
     ///
@@ -102,7 +91,7 @@ impl Blockchain {
     }
 
     /// adjust the difficulty of the hashes
-    fn adjust_difficulty(&mut self) {
+    pub(crate) fn adjust_difficulty(&mut self) {
         let target_time: u64 = 1 * 60; // Target time to mine a block, e.g., 1 minute
         if self.chain.len() <= 1 {
             return; // Don't adjust if only the genesis block exists
@@ -122,7 +111,7 @@ impl Blockchain {
     }
 
     /// returns the current index of the blockchain
-    fn get_current_index(&self) -> usize{
+    pub(crate) fn get_current_index(&self) -> usize{
         return self.get_head().index;
     }
 
@@ -137,15 +126,10 @@ impl Blockchain {
     /// when the block is full it will be mined
     /// 
     /// **note** this method is only important to miners,
-    pub async fn add_transaction(&mut self, t:Transaction, from_observer: bool) {
-        println!("GOT TO ADD TRANSACTION FROM OBSERVER? {}", from_observer);
+    pub fn add_transaction(&mut self, t:Transaction) {
         let index = self.temporary_block.add_transaction(t.clone());
-        if !from_observer {
-            self.event_observer.read().await.notify_transaction_created(&t).await;
-        }
         if self.is_miner && index >= Self::MAX_TRANSACTIONS {
             self.temporary_block.mine();
-            self.event_observer.read().await.notify_block_mined(&self.temporary_block).await;
             self.add_block(self.temporary_block.clone());
             self.adjust_temporary_block(true);
         }
@@ -157,7 +141,7 @@ impl Blockchain {
     ///**Note:** 
     /// does **not** check for transactions 
     /// that already exist in other blocks
-    fn adjust_temporary_block(&mut self, create: bool){
+    pub(crate) fn adjust_temporary_block(&mut self, create: bool){
         let head = self.get_head();
 
         if !create {
@@ -177,28 +161,7 @@ impl Blockchain {
 
 }
 
-// =========================== OBSERVER CODE ==================================== //
 
-impl NetworkObserver for Blockchain {
-    fn on_block_received(&mut self, block: &Block) -> bool {
-        println!("on_block_received event Triggered on BlockChain: {} => Received Block: {:?}", self.miner_id, block.clone());
-        // Check if we already have this block
-        // If we do return true and stop here
-        // else add the block and return true
-        self.add_block(block.clone());
-
-        return false; // It's here while we don't have the "contains_block"
-    }
-
-    fn on_transaction_received(&mut self, transaction: &Transaction) -> bool {
-        println!("on_transaction_received event Triggered on BlockChain: {} => Received Transaction: {:?}", self.miner_id, transaction.clone());
-        // Check if we already have this transaction
-        // If we do return true and stop here
-        // else add the transaction and return true
-        let index = self.temporary_block.add_transaction(transaction.clone());
-        return false; // It's here while we don't have the "contains_transaction"
-    }
-}
 
 #[cfg(test)]
 mod test {

@@ -21,7 +21,6 @@ pub mod proto {
 
 pub mod ledger_gui;
 pub mod auxi;
-mod observer;
 
 
 #[tokio::main]
@@ -86,10 +85,8 @@ async fn main() {
         let mut test_block_events = Blockchain::new(false, "BlockHey".to_string());
         let observer = Arc::new(RwLock::new(test_block_events));
         let blockchainclient = Arc::clone(&observer);
-        client.add_observer(observer);
         let client1 = Arc::new(RwLock::new(client));
         let client2 = Arc::clone(&client1);
-        blockchainclient.write().unwrap().add_observer(client1).await;
 
         println!("Do I have the key1?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
         println!("Do I have the key3?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
@@ -105,12 +102,6 @@ async fn main() {
             miner_fee: 0.0,
         };
 
-        // VERY CAREFULL WITH THIS WHICH CAN CAUSE A DEADLOCK
-        if client2.read().unwrap().node.port == 8888 {
-            println!("Before getting into observer from main");
-            println!("Getting write(): {:?}", blockchainclient.try_write().unwrap().add_transaction(transaction.clone(), false).await);
-            println!("After getting into observer from main");
-        }
 
         // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;
@@ -150,20 +141,16 @@ async fn main() {
         let block = Block::new(1, "ahsahsahsa".to_string(), 1, "jose".to_string(), 0.0);
 
         let server = peer.clone();
-        // TODO
-        // To avoid the previous problem we are now getting a reference to the kademlia attribute
-        // from the server object, but now we need to specify that in order to create the Peer object
-        // we have to implicitly pass the kademlia object, that way we can use the same.
         let _ = server.init_server().await;
 
-        //println!("Broadcast Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
-        //println!("Broadcast Block -> {:?}", peer.send_block(block, None, None).await);
+        println!("Broadcasted Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
+        println!("Broadcast Block -> {:?}", peer.send_block(block, None, None).await);
         //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port, node1.id.clone()).await);
         //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port, node3.id.clone()).await);
         //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
-        println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await);
-        println!("Result Store Key3 -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        println!("Result Find Key3 -> {:?}", peer.find_value(key_server3_should_have).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await);
+        //println!("Result Store Key3 -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        //println!("Result Find Key3 -> {:?}", peer.find_value(key_server3_should_have).await);
         //println!("Result Store Key1 -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
         //println!("Result Find Key 1-> {:?}", peer.find_value(key_server1_should_have, None, None).await);
         //let trust_scores = peer.kademlia.lock().unwrap().get_all_trust_scores();

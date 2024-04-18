@@ -15,7 +15,6 @@ use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
 use crate::ledger::blockchain::Blockchain;
 use crate::ledger::transaction::Transaction;
-use crate::observer::{BlockchainEventSystem, BlockchainObserver, NetworkObserver};
 use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler::ReqHandler;
 use crate::p2p::private::res_handler::ResHandler;
@@ -28,7 +27,7 @@ pub const TTL: u32 = 15; // The default ttl for the broadcast of messages
 pub struct Peer {
     pub node: Node,
     pub kademlia: Arc<Mutex<Kademlia>>,
-    pub event_observer: Arc<RwLock<BlockchainEventSystem>>
+    pub blockchain: Arc<Mutex<Blockchain>>
 }
 
 impl Peer {
@@ -42,26 +41,21 @@ impl Peer {
     /// [Arc<Mutex<Kademlia>>] meaning that it's thread safe.
     pub fn new(node: &Node) -> (Peer, Peer) {
         let kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
-        let event_observer = Arc::new(RwLock::new(BlockchainEventSystem::new()));
+        let blockchain = Arc::new(Mutex::new(Blockchain::new(true, "My Name Is Mario".to_string())));
         let server = Peer {
             node: node.clone(),
             kademlia: Arc::clone(&kademlia),
-            event_observer: Arc::clone(&event_observer)
+            blockchain: Arc::clone(&blockchain)
         };
 
         let client = Peer {
             node: node.clone(),
             kademlia,
-            event_observer
+            blockchain
         };
 
         (server, client) // Return 2 instances of Peer that share the same kademlia object
     }
-
-    pub fn add_observer(&mut self, observer: Arc<RwLock<dyn NetworkObserver>>) {
-        self.event_observer.write().unwrap().add_observer(observer);
-    }
-
 
     /// # init_server
     /// Instantiates a tonic server that will listen for RPC calls. The information used,
@@ -105,19 +99,4 @@ impl Peer {
     }
 
 
-}
-
-
-// =========================== CODE FOR BLOCKCHAIN OBSERVER =========================== //
-#[async_trait]
-impl BlockchainObserver for Peer {
-    async fn on_block_mined(&self, block: &Block) {
-        println!("A Block was just mined: {:?}\nBroadcasting...", block.clone());
-        self.send_block(block.clone(), None, None).await;
-    }
-
-    async fn on_transaction_created(&self, transaction: &Transaction) {
-        println!("A Transaction was just created: {:?}\nBroadcasting...", transaction.clone());
-        self.send_transaction(transaction.clone(), None, None).await;
-    }
 }
