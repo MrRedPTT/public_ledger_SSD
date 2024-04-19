@@ -98,7 +98,7 @@ impl Blockchain {
         }
         self.heads.reorder();
         self.adjust_difficulty(); 
-        self.adjust_temporary_block(false);
+        self.adjust_temporary_block();
 
         return true
     }
@@ -137,36 +137,36 @@ impl Blockchain {
 
 
     /// adds a transaction to a temporary block
-    /// when the block is full it will be mined
+    /// the transaction is only added if the block isn't full
     /// 
     /// ** Note ** this method is only important to miners,
-    pub async fn add_transaction(&mut self, t:Transaction) {
-        let index = self.temporary_block.add_transaction(t.clone());
-        self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
-        if self.is_miner && index >= Self::MAX_TRANSACTIONS +1 {
-            self.temporary_block.mine();
-            self.event_observer.lock().unwrap().notify_block_mined(&self.temporary_block).await;
-            self.add_block(self.temporary_block.clone());
-            self.adjust_temporary_block(true);
-        }
+    /// as non miners dont care about transactions
+    pub fn add_transaction(&mut self, t:Transaction) {
+        if self.can_mine() { return}
+        let _index = self.temporary_block.add_transaction(t);
+        //self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
     }
 
-    ///adjust the temporary block based on the state of the blockchain
-    ///if the parameter `create` is true then a new block is created
+    /// adjust the temporary block based on the state of the blockchain
+    /// this updates the index the previous hash and the difficulty
     ///
     ///** TODO:** 
     /// does **not** check for transactions 
     /// that already exist in other blocks
-    fn adjust_temporary_block(&mut self, create: bool){
+    fn adjust_temporary_block(&mut self){
         let head = self.get_head();
 
-        if !create {
-            self.temporary_block.index = head.index + 1;
-            self.temporary_block.prev_hash = head.hash;
-            //self.temporary_block.mining_reward = self.mining_reward;
-            self.temporary_block.difficulty = self.difficulty;
-            return
-        }
+        self.temporary_block.index = head.index + 1;
+        self.temporary_block.prev_hash = head.hash;
+        //self.temporary_block.mining_reward = self.mining_reward;
+        self.temporary_block.difficulty = self.difficulty;
+        return
+    }
+
+    /// replace the temporary block with a new one
+    /// based on the current state
+    fn replace_temporary_block(&mut self){
+        let head = self.get_head();
 
         self.temporary_block = Block::new(head.index + 1,
                                           head.hash,
@@ -184,24 +184,32 @@ impl Blockchain {
     }
 
     //TODO: Implement
-    pub fn get_block_by_hash(&self, hash: String) -> Option<Block> {
+    pub fn get_block_by_hash(&self, _hash: String) -> Option<Block> {
         return None;
     }
 
     /// Check if a block can be added to the block chain
     //TODO: Implement
-    pub fn can_add_block(&self, b: Block) -> bool {
+    pub fn can_add_block(&self, _b: Block) -> bool {
         return false;
     }
 
-    //TODO: Implement
+    /// returns true if the temporary block can be mined
+    /// this will return a result regardless of if the user is a miner or not
     pub fn can_mine(&self) -> bool {
-        return false;
+        self.temporary_block.transactions.len() >= Self::MAX_TRANSACTIONS +1  
     }
+    
+    /// If the user is a miner and mining is possible then 
+    /// mine the temporary block
+    pub fn mine(&mut self) -> bool {
+        if !self.is_miner || !self.can_mine() {return false}
 
-    //TODO: Implement
-    pub fn mine(&self) -> bool {
-        return false;
+        self.temporary_block.mine();
+        //self.event_observer.lock().unwrap().notify_block_mined(&self.temporary_block).await;
+        self.add_block(self.temporary_block.clone());
+        self.replace_temporary_block();
+        return true;
     }
 
 }
@@ -272,32 +280,35 @@ mod test {
             out-_in,
             to)
     }    
+    fn add_block(bc : &mut Blockchain){
+        for _ in 0..Blockchain::MAX_TRANSACTIONS {
+            bc.add_transaction( gen_transaction());
+        }
+        bc.mine();
+    }
 
-    #[tokio::test]
-    async fn test_adding_blocks() {
+    #[test]
+    fn test_adding_blocks() {
         let mut blockchain = Blockchain::new(true,"mario".to_string());
 
-        for i in 0..4 {
-            for _ in 1..Blockchain::MAX_TRANSACTIONS {
-                blockchain.add_transaction( gen_transaction()).await;
-            }
-            println!("mined block {:#?}", i);
+        let blocks:usize = 4;
+        for _i in 0..blocks {
+            add_block(&mut blockchain);
         }
 
         println!("{:#?}", blockchain);
-        assert_eq!(blockchain.get_current_index()+1, 4);
+        assert_eq!(blockchain.get_current_index(), blocks+1);
     }
 
-    #[tokio::test]
-    async fn test_branching() {
+    #[test]
+    fn test_branching() {
         let mut bc = Blockchain::new(true,"mario".to_string());
 
         for _i in 0..2 {
-            for _ in 1..Blockchain::MAX_TRANSACTIONS {
-                bc.add_transaction( gen_transaction()).await;
-            }
+            add_block(&mut bc);
         }
         let h = bc.get_head();
+
 
         //make a new block
         let mut b = Block::new(h.index+1,
@@ -309,13 +320,7 @@ mod test {
         }
         b.mine();
 
-        // new block was mined
-        for _ in 1..Blockchain::MAX_TRANSACTIONS {
-            bc.add_transaction( gen_transaction()).await;
-        }
-        
-        println!("{:#?}",bc);
-        //put other block in the bc
+        add_block(&mut bc);
         bc.add_block(b);
 
         
@@ -324,17 +329,18 @@ mod test {
         assert_eq!(bc.heads.num() , 2);
     }
 
-    #[tokio::test]
-    async fn test_prunning() {
+    #[test]
+    fn test_prunning() {
         let mut bc = Blockchain::new(true,"mario".to_string());
 
         for _i in 0..2 {
             for _ in 1..Blockchain::MAX_TRANSACTIONS {
-                bc.add_transaction( gen_transaction()).await;
+                bc.add_transaction( gen_transaction());
             }
         }
         let h = bc.get_head();
-
+        add_block(&mut bc);
+        
         //make a new block
         let mut b = Block::new(h.index+1,
             h.hash, bc.difficulty.clone(),"wario".to_string(),
@@ -344,22 +350,11 @@ mod test {
             b.add_transaction( gen_transaction());
         }
         b.mine();
-
-        // new block was mined
-        for _ in 1..Blockchain::MAX_TRANSACTIONS {
-            bc.add_transaction( gen_transaction()).await;
-        }
-        
-        //put other block in the bc
         bc.add_block(b);
 
+        add_block(&mut bc);
+        add_block(&mut bc);
         
-        for _ in 1..Blockchain::MAX_TRANSACTIONS {
-            bc.add_transaction( gen_transaction()).await;
-        }
-        for _ in 1..Blockchain::MAX_TRANSACTIONS {
-            bc.add_transaction( gen_transaction()).await;
-        }
 
         println!("{:#?}",bc);
         assert_eq!(bc.heads.num() , 1);
