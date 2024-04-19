@@ -64,7 +64,7 @@ impl Blockchain {
     /// adds a block to the blockchain,
     ///
     /// This method assumes that blocks will **not** come out of order
-    /// 
+    /// To know when the block is added check the `can_add_block` function
     ///
     /// **outputs:**
     /// returns true if the block is successfully added
@@ -183,15 +183,34 @@ impl Blockchain {
         return Some(self.chain[id].clone());
     }
 
-    //TODO: Implement
-    pub fn get_block_by_hash(&self, _hash: String) -> Option<Block> {
+    /// Gets a block (if it exists) with a certain hash
+    pub fn get_block_by_hash(&self, hash: String) -> Option<Block> {
+        if let Some(b) = self.heads.get_block_by_hash(hash.clone()) {
+            return Some(b);
+        }
+
+        for block in self.chain.iter().rev() {
+            if block.hash ==  hash{
+                return Some(block.clone());
+            }
+        }
+        
         return None;
     }
 
     /// Check if a block can be added to the block chain
-    //TODO: Implement
-    pub fn can_add_block(&self, _b: Block) -> bool {
-        return false;
+    /// 
+    /// The block can be added if:
+    /// - its hash is correct,
+    /// - the prev hash is in the heads
+    /// - the prev hash is at the top of the trusted chain
+    pub fn can_add_block(&self, b: Block) -> bool {
+        if !b.check_hash() {
+            return false;
+        }
+
+        let f = self.heads.can_add_block(b.clone());
+        return f || (self.chain.last().unwrap().clone().hash == b.clone().prev_hash);
     }
 
     /// returns true if the temporary block can be mined

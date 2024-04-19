@@ -84,4 +84,41 @@ impl Heads {
         };               
         return None
     }
+
+    pub fn can_add_block(&self, b: Block) -> bool{
+        // check each of the 
+        for head in &self.list{
+            // @ beginning of a head
+            let mut index = head.len()-1;
+            if head[index].hash == b.prev_hash {
+                return true;
+            }
+
+            // @ tail of head
+            loop {
+                index-=1;
+
+                if head[index].hash == b.prev_hash {
+                    return true;
+                }
+                if index == 0 {
+                    break;
+                }
+            }
+        }
+        return false;
+    }
+
+    pub fn get_block_by_hash(&self, hash: String) -> Option<Block> {
+        
+        for head in self.list.iter() {
+            for block in head.iter().rev() {
+                if block.hash ==  hash{
+                    return Some(block.clone());
+                }
+            }
+        }
+        
+        return None;
+    }
 }
