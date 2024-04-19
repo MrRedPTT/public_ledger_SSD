@@ -19,6 +19,7 @@
                 cargo
                 rustc
                 rust-analyzer
+                protobuf
             ];
 
             ROOT=root;
@@ -30,7 +31,6 @@
                 alias build='cargo build'
                 alias run='cargo run'
                 alias test='cargo test'
-                alias dtest='cargo test -- --show-output'
                 alias doc='cargo doc'
                 alias odoc='cargo doc --open'
 

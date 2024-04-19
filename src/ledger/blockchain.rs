@@ -1,9 +1,8 @@
-use std::sync::{Arc, Mutex};
-
-use crate::ledger::block::*;
 #[doc(inline)]
+use std::sync::{Arc, Mutex};
+use crate::ledger::block::*;
+use crate::ledger::heads::*;
 use crate::ledger::transaction::*;
-
 use super::super::observer::*;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
@@ -14,21 +13,22 @@ use super::super::observer::*;
 /// Representation of the Blockchain
 pub struct Blockchain { 
     pub chain: Vec<Block>, 
+    pub heads: Heads,
     pub difficulty: usize,
     mining_reward: f64, 
     pub is_miner: bool,
     pub temporary_block: Block,
     pub miner_id: String,
-    confirmation_pointer:u64,
     event_observer: Arc<Mutex<NetworkEventSystem>>
 }
 
+// =========================== BLOCKCHAIN CODE ==================================== //
 /// Implementation of the basic BlockChain methods
 impl Blockchain {
     const INITIAL_DIFFICULTY:usize = 1;
     const NETWORK:&'static str = "network";
     const MAX_TRANSACTIONS:usize = 3;
-    const CONFIRMATION_THRESHOLD:usize = 5;
+    const CONFIRMATION_THRESHOLD:usize = 2;
 
     /// creates a new Blockchain with only the Genesis Block
     pub fn new(is_miner:bool, miner_id:String) -> Blockchain {
@@ -42,12 +42,12 @@ impl Blockchain {
         let hash = genesis_block.hash.clone();
 
         Blockchain {
-            chain: vec![genesis_block],
+            chain: vec![],
+            heads: Heads::new(vec![genesis_block], Self::CONFIRMATION_THRESHOLD),
             difficulty: Self::INITIAL_DIFFICULTY,
             mining_reward: 0.01,
             is_miner,
             miner_id: miner_id.clone(),
-            confirmation_pointer: 0,
             temporary_block: Block::new(1,
                                         hash.clone(),
                                         Self::INITIAL_DIFFICULTY,
@@ -63,37 +63,40 @@ impl Blockchain {
 
     /// adds a block to the blockchain,
     ///
-    /// if the `b.prev_hash != blockchain.head.hash` 
-    /// the client will ask the network for missing block(s)
+    /// This method assumes that blocks will **not** come out of order
+    /// 
     ///
     /// **outputs:**
     /// returns true if the block is successfully added
     ///
-    /// **status:** **not fully implemented**
-    /// - missing getting other packages from network
+    /// ** TODO: **
     /// - verification is also not fully done
     pub fn add_block(&mut self, b:Block) -> bool{
-
         if !b.check_hash() {
             return false;
         }
 
-        let prev_hash = self.get_head().hash;
-        if b.prev_hash != prev_hash{
-            return false
+        //check if new block fits in heads
+        let f = self.heads.add_block(b.clone());
+        // if not then is it a new head ?
+        if !f {
+            if self.chain.last().unwrap().clone().hash == b.clone().prev_hash {
+                self.heads.add_head(vec![b]);
+            }
+            else {
+                return false
+            }
         }
 
-        let _ = self.chain.iter_mut()
-            .take(Blockchain::CONFIRMATION_THRESHOLD)
-            .for_each(|block| {
-                block.add_confirmation();
-                let c = block.get_confirmations();
-                if c <= Self::CONFIRMATION_THRESHOLD {
-                    self.confirmation_pointer += 1;
-                }
-        });
-
-        self.chain.push(b);
+        match self.heads.get_confirmed() {
+            Some(confirmed_block) => {
+                self.heads.prune(confirmed_block.prev_hash.clone());
+                self.chain.push(confirmed_block);
+            }
+            None => {
+            }
+        }
+        self.heads.reorder();
         self.adjust_difficulty(); 
         self.adjust_temporary_block(false);
 
@@ -107,8 +110,9 @@ impl Blockchain {
             return; // Don't adjust if only the genesis block exists
         }
 
-        let last_block = &self.chain[self.chain.len() - 1];
-        let prev_block = &self.chain[self.chain.len() - 2];
+        let m = self.heads.get_main();
+        let last_block = &m[m.len() - 1];
+        let prev_block = &m[m.len() - 2];
 
         let actual_time = last_block.timestamp - prev_block.timestamp;
 
@@ -122,24 +126,24 @@ impl Blockchain {
 
     /// returns the current index of the blockchain
     fn get_current_index(&self) -> usize{
-        return self.get_head().index;
+        return self.heads.get_main().len() + self.chain.len();
     }
 
 
     /// returns the head Block the blockchain
     pub fn get_head(&self) -> Block {
-        return self.chain.last().unwrap().clone();
+        return self.heads.get_main().last().unwrap().clone();
     }
 
 
     /// adds a transaction to a temporary block
     /// when the block is full it will be mined
     /// 
-    /// **note** this method is only important to miners,
+    /// ** Note ** this method is only important to miners,
     pub async fn add_transaction(&mut self, t:Transaction) {
         let index = self.temporary_block.add_transaction(t.clone());
         self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
-        if self.is_miner && index >= Self::MAX_TRANSACTIONS {
+        if self.is_miner && index >= Self::MAX_TRANSACTIONS +1 {
             self.temporary_block.mine();
             self.event_observer.lock().unwrap().notify_block_mined(&self.temporary_block).await;
             self.add_block(self.temporary_block.clone());
@@ -150,7 +154,7 @@ impl Blockchain {
     ///adjust the temporary block based on the state of the blockchain
     ///if the parameter `create` is true then a new block is created
     ///
-    ///**Note:** 
+    ///** TODO:** 
     /// does **not** check for transactions 
     /// that already exist in other blocks
     fn adjust_temporary_block(&mut self, create: bool){
@@ -171,11 +175,33 @@ impl Blockchain {
                                           self.mining_reward.clone())
     }
 
-    pub fn get_block_by_id(&self, id: u64) -> Option<Block> {
-        if id >= self.chain.length {
+    //TODO: To remove
+    pub fn get_block_by_id(&self, id: usize) -> Option<Block> {
+        if id >= self.chain.len() {
                 return None;
         }
         return Some(self.chain[id].clone());
+    }
+
+    //TODO: Implement
+    pub fn get_block_by_hash(&self, hash: String) -> Option<Block> {
+        return None;
+    }
+
+    /// Check if a block can be added to the block chain
+    //TODO: Implement
+    pub fn can_add_block(&self, b: Block) -> bool {
+        return false;
+    }
+
+    //TODO: Implement
+    pub fn can_mine(&self) -> bool {
+        return false;
+    }
+
+    //TODO: Implement
+    pub fn mine(&self) -> bool {
+        return false;
     }
 
 }
@@ -187,11 +213,14 @@ impl NetworkObserver for Blockchain {
     fn on_block_received(&mut self, block: &Block) -> bool {
         println!("on_block_received event Triggered on BlockChain: {} => Received Block: {:?}", self.miner_id, block.clone());
 
-        let b = self.get_block_by_id(block.id);
+        // Check if we already have this block
+        // If we do return true and stop here
+        // else add the block and return false
+        let b = self.get_block_by_hash(block.hash.clone());
         match b {
             Some(x) => {
                 if x.hash == block.hash {
-                    return True;
+                    return true;
                 }
                 else {
                     // TODO wtf happens when block is not the same as the one we got
@@ -199,16 +228,10 @@ impl NetworkObserver for Blockchain {
                 }
             }
             None => {
-                    add_block(block.clone()); 
+                    self.add_block(block.clone()); 
                     return false;
             },
         }
-
-        // Check if we already have this block
-        // If we do return true and stop here
-        // else add the block and return false
-
-        return false; // It's here while we don't have the "contains_block"
     }
 
     fn on_transaction_received(&mut self, transaction: &Transaction) -> bool {
@@ -217,7 +240,7 @@ impl NetworkObserver for Blockchain {
         // Check if we already have this transaction
         // If we do return true and stop here
         // else add the transaction and return false
-        self.add_transaction(transaction.clone()); // Just here to check if the transaction is being saved or not (TESTING PURPOSES)
+        //self.add_transaction(transaction.clone()); // Just here to check if the transaction is being saved or not (TESTING PURPOSES)
         return false; // It's here while we don't have the "contains_transaction"
     }
 }
@@ -250,21 +273,96 @@ mod test {
             to)
     }    
 
-    #[test]
-    fn test_adding_blocks() {
+    #[tokio::test]
+    async fn test_adding_blocks() {
         let mut blockchain = Blockchain::new(true,"mario".to_string());
 
-        //block 1
-        blockchain.add_transaction( gen_transaction());
-        blockchain.add_transaction( gen_transaction());
-        //block 2
-        blockchain.add_transaction( gen_transaction());
-        blockchain.add_transaction( gen_transaction());
-        //not added
-        blockchain.add_transaction( gen_transaction());
+        for i in 0..4 {
+            for _ in 1..Blockchain::MAX_TRANSACTIONS {
+                blockchain.add_transaction( gen_transaction()).await;
+            }
+            println!("mined block {:#?}", i);
+        }
 
         println!("{:#?}", blockchain);
-        assert_eq!(blockchain.get_current_index()+1, 3);
+        assert_eq!(blockchain.get_current_index()+1, 4);
+    }
+
+    #[tokio::test]
+    async fn test_branching() {
+        let mut bc = Blockchain::new(true,"mario".to_string());
+
+        for _i in 0..2 {
+            for _ in 1..Blockchain::MAX_TRANSACTIONS {
+                bc.add_transaction( gen_transaction()).await;
+            }
+        }
+        let h = bc.get_head();
+
+        //make a new block
+        let mut b = Block::new(h.index+1,
+            h.hash, bc.difficulty.clone(),"wario".to_string(),
+            100.00);
+
+        for _ in 1..Blockchain::MAX_TRANSACTIONS {
+            b.add_transaction( gen_transaction());
+        }
+        b.mine();
+
+        // new block was mined
+        for _ in 1..Blockchain::MAX_TRANSACTIONS {
+            bc.add_transaction( gen_transaction()).await;
+        }
+        
+        println!("{:#?}",bc);
+        //put other block in the bc
+        bc.add_block(b);
+
+        
+
+        println!("{:#?}",bc);
+        assert_eq!(bc.heads.num() , 2);
+    }
+
+    #[tokio::test]
+    async fn test_prunning() {
+        let mut bc = Blockchain::new(true,"mario".to_string());
+
+        for _i in 0..2 {
+            for _ in 1..Blockchain::MAX_TRANSACTIONS {
+                bc.add_transaction( gen_transaction()).await;
+            }
+        }
+        let h = bc.get_head();
+
+        //make a new block
+        let mut b = Block::new(h.index+1,
+            h.hash, bc.difficulty.clone(),"wario".to_string(),
+            100.00);
+
+        for _ in 1..Blockchain::MAX_TRANSACTIONS {
+            b.add_transaction( gen_transaction());
+        }
+        b.mine();
+
+        // new block was mined
+        for _ in 1..Blockchain::MAX_TRANSACTIONS {
+            bc.add_transaction( gen_transaction()).await;
+        }
+        
+        //put other block in the bc
+        bc.add_block(b);
+
+        
+        for _ in 1..Blockchain::MAX_TRANSACTIONS {
+            bc.add_transaction( gen_transaction()).await;
+        }
+        for _ in 1..Blockchain::MAX_TRANSACTIONS {
+            bc.add_transaction( gen_transaction()).await;
+        }
+
+        println!("{:#?}",bc);
+        assert_eq!(bc.heads.num() , 1);
     }
 }
 
