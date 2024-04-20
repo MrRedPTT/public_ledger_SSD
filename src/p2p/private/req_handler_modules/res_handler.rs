@@ -2,20 +2,16 @@ use std::io;
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 
-use egui::mutex::MutexGuard;
-use log::{debug, error, info};
+use log::{error, info};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use tokio::time::error::Elapsed;
 use tonic::Response;
-use tonic::transport::Channel;
 
 use crate::auxi;
 use crate::kademlia::node::{Identifier, Node};
 use crate::p2p::peer::Peer;
 use crate::proto;
 use crate::proto::{FindNodeResponse, FindValueResponse, GetBlockResponse, PongPacket, StoreRequest, StoreResponse};
-use crate::proto::packet_sending_client::PacketSendingClient;
 
 pub(crate) struct ResHandler{}
 
@@ -40,7 +36,7 @@ impl  ResHandler {
 
         let rand_id = auxi::gen_id(rand_str);
 
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
 
         match c {
             Err(e) => {
@@ -83,7 +79,7 @@ impl  ResHandler {
     pub async fn find_node(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
             Err(e) => {
                 error!("An error has occurred while trying to establish a connection for find node: {}", e);
@@ -172,7 +168,7 @@ impl  ResHandler {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
 
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
             Err(e) => {
                 error!("An error has occurred while trying to establish a connection for store: {}", e);

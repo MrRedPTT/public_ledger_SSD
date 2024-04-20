@@ -1,18 +1,12 @@
 #[doc(inline)]
 
-use std::io;
-use std::io::ErrorKind;
-use std::sync::Arc;
-
-use log::{debug, error, info};
+use log::{error, info};
 use tonic::{Request, Response, Status};
 
-use crate::{auxi, kademlia, proto};
+use crate::{auxi, proto};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
-use crate::ledger::block::Block;
-use crate::ledger::blockchain::Blockchain;
 use crate::p2p::peer::Peer;
-use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse};
+use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, KNearestNodes};
 
 /// # Request Handler
 /// This struct is where we define the handlers for all possible gRPC requests.
@@ -217,7 +211,7 @@ impl ReqHandler {
         println!("Got a Get_Block from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
 
-        let block_requested = input.id.clone();
+        let _block_requested = input.id.clone();
 
         // ======================== TESTING WHILE THE API IS NOT READY ================================== //
         let mut server = "server1".to_string();

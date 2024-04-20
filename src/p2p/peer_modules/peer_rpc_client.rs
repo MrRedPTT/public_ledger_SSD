@@ -55,7 +55,7 @@ impl Peer {
         let mut reroute_table: HashMap<Node, Vec<Node>> = HashMap::new();
         let mut already_checked: Vec<Node> = Vec::new();
         // First iterate through our own nodes (according to old distance)
-        let mut priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
+        let priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
         while !&nodes.is_empty(){
             let res = self.find_node_handler(id.clone(), self.get_batch(Some(nodes), None, 14), already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
 
@@ -109,7 +109,7 @@ impl Peer {
         let mut reroute_table: HashMap<Node, Vec<Node>> = HashMap::new();
         let mut already_checked: Vec<Node> = Vec::new();
         // First iterate through our own nodes (according to old distance)
-        let mut priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
+        let priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
         while !&nodes.is_empty(){
             let res = self.find_value_handler(id.clone(), self.get_batch(Some(nodes), None, 14), already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
 
@@ -163,7 +163,7 @@ impl Peer {
         let mut reroute_table: HashMap<Node, Vec<Node>> = HashMap::new();
         let mut already_checked: Vec<Node> = Vec::new();
         // First iterate through our own nodes (according to old distance)
-        let mut priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
+        let priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
         while !&nodes.is_empty(){
             let res = self.get_block_handler(id.clone(), self.get_batch(Some(nodes), None, 14), already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
 
@@ -229,7 +229,7 @@ impl Peer {
                 reroute_table.remove(&ref_node);
             }
             refs = new_refs.clone();
-            new_refs = Vec::new();
+            drop(new_refs);
         }
 
         for i in already_checked {
@@ -243,17 +243,18 @@ impl Peer {
         // Will attempt to return up to max nodes from the provided data structure
         let mut res_list: Vec<Node> = Vec::new();
         if !peers.is_none(){
-            let mut data_struct = peers.unwrap();
+            let data_struct = peers.unwrap();
             let mut range = max;
             if data_struct.len() < max {
                 range = data_struct.len();
             }
             res_list = data_struct.drain(0..range).collect();
         } else if !map.is_none(){
-            let mut data_struct = map.unwrap();
+            let data_struct = map.unwrap();
             let mut count = 0;
             while !data_struct.is_empty() || count >= max {
                 res_list.push(data_struct.pop().unwrap().node);
+                count += 1;
             }
         }
 

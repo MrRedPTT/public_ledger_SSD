@@ -1,21 +1,13 @@
-use std::io;
-use std::io::ErrorKind;
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::{debug, error, info};
-use tokio::time::error::Elapsed;
-use tonic::Request;
-use tonic::transport::{Channel, Error};
+use log::{error, info};
 
 use crate::{auxi, proto};
-use crate::kademlia::bucket::K;
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::{Peer, TTL};
-use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
-use crate::proto::packet_sending_client::PacketSendingClient;
 
 pub struct BroadCastReq {}
 
@@ -59,17 +51,13 @@ impl BroadCastReq {
         }
 
 
-        let mut arguments: Vec<(Vec<Node>)> = Vec::new();
+        let mut arguments: Vec<Vec<Node>> = Vec::new();
         if sub_vectors.len() > 0 {
             for i in &sub_vectors{
                 arguments.push(i.clone())
             }
         }
 
-        let mut size = 0;
-        for s in &sub_vectors {
-            size += s.len();
-        }
 
         let semaphore = Arc::new(tokio::sync::Semaphore::new(16)); // Limit the number of threads
 

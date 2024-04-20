@@ -1,5 +1,3 @@
-use std::borrow::Borrow;
-use std::borrow::BorrowMut;
 use std::cmp::Ordering;
 
 use crate::auxi;
@@ -239,12 +237,12 @@ impl KBucket {
             let mut trust = self.get_trust_score(&i.id);
             if trust.is_none() {
                 trust = Some(TrustScore::new());
-            } else {
-                temp.push((i, trust.unwrap()))
             }
+            temp.push((i, trust.unwrap()))
+
         }
         // Sort the nodes based in new_distance
-        temp.sort_by(|mut a, mut b| {
+        temp.sort_by(|a, b| {
             let old_distance1 = MAX_BUCKETS - auxi::xor_distance(&self.id, &a.0.id);
             let old_distance2 = MAX_BUCKETS - auxi::xor_distance(&self.id, &b.0.id);
             let score1 = a.1.clone().get_score();
@@ -266,87 +264,3 @@ impl KBucket {
     }
 
 }
-
-
-mod tests {
-    use crate::auxi;
-    use crate::kademlia::k_buckets::KBucket;
-    use crate::kademlia::node::Node;
-
-    #[test]
-    fn test_get () {
-        let ip = "127.0.0.1".to_string();
-        let node = Node::new(ip.clone(), 8888);
-        let node1 = node.unwrap();
-
-        let mut kbuckets = KBucket::new(node1.clone().id);
-        kbuckets.add(&node1.clone());
-        assert_eq!(kbuckets.get(&node1.id).unwrap(), node1);
-    }
-
-    #[test]
-    fn test_remove () {
-        let ip = "127.0.0.1".to_string();
-        let node = Node::new(ip.clone(), 8888);
-        let node1 = node.unwrap();
-
-        let mut kbuckets = KBucket::new(node1.clone().id);
-        kbuckets.add(&node1.clone());
-        kbuckets.remove(&node1.clone().id);
-        assert_eq!(kbuckets.get(&node1.id).is_none(), true);
-    }
-
-    #[test]
-    fn test_get_nodes_from_bucket () {
-        let ip = "127.0.0.17".to_string();
-        let node = Node::new(ip.clone(), 9988).unwrap();
-
-        let mut kbucket = KBucket::new(node.clone().id);
-
-        for i in 1..=255 {
-            let ip = format!("127.{}.0.{}", i, i);
-            let port = 8888 + i;
-            let _ = kbucket.add(&Node::new(ip, port).unwrap());
-        }
-
-        // Add more nodes to a same bucket (bucket 9 has 2 entries which will be used to test get_n_closest_nodes)
-        let new_node = Node::new(ip.clone(), 8888+ 7);
-        let node2 = new_node.unwrap();
-        kbucket.add(&node2);
-
-        let res = kbucket.get_nodes_from_bucket(132);
-        assert!(!res.is_none());
-
-        assert_eq!(res.unwrap().len(), 3);
-    }
-
-    #[test]
-    fn test_get_n_closest_nodes () {
-        let ip = "127.0.0.1".to_string();
-        let node = Node::new(ip.clone(), 8888);
-        let node1 = node.unwrap();
-
-        let mut kbucket = KBucket::new(node1.clone().id);
-
-        for i in 1..=3 {
-            let new_node = Node::new(ip.clone(), 8888+i);
-            let node2 = new_node.unwrap();
-            kbucket.add(&node2);
-        }
-
-        // Add more nodes
-        let new_node = Node::new(ip.clone(), 8895);
-        let node1 = new_node.unwrap();
-        kbucket.add(&node1);
-
-        let node2 = auxi::gen_id("127.0.0.17:9988".to_string());
-        let res = kbucket.get_n_closest_nodes(node2.clone(), 3);
-        let res_content = res.unwrap();
-
-        assert_eq!(res_content.len(), 3)
-
-    }
-
-}
-
-

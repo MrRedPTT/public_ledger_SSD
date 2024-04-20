@@ -8,7 +8,6 @@ use crate::ledger::block::Block;
 use crate::ledger::blockchain::Blockchain;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
-use crate::proto::packet_sending_server::PacketSending;
 
 pub mod kademlia;
 pub mod ledger;
@@ -43,7 +42,7 @@ async fn main() {
         println!("Argument \"3\" passed, creating server...");
         server_node = node3.clone();
     }
-    let (rpc, mut client) = Peer::new(&server_node);
+    let (rpc, client) = Peer::new(&server_node);
     if server.to_string() == "3" {let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.54.123.2".to_string(),9981).unwrap());}
 
     if server_bool {
@@ -82,7 +81,7 @@ async fn main() {
             key_server3_should_have.0[ID_LEN - 1] = 0;
         }
 
-        let mut test_block_events = Blockchain::new(false, "BlockHey".to_string());
+        let test_block_events = Blockchain::new(false, "BlockHey".to_string());
         let observer = Arc::new(RwLock::new(test_block_events));
         let blockchainclient = Arc::clone(&observer);
         let client1 = Arc::new(RwLock::new(client));
@@ -94,7 +93,7 @@ async fn main() {
         println!("Do I have the key1?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
         println!("Do I have the key3?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
         println!("Do I have the Block/Transaction?: {:?}", blockchainclient.read().unwrap().chain);
-        let transaction = Transaction {
+        let _transaction = Transaction {
             from: "Transaction Mined".to_string(),
             to: "".to_string(),
             amount_in: 0.0,
@@ -108,7 +107,7 @@ async fn main() {
 
     } else {
         let target_node = &node1;
-        let (peer, client) = &Peer::new(node2);
+        let (peer, _client) = &Peer::new(node2);
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
@@ -130,7 +129,7 @@ async fn main() {
             key_server1_should_have.0[ID_LEN - 1] = 0;
         }
 
-        let transaction = Transaction {
+        let _transaction = Transaction {
             from: "Test Transaction Observer".to_string(),
             to: "".to_string(),
             amount_in: 0.0,
@@ -138,7 +137,7 @@ async fn main() {
             miner_fee: 0.0,
         };
         
-        let block = Block::new(1, "ahsahsahsa".to_string(), 1, "jose".to_string(), 0.0);
+        let _block = Block::new(1, "ahsahsahsa".to_string(), 1, "jose".to_string(), 0.0);
 
         let server = peer.clone();
         let _ = server.init_server().await;
@@ -163,6 +162,7 @@ async fn main() {
     }
 }
 
+/*
 #[cfg(not(target_arch = "wasm32"))]
 fn gui() -> eframe::Result<()>{
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -184,3 +184,4 @@ fn gui() -> eframe::Result<()>{
         Box::new(|cc| Box::new(ledger_gui::TemplateApp::new(cc))),
     )
 }
+*/

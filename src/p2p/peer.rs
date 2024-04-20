@@ -1,24 +1,14 @@
-use std::{default, io};
-use std::borrow::BorrowMut;
-use std::io::ErrorKind;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
-use async_recursion::async_recursion;
-use log::{debug, error, info};
+use log::{debug, info};
 use tokio::signal;
 use tokio::sync::oneshot;
-use tonic::{async_trait, Request, Response, Status};
 use tonic::transport::Server;
 
 use crate::kademlia::kademlia::Kademlia;
-use crate::kademlia::node::{Identifier, Node};
-use crate::ledger::block::Block;
+use crate::kademlia::node::Node;
 use crate::ledger::blockchain::Blockchain;
-use crate::ledger::transaction::Transaction;
-use crate::p2p::private::broadcast_api::BroadCastReq;
-use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
-use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, KNearestNodes, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
-use crate::proto::packet_sending_server::{PacketSending, PacketSendingServer};
+use crate::proto::packet_sending_server::PacketSendingServer;
 
 pub const TTL: u32 = 15; // The default ttl for the broadcast of messages
 

@@ -35,7 +35,7 @@ impl TrustScore {
         if self.total_lookups == 0 {
             self.reputation = 0.0;
         } else {
-            self.reputation += (1f64 / self.total_lookups as f64);
+            self.reputation += 1f64 / self.total_lookups as f64;
         }
 
     }

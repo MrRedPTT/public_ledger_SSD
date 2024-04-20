@@ -96,7 +96,7 @@ impl ReqHandler {
 
         //let mut mutex_guard = peer.kademlia.lock().unwrap();
         let nodes = peer.kademlia.lock().unwrap().is_closest(&Identifier::new(id_array));
-        let mut node_list: Vec<Node> = Vec::new();
+        let node_list: Vec<Node>;
         if nodes.is_none() {
             // Means we are the closest node to the key
             peer.kademlia.lock().unwrap().add_key(Identifier::new(id_array), input.value.clone());

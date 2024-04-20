@@ -1,4 +1,3 @@
-use std::borrow::Borrow;
 use std::borrow::BorrowMut;
 #[doc(inline)]
 use std::collections::VecDeque;

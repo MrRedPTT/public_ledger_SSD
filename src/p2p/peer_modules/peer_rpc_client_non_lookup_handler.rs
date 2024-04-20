@@ -1,20 +1,17 @@
-use std::collections::HashMap;
 use std::io;
 use std::io::ErrorKind;
 use std::sync::Arc;
 
-use async_recursion::async_recursion;
-use log::{debug, error, info};
+use log::{debug, error};
 use tonic::Response;
 
-use crate::kademlia::node;
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
 use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
-use crate::proto::{FindNodeResponse, FindValueResponse, KNearestNodes, PongPacket, StoreResponse};
+use crate::proto::{PongPacket, StoreResponse};
 
 impl Peer {
     /// # Ping Request
@@ -36,7 +33,7 @@ impl Peer {
     pub async fn store(&self, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
 
         let nodes = self.kademlia.lock().unwrap().get_k_nearest_to_node(key.clone());
-        let mut node_list: Vec<Node> = Vec::new();
+        let node_list: Vec<Node>;
         let mut arguments: Vec<(String, u32, Identifier)> = Vec::new();
         if nodes.is_none() {
             return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));

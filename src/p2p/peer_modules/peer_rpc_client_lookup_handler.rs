@@ -69,7 +69,7 @@ impl Peer {
                             return Err(None);
                         }
                         let list = knearest.unwrap().nodes;
-                        let mut temp = &mut Vec::new();
+                        let temp = &mut Vec::new();
                         temp.push(node.clone());
                         for i in list {
                             let node = Node::new(i.ip, i.port).unwrap();
@@ -137,10 +137,8 @@ impl Peer {
                 Ok(result) => {
                     if result.get_ref().response_type == 2 && result.get_ref().value.clone() != "".to_string(){
                         info!("Found the value");
-                        if let target_value = result.get_ref().clone().value {
-                            return Ok(Some((target_value, node.clone())));
-                        }
-                        return Err(None);
+                        let target_value = result.get_ref().clone().value;
+                        return Ok(Some((target_value, node.clone())));
                     } else if result.get_ref().response_type == 1 {
                         info!("Got K nearest nodes");
                         let knearest = result.get_ref().clone().list;
@@ -148,7 +146,7 @@ impl Peer {
                             return Err(None);
                         }
                         let list = knearest.unwrap().nodes;
-                        let mut temp = &mut Vec::new();
+                        let temp = &mut Vec::new();
                         temp.push(node.clone());
                         for i in list {
                             let node = Node::new(i.ip, i.port).unwrap();
@@ -178,7 +176,10 @@ impl Peer {
 
     }
     pub async fn get_block_handler(&self, id: String, peers: Vec<Node>, already_checked: &mut Vec<Node>, recommended_map: &mut HashMap<Node, Vec<Node>>) -> Result<Option<(Block, Node)>, Option<Vec<Node>>> {
-
+        // TODO
+        // If the block we just got cannot be placed in the blockchain because:
+        //  Falta um bloco antes: Pedir o anterior e tentar meter por ordem
+        //  Bloco não é válido: Mandar abaixo
         for peer in &peers {
             self.kademlia.lock().unwrap().increment_interactions(peer.id.clone());
             self.kademlia.lock().unwrap().increment_lookups(peer.id.clone());
@@ -226,7 +227,7 @@ impl Peer {
                             return Err(None);
                         }
                         let list = knearest.unwrap().nodes;
-                        let mut temp = &mut Vec::new();
+                        let temp = &mut Vec::new();
                         temp.push(node.clone());
                         for i in list {
                             let node = Node::new(i.ip, i.port).unwrap();

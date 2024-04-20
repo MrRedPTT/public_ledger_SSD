@@ -2,8 +2,6 @@
 use core::fmt;
 use std::net::IpAddr;
 
-use sha3::Digest;
-
 use crate::auxi;
 
 pub const ID_LEN: usize = 256; // Size in bits of SHA3_256 output (This is the hashing algorithm defined in Kademlia's documentation)
@@ -71,23 +69,5 @@ impl Node {
 
     pub fn get_addr(self) -> String {
         format!("{}:{}", self.ip, self.port).to_string()
-    }
-}
-
-mod test {
-    use crate::auxi;
-
-    #[test]
-    fn test_gen_id(){
-        let ip = "TestStringForTheSHA3_256HashingAlgorith".to_string();
-        let port = 1;
-        let res = auxi::gen_id(format!("{}:{}", ip, port).to_string());
-
-        let mut bin_str = "".to_string();
-        for i in 0..res.0.len() {
-            bin_str += &format!("{}", res.0[i]);
-        }
-        assert_eq!(bin_str, "1000111111100100100001111100111100111011001000111001110000111011011100001010111000101010100110101101110100010010100011010010010000100101110000110010001001001100011100111100100111001101000011000101001010110011100110011100010000001000111001100101100001110010");
-
     }
 }

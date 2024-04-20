@@ -7,7 +7,6 @@ use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler_modules::req_handler_lookups::ReqHandler;
-use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
 use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
 use crate::proto::packet_sending_server::PacketSending;
 

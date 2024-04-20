@@ -1,9 +1,6 @@
 use std::collections::{BinaryHeap, HashMap};
 
-use sha3::Digest;
-
 use crate::auxi;
-use crate::kademlia;
 use crate::kademlia::bucket::K;
 use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
 use crate::kademlia::node::{ID_LEN, Identifier};
@@ -162,7 +159,7 @@ impl Kademlia {
     // we can't really get the closest nodes to a block in the blockchain
     // so we will base our selves in the reputation
     pub fn get_k_nodes_new_distance(&mut self) -> Option<Vec<Node>> {
-        let mut priority_queue: &mut BinaryHeap<crate::p2p::peer_modules::peer_rpc_client::NodeNewDistance> = &mut BinaryHeap::new();
+        let priority_queue: &mut BinaryHeap<crate::p2p::peer_modules::peer_rpc_client::NodeNewDistance> = &mut BinaryHeap::new();
         let all_nodes = self.get_all_nodes();
         if all_nodes.is_none() {
             return None;
@@ -184,6 +181,7 @@ impl Kademlia {
                 }
             }
             closest_nodes.push(element.unwrap().node);
+            count += 1;
         }
         if closest_nodes.len() == 0 {
             return None;
