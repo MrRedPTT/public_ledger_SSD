@@ -1,7 +1,4 @@
-
 use crate::ledger::block::*;
-
-
 
 #[derive(Debug,Clone)]
 pub struct Heads {
@@ -95,7 +92,7 @@ impl Heads {
             }
 
             // @ tail of head
-            loop {
+            while index > 0{
                 index-=1;
 
                 if head[index].hash == b.prev_hash {

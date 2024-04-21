@@ -209,20 +209,18 @@ impl ReqHandler {
 
     pub(crate) async fn get_block(peer: &Peer, request: Request<GetBlockRequest>) -> Result<Response<GetBlockResponse>, Status> {
         println!("Got a Get_Block from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        println!("DEBUG IN REQ_HANDLER_LOOKUPS::GET_BLOCK -> Got hash: {}", request.get_ref().id.clone());
+        println!("Have this block?: {}", !peer.blockchain.lock().unwrap().get_block_by_hash(request.get_ref().id.clone()).is_none());
+        let list = peer.blockchain.lock().unwrap().chain.clone();
+        for i in list {
+            println!("Block: id: {{{}}} hash:{} -> prev: {}",i.index.clone(), i.hash.clone(), i.prev_hash.clone());
+        }
         let input = request.get_ref();
 
         let _block_requested = input.id.clone();
 
-        // ======================== TESTING WHILE THE API IS NOT READY ================================== //
-        let mut server = "server1".to_string();
-        if peer.node.port != 8888 {
-            server = "server3".to_string();
-        }
-        // ======================== TESTING WHILE THE API IS NOT READY ================================== //
-
-        if let Some(block) = peer.blockchain.lock().unwrap().dummy_get_block(server) {
+        if let Some(block) = peer.blockchain.lock().unwrap().get_block_by_hash(_block_requested) {
             // Got the block
-            println!("Returning dummy block");
             let mut trans: Vec<proto::Transaction> = Vec::new();
             for i in block.transactions {
                 trans.push(proto::Transaction {
@@ -251,7 +249,7 @@ impl ReqHandler {
             };
             return Ok(tonic::Response::new(res));
         } else {
-            // No node found let's return the closest nodes
+            // No block found let's return the closest nodes
             if let Some(reroute) = peer.kademlia.lock().unwrap().get_k_nodes_new_distance() {
                 let mut list: Vec<proto::Node> = Vec::new();
                 for node in reroute {

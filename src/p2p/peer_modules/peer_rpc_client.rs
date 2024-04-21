@@ -8,6 +8,7 @@ use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
+use crate::p2p::private::broadcast_api::BroadCastReq;
 
 #[derive(Clone)]
 pub(crate) struct NodeNewDistance {
@@ -47,11 +48,11 @@ impl Ord for NodeNewDistance {
 impl Peer {
 
     pub async fn send_block(&self, block: Block) {
-        self.send_block_handler(block, None, None).await
+        BroadCastReq::broadcast(self, None, Some(block), None, None).await;
     }
 
     pub async fn send_transaction(&self, transaction: Transaction) {
-        self.send_transaction_handler(transaction, None, None).await;
+        BroadCastReq::broadcast(self, Some(transaction), None, None, None).await;
     }
     pub async fn find_node(&self, id: Identifier) -> Result<Node, io::Error>
     {
@@ -162,7 +163,49 @@ impl Peer {
         return Err(io::Error::new(ErrorKind::NotFound, "The value was not found"));
     }
 
-    pub async fn get_block(&self, id: String) -> Result<Block, io::Error>
+
+    /// Will try to get the block request and add it to the blockchain.
+    /// Returns Ok(true) if the block (and possibly all dependent blocks before) were added.
+    /// Returns Ok(false) if some of the dependent blocks were added but not all.
+    /// Returns Err(e) if an error occured while trying to get the nodes.
+    pub async fn get_block(&self, id: String) -> Result<bool, io::Error> {
+        let mut block_trail: Vec<Block> = Vec::new();
+        let res = self.get_block_auxi(id).await;
+        let mut current_block: Block;
+        match res {
+            Err(e) => {return Err(e);},
+            Ok(block) => {current_block = block;}
+        }
+
+        while !self.blockchain.lock().unwrap().can_add_block(current_block.clone()) {
+            println!("A new block is needed with hash: {}", current_block.prev_hash.clone());
+            let prev_block = self.get_block_auxi(current_block.prev_hash.clone()).await;
+            match prev_block {
+                Err(e) => {return Err(e);},
+                Ok(bl) => {
+                    /*
+                    if !bl.valid {
+                        return Err(some_error);
+                    }
+                     */
+                    block_trail.push(bl.clone());
+                    current_block = bl.clone();
+                }
+            }
+        }
+
+        for i in (0..block_trail.len()).rev() {
+            if self.blockchain.lock().unwrap().can_add_block(block_trail[i].clone()) {
+                self.blockchain.lock().unwrap().add_block(block_trail[i].clone());
+            } else {
+                return Ok(false);
+            }
+        }
+
+        return Ok(true);
+    }
+
+    pub async fn get_block_auxi(&self, id: String) -> Result<Block, io::Error>
     {
         let nodes = &mut self.kademlia.lock().unwrap().get_k_nodes_new_distance().unwrap_or(Vec::new());
         if nodes.len() == 0 {
@@ -177,7 +220,7 @@ impl Peer {
 
             match res {
                 Ok(res_node) => {
-                    if !res_node.is_none() {
+                    if !res_node.is_none() && res_node.clone().unwrap().0.hash == id {
                         self.kademlia.lock().unwrap().reputation_reward(res_node.clone().unwrap().1.id);
                         return Ok(res_node.unwrap().0);
                     }
@@ -197,7 +240,7 @@ impl Peer {
             let res = self.get_block_handler(id.clone(), batch, already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
             match res {
                 Ok(res_node) => {
-                    if !res_node.is_none() {
+                    if !res_node.is_none() && res_node.clone().unwrap().0.hash == id {
                         self.reward(reroute_table.borrow_mut(), &already_checked, res_node.clone().unwrap().1);
                         return Ok(res_node.unwrap().0);
                     }
