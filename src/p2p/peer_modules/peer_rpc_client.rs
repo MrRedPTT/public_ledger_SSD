@@ -6,6 +6,7 @@ use std::io::ErrorKind;
 
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
+use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
 
 #[derive(Clone)]
@@ -45,7 +46,13 @@ impl Ord for NodeNewDistance {
 
 impl Peer {
 
+    pub async fn send_block(&self, block: Block) {
+        self.send_block_handler(block, None, None).await
+    }
 
+    pub async fn send_transaction(&self, transaction: Transaction) {
+        self.send_transaction_handler(transaction, None, None).await;
+    }
     pub async fn find_node(&self, id: Identifier) -> Result<Node, io::Error>
     {
         let nodes = &mut self.kademlia.lock().unwrap().get_k_nearest_to_node(id.clone()).unwrap_or(Vec::new());
@@ -131,6 +138,7 @@ impl Peer {
         }
 
         while !priority_queue.is_empty() {
+            println!("New iter: Size of queue: {}", priority_queue.len());
             let batch = self.get_batch(None, Some(priority_queue), 14);
             let res = self.find_value_handler(id.clone(), batch, already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
             match res {
@@ -252,7 +260,7 @@ impl Peer {
         } else if !map.is_none(){
             let data_struct = map.unwrap();
             let mut count = 0;
-            while !data_struct.is_empty() || count >= max {
+            while !data_struct.is_empty() && count < max {
                 res_list.push(data_struct.pop().unwrap().node);
                 count += 1;
             }

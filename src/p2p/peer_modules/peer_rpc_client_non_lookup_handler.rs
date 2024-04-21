@@ -97,11 +97,11 @@ impl Peer {
 
     // ===================== block_chain Network APIs (Client Side) ============================ //
 
-    pub async fn send_transaction(&self, transaction: Transaction, ttl: Option<u32>, sender: Option<Node>) {
+    pub async fn send_transaction_handler(&self, transaction: Transaction, ttl: Option<u32>, sender: Option<Node>) {
         BroadCastReq::broadcast(self, Some(transaction), None, ttl, sender).await;
     }
 
-    pub async fn send_block(&self, block: Block, ttl: Option<u32>, sender: Option<Node>) {
+    pub async fn send_block_handler(&self, block: Block, ttl: Option<u32>, sender: Option<Node>) {
         BroadCastReq::broadcast(self, None, Some(block), ttl, sender).await;
     }
 }
