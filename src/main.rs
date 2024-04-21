@@ -101,6 +101,11 @@ async fn main() {
             miner_fee: 0.0,
         };
 
+        blockchainclient.lock().unwrap().add_transaction(transaction.clone()).await;
+        blockchainclient.lock().unwrap().add_transaction(transaction.clone()).await;
+        blockchainclient.lock().unwrap().add_transaction(transaction.clone()).await;
+        blockchainclient.lock().unwrap().add_transaction(transaction.clone()).await;
+        blockchainclient.lock().unwrap().add_transaction(transaction.clone()).await;
 
         // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;
