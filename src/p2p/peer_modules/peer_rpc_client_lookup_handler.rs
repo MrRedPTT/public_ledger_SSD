@@ -176,10 +176,6 @@ impl Peer {
 
     }
     pub async fn get_block_handler(&self, id: String, peers: Vec<Node>, already_checked: &mut Vec<Node>, recommended_map: &mut HashMap<Node, Vec<Node>>) -> Result<Option<(Block, Node)>, Option<Vec<Node>>> {
-        // TODO
-        // If the block we just got cannot be placed in the blockchain because:
-        //  Falta um bloco antes: Pedir o anterior e tentar meter por ordem
-        //  Bloco não é válido: Mandar abaixo
         for peer in &peers {
             self.kademlia.lock().unwrap().increment_interactions(peer.id.clone());
             self.kademlia.lock().unwrap().increment_lookups(peer.id.clone());

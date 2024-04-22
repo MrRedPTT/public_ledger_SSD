@@ -92,14 +92,15 @@ impl Heads {
             }
 
             // @ tail of head
-            while index > 0{
+            loop {
+                if index <= 0 {
+                    break;
+                }
+
                 index-=1;
 
                 if head[index].hash == b.prev_hash {
                     return true;
-                }
-                if index == 0 {
-                    break;
                 }
             }
         }

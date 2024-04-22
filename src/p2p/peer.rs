@@ -42,7 +42,6 @@ impl Peer {
             kademlia,
             blockchain
         };
-
         (server, client) // Return 2 instances of Peer that share the same kademlia object
     }
 

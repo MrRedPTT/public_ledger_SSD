@@ -19,7 +19,7 @@ pub struct Block {
     pub difficulty : usize,
     pub miner_id : String,
     pub merkle_tree_root: String,
-    confirmations: usize,
+    pub(crate) confirmations: usize,
 
     pub transactions: Vec<Transaction>,
 }
@@ -86,8 +86,8 @@ impl Block {
     pub fn mine(&mut self) -> bool {
         self.calculate_merkle_tree();
         loop {
+            self.hash = self.calculate_hash();
             if self.check_hash() {
-                self.hash = self.calculate_hash();
                 return true;
             }
             
@@ -97,8 +97,7 @@ impl Block {
 
     /// checks if the hash of the block is correct with reference to its dificulty
     pub fn check_hash(&self) -> bool {
-        let hash = self.calculate_hash();
-        return hash.starts_with(&"0".repeat(self.difficulty)) 
+        return self.hash.starts_with(&"0".repeat(self.difficulty))
     }
 
     /// returns the hash(sha512) of the block
@@ -106,10 +105,11 @@ impl Block {
         // Use Sha512 to hash the concatenated string of data, timestamp, prev_hash and a nonce
         let mut hasher = Sha512::new();
         hasher.update(format!("{}{}{}{}",
-                              self.merkle_tree_root, 
-                              self.timestamp, 
+                              self.merkle_tree_root,
+                              self.timestamp,
                               &self.prev_hash, 
                               self.nonce));
+
         let hash_result = hasher.finalize();
 
         let hash_hex = hash_result.iter()

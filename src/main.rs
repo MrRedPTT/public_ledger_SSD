@@ -60,7 +60,6 @@ async fn main() {
         // Add a key value to the hashmap to be looked up
         let _ = rpc.kademlia.lock().unwrap().add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
 
-
         if server.to_string() == "3" {
             println!("Creating blockchain for testing");
             let strings = vec![
@@ -75,8 +74,8 @@ async fn main() {
                 "Gabriel".to_string(),
                 "Daniel".to_string()
             ];
-            for i in 0..6 {
-                for j in 0..3 {
+            for i in 0..3 {
+                for j in 0..Blockchain::MAX_TRANSACTIONS {
                     client.blockchain.lock().unwrap().add_transaction(gen_transaction(strings[i+j].clone()));
                 }
                 client.blockchain.lock().unwrap().mine();
@@ -84,6 +83,10 @@ async fn main() {
             let list = client.blockchain.lock().unwrap().chain.clone();
             for i in list {
                 println!("Block: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
+            }
+            let list = client.blockchain.lock().unwrap().heads.get_main().clone();
+            for i in list {
+                println!("Block{{Head}}: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
             }
         }
 
@@ -135,7 +138,7 @@ async fn main() {
 
     } else {
         let target_node = &node1;
-        let (peer, _client) = &Peer::new(node2);
+        let (peer, client) = Peer::new(node2);
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
@@ -167,18 +170,17 @@ async fn main() {
         
         let _block = Block::new(1, "ahsahsahsa".to_string(), 1, "jose".to_string(), 0.0);
 
-        let server = peer.clone();
-        let _ = server.init_server().await;
+        let _ = peer.init_server().await;
 
-        println!("Get Block -> {:?}", peer.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
+        println!("Get Block -> {:?}", client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
         //println!("Broadcasted Transaction -> {:?}", peer.send_transaction(_transaction).await);
         //println!("Broadcast Block -> {:?}", peer.send_block(_block).await);
         //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port, node1.id.clone()).await);
         //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port, node3.id.clone()).await);
         //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await);
         //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await);
-        println!("Result Store Key3 -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        println!("Result Find Key3 -> {:?}", peer.find_value(key_server3_should_have).await);
+        println!("Result Store Key3 -> {:?}", client.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        println!("Result Find Key3 -> {:?}", client.find_value(key_server3_should_have).await);
         client.blockchain.lock().unwrap().mine();
         let list = client.blockchain.lock().unwrap().chain.clone();
         for i in list {
@@ -194,7 +196,16 @@ async fn main() {
                 hash.pop();
             }
         }
-        println!("Get Block with hash: {} ->\n{:?}",hash.clone(), peer.get_block(hash).await);
+
+        println!("Get Block with hash: {} ->\n{:?}",hash.clone(), client.get_block(hash).await);
+        let list = client.blockchain.lock().unwrap().chain.clone();
+        for i in list {
+            println!("Block{{{}}}: hash -> {}; prev_hash -> {}", i.index, i.hash.clone(), i.prev_hash.clone());
+        }
+        let list = client.blockchain.lock().unwrap().heads.get_main().clone();
+        for i in list {
+            println!("Block{{Head}}: hash -> {}; prev_hash -> {}", i.hash.clone(), i.prev_hash.clone());
+        }
         //println!("Result Store Key1 -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
         //println!("Result Find Key 1-> {:?}", peer.find_value(key_server1_should_have).await);
         /*let trust_scores = peer.kademlia.lock().unwrap().get_all_trust_scores();

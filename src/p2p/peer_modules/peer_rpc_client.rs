@@ -174,7 +174,10 @@ impl Peer {
         let mut current_block: Block;
         match res {
             Err(e) => {return Err(e);},
-            Ok(block) => {current_block = block;}
+            Ok(block) => {
+                block_trail.push(block.clone());
+                current_block = block;
+            }
         }
 
         while !self.blockchain.lock().unwrap().can_add_block(current_block.clone()) {
@@ -183,11 +186,9 @@ impl Peer {
             match prev_block {
                 Err(e) => {return Err(e);},
                 Ok(bl) => {
-                    /*
-                    if !bl.valid {
-                        return Err(some_error);
+                    if !bl.check_hash() {
+                        return Err(io::Error::new(ErrorKind::InvalidData, "Block hash is invalid"));
                     }
-                     */
                     block_trail.push(bl.clone());
                     current_block = bl.clone();
                 }
