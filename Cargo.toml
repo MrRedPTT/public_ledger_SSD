@@ -15,18 +15,8 @@ futures = "0.3"
 async-std = "1.9"
 time = "0.3.34"
 prost = "0.12.3"
-tonic = "0.11.0"
-egui = "0.26.2"
-eframe = { version = "0.26.0", default-features = false, features = [
-    "accesskit",     # Make egui comptaible with screen readers. NOTE: adds a lot of dependencies.
-    "default_fonts", # Embed the default egui fonts.
-    "glow",          # Use the glow rendering backend. Alternative: "wgpu".
-    "persistence",   # Enable restoring app state when restarting the app.
-] }
-serde = "1.0.197"
-env_logger = "0.11.3"
+tonic = { version = "0.11.0", features = ["tls"] }
 log = "0.4.21"
-wasm-bindgen-futures = "0.4.42"
 async-recursion = "1.1.0"
 
 [build-dependencies]

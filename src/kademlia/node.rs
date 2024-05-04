@@ -21,9 +21,9 @@ impl Identifier {
 /// ## Node
 #[derive(Debug, Clone, Eq, Hash)]
 pub struct Node {
-    pub id: Identifier, // Assuming Identifier is represented as a fixed-size array of 160 bytes
+    pub id: Identifier, // Assuming Identifier is represented as a fixed-size array of ID_LEN bytes
     pub ip: String,
-    pub port: u32,
+    pub port: u32
 }
 
 // Implement Display for Node

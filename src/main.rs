@@ -18,8 +18,6 @@ pub mod p2p;
 pub mod proto {
     tonic::include_proto!("rpcpacket");
 }
-
-pub mod ledger_gui;
 pub mod auxi;
 
 
@@ -172,15 +170,18 @@ async fn main() {
 
         let _ = peer.init_server().await;
 
-        println!("Get Block -> {:?}", client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
+        let bootstrap_ip = "34.41.124.10";
+        let bootstrap_port = "8888";
+
+        //println!("Get Block -> {:?}", client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
         //println!("Broadcasted Transaction -> {:?}", peer.send_transaction(_transaction).await);
         //println!("Broadcast Block -> {:?}", peer.send_block(_block).await);
         //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port, node1.id.clone()).await);
         //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port, node3.id.clone()).await);
-        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await);
+        println!("Result -> {:?}", client.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await);
         //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await);
-        println!("Result Store Key3 -> {:?}", client.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        println!("Result Find Key3 -> {:?}", client.find_value(key_server3_should_have).await);
+        //println!("Result Store Key3 -> {:?}", client.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        //println!("Result Find Key3 -> {:?}", client.find_value(key_server3_should_have).await);
         client.blockchain.lock().unwrap().mine();
         let list = client.blockchain.lock().unwrap().chain.clone();
         for i in list {
@@ -228,29 +229,3 @@ fn gen_transaction(from: String) -> Transaction {
                      out-_in,
                      to)
 }
-
-
-
-/*
-#[cfg(not(target_arch = "wasm32"))]
-fn gui() -> eframe::Result<()>{
-    env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-
-    let native_options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([400.0, 300.0])
-            .with_min_inner_size([300.0, 220.0])
-            .with_icon(
-                // NOTE: Adding an icon is optional
-                eframe::icon_data::from_png_bytes(&include_bytes!("../assets/icon-256.png")[..])
-                    .unwrap(),
-            ),
-        ..Default::default()
-    };
-    eframe::run_native(
-        "Epstein Auction",
-        native_options,
-        Box::new(|cc| Box::new(ledger_gui::TemplateApp::new(cc))),
-    )
-}
-*/

@@ -1,11 +1,17 @@
-use std::io;
+use std::{fs, io};
 use std::io::{Error, ErrorKind};
 use std::time::Duration;
 
 use log::{error, info};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use tonic::Response;
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use tonic::{Request, Response};
+use tonic::client::GrpcService;
+use tonic::codegen::Service;
+use tonic::codegen::tokio_stream::StreamExt;
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Uri};
 
 use crate::auxi;
 use crate::kademlia::node::{Identifier, Node};
@@ -24,7 +30,7 @@ impl  ResHandler {
     /// This will either return a [proto::PongPacket], indicating a valid response from the target, or an Error which can be caused
     /// by either problems in the connections or a Status returned by the receiver. In either case, the error message is returned.
     pub(crate) async fn ping(peer: &Peer, ip: &str, port: u32) -> Result<Response<PongPacket>, io::Error> {
-        let mut url = "http://".to_string();
+        let mut url = "https://".to_string();
         url += &format!("{}:{}", ip, port);
 
         // Generate a random string
@@ -36,6 +42,7 @@ impl  ResHandler {
 
         let rand_id = auxi::gen_id(rand_str);
 
+        // Create a Channel to connect to the server
         let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
 
         match c {
@@ -77,34 +84,41 @@ impl  ResHandler {
     /// This function can either return an error, from connection or packet-related issues, or a [proto::FindNodeResponse].
 
     pub async fn find_node(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
-        let mut url = "http://".to_string();
-        url += &format!("{}:{}", ip, port);
-        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
-        match c {
+        let url = format!("https://{}:{}", ip, port);
+
+        // Create a Channel with TLS configuration
+        let mut channel = Channel::builder(url.try_into().unwrap())
+            .connect()
+            .await;
+
+        match channel {
             Err(e) => {
-                error!("An error has occurred while trying to establish a connection for find node: {}", e);
-                Err(io::Error::new(ErrorKind::ConnectionRefused, e))
-            },
-            Ok(mut client) => {
-                let req = proto::FindNodeRequest { // Ask for a node that the server holds
+                eprintln!("Got an error while trying to establish a find_node connection: {}", e);
+                return Err(io::Error::new(ErrorKind::ConnectionAborted, e.to_string()));
+            }
+            Ok(c) => {
+                // Create the gRPC client
+                let mut client = crate::proto::packet_sending_client::PacketSendingClient::new(c);
+
+                // Create the request
+                let req = proto::FindNodeRequest {
                     id: id.0.to_vec(),
                     src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
-                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port)
+                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
                 };
                 let request = tonic::Request::new(req);
-                let res = client.find_node(request).await;
-                match res {
-                    Err(e) => {
-                        error!("An error has occurred while trying to find node: {{{}}}", e);
-                        Err(io::Error::new(ErrorKind::ConnectionAborted, e))
-                    },
-                    Ok(response) => {
-                        info!("Find node Response: {:?}", response.get_ref());
-                        Ok(response)
-                    }
-                }
-            }
+
+                // Send the request and handle the response
+                let res = client.find_node(request).await.map_err(|e| {
+                    error!("An error has occurred while trying to find node: {}", e);
+                    io::Error::new(ErrorKind::ConnectionAborted, e)
+                }).expect("Failed to obtain response");
+
+                println!("Find node Response: {:?}", res.get_ref());
+                Ok(res)
+            },
         }
+
     }
 
     /// # find_value
@@ -114,24 +128,17 @@ impl  ResHandler {
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::FindValueResponse].
     pub(crate) async fn find_value(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindValueResponse> , io::Error> {
-        let mut url = "http://".to_string();
+        let mut url = "https://".to_string();
         url += &format!("{}:{}", ip, port);
 
-        // Set the timeout duration
-        let timeout_duration = Duration::from_secs(5); // 5 seconds
-
-        // Wrap the connect call with a timeout
-        let c = tokio::time::timeout(timeout_duration, async {
-            // Establish the gRPC connection
-            proto::packet_sending_client::PacketSendingClient::connect(url).await
-        }).await;
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
 
         match c {
-            Ok(Err(e)) => {
+            Err(e) => {
                 error!("An error has occurred while trying to establish a connection for find value: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
-            Ok(Ok(mut client)) => {
+            Ok(mut client) => {
                 let req = proto::FindValueRequest {
                     value_id: id.0.to_vec(),
                     src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
@@ -151,10 +158,6 @@ impl  ResHandler {
                     }
                 }
             }
-            Err(e) => {
-                error!("Connection Timeout");
-                Err(io::Error::new(ErrorKind::TimedOut, e))
-            }
         }
 
     }
@@ -164,8 +167,8 @@ impl  ResHandler {
     /// and on the receiver side, if the receiver is the closest node to the key than stores it, otherwise the receiver itself will forward the key to the k nearest nodes.
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::StoreResponse].
-    pub(crate) async fn store(node: &Node, ip: String, port: u32, key: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
-        let mut url = "http://".to_string();
+    pub(crate) async fn store(node: &Node, ip: String, port: u32, key_id: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
+        let mut url = "https://".to_string();
         url += &format!("{}:{}", ip, port);
 
         let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
@@ -176,7 +179,7 @@ impl  ResHandler {
             },
             Ok(mut client) => {
                 let req = StoreRequest {
-                    key: key.0.to_vec(),
+                    key: key_id.0.to_vec(),
                     value,
                     src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
@@ -200,24 +203,16 @@ impl  ResHandler {
     }
 
     pub(crate) async fn get_block(node: &Node, ip: &str, port: u32, id: &String) -> Result<Response<GetBlockResponse> , io::Error> {
-        let mut url = "http://".to_string();
+        let mut url = "https://".to_string();
         url += &format!("{}:{}", ip, port);
 
-        // Set the timeout duration
-        let timeout_duration = Duration::from_secs(5); // 5 seconds
-
-        // Wrap the connect call with a timeout
-        let c = tokio::time::timeout(timeout_duration, async {
-            // Establish the gRPC connection
-            proto::packet_sending_client::PacketSendingClient::connect(url).await
-        }).await;
-
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
-            Ok(Err(e)) => {
+            Err(e) => {
                 error!("An error has occurred while trying to establish a connection for get block: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
-            Ok(Ok(mut client)) => {
+            Ok(mut client) => {
                 let req = proto::GetBlockRequest {
                     src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
@@ -236,10 +231,6 @@ impl  ResHandler {
                         Ok(response)
                     }
                 }
-            }
-            Err(e) => {
-                error!("Connection Timeout");
-                Err(io::Error::new(ErrorKind::TimedOut, e))
             }
         }
 
