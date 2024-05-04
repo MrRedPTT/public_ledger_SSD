@@ -33,6 +33,7 @@ async fn main() {
 
     let server = &args[1];
     let mut server_bool: bool = false;
+    let mut bootstrap: bool = false;
     if server.to_string() == "1" {
         server_bool = true;
         println!("Argument \"1\" passed, creating server...");
@@ -40,8 +41,13 @@ async fn main() {
         server_bool = true;
         println!("Argument \"3\" passed, creating server...");
         server_node = node3.clone();
+    } else if server.to_string() == "bootstrap" {
+        server_bool = true;
+        println!("Bootstraping this shiiiiiiiiiiii...");
+        server_node = Node::new("0.0.0.0".to_string(), 8888).unwrap();
+        bootstrap = true;
     }
-    let (rpc, client) = Peer::new(&server_node);
+    let (rpc, client) = Peer::new(&server_node, bootstrap);
     if server.to_string() == "3" {let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.54.123.2".to_string(),9981).unwrap());}
 
     if server_bool {
@@ -136,7 +142,7 @@ async fn main() {
 
     } else {
         let target_node = &node1;
-        let (peer, client) = Peer::new(node2);
+        let (peer, client) = Peer::new(node2, false);
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
@@ -171,12 +177,13 @@ async fn main() {
         let _ = peer.init_server().await;
 
         let bootstrap_ip = "34.41.124.10";
-        let bootstrap_port = "8888";
+        let bootstrap_port = 8635;
 
+        println!("Contacting Bootstrap -> {:?}", client.ping(bootstrap_ip, bootstrap_port, Node::new("0.0.0.0".to_string(), 8635).unwrap().id.clone()).await);
         //println!("Get Block -> {:?}", client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
         //println!("Broadcasted Transaction -> {:?}", peer.send_transaction(_transaction).await);
         //println!("Broadcast Block -> {:?}", peer.send_block(_block).await);
-        //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port, node1.id.clone()).await);
+        println!("Ping Server1 -> {:?}", client.ping(&node1.ip, node1.port, node1.id.clone()).await);
         //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port, node3.id.clone()).await);
         println!("Result -> {:?}", client.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await);
         //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await);

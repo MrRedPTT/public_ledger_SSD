@@ -59,6 +59,9 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::store],
     /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         let id = request.get_ref().src.as_ref().unwrap().id.clone();
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(id.try_into().unwrap())).await;
         let src = request.get_ref().src.as_ref().unwrap();
@@ -96,6 +99,9 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::find_value],
     /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
@@ -112,6 +118,9 @@ impl PacketSending for Peer {
 
     // ===================== block_chain Network APIs (Server Side) ============================ //
     async fn send_transaction(&self, request: Request<TransactionBroadcast>) -> Result<Response<()>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
         let packed = input.transaction.clone();
@@ -145,6 +154,9 @@ impl PacketSending for Peer {
     }
 
     async fn send_block(&self, request: Request<BlockBroadcast>) -> Result<Response<()>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
         let packed = input.block.clone();
@@ -172,6 +184,9 @@ impl PacketSending for Peer {
     }
 
     async fn get_block(&self, request: Request<GetBlockRequest>) -> Result<Response<GetBlockResponse>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
@@ -185,4 +200,5 @@ impl PacketSending for Peer {
             }
         }
     }
+
 }

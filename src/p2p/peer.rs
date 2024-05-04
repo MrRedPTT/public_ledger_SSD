@@ -17,7 +17,8 @@ pub const TTL: u32 = 15; // The default ttl for the broadcast of messages
 pub struct Peer {
     pub node: Node,
     pub kademlia: Arc<Mutex<Kademlia>>,
-    pub blockchain: Arc<Mutex<Blockchain>>
+    pub blockchain: Arc<Mutex<Blockchain>>,
+    pub bootstrap: bool
 }
 
 impl Peer {
@@ -29,19 +30,21 @@ impl Peer {
     /// given that this function will consume the object. The client will be used to initiate connections
     /// but with access to the same information (kademlia object) as the server. This share is made through
     /// [Arc<Mutex<Kademlia>>] meaning that it's thread safe.
-    pub fn new(node: &Node) -> (Peer, Peer) {
+    pub fn new(node: &Node, bootstrap: bool) -> (Peer, Peer) {
         let kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
         let blockchain = Arc::new(Mutex::new(Blockchain::new(true, "My Name Is Mario".to_string())));
         let server = Peer {
             node: node.clone(),
             kademlia: Arc::clone(&kademlia),
-            blockchain: Arc::clone(&blockchain)
+            blockchain: Arc::clone(&blockchain),
+            bootstrap
         };
 
         let client = Peer {
             node: node.clone(),
             kademlia,
-            blockchain
+            blockchain,
+            bootstrap
         };
         (server, client) // Return 2 instances of Peer that share the same kademlia object
     }
