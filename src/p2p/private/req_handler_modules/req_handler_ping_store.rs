@@ -28,7 +28,7 @@ impl ReqHandler {
             return Err(Status::invalid_argument("Source and/or destination not found"));
         }
         let args = <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
-        if args.ip != peer.node.ip || args.port != peer.node.port || args.id != peer.node.id.0.to_vec() {
+        if request.remote_addr().unwrap().ip().to_string() != "127.0.0.1" && (args.ip != peer.node.ip || args.port != peer.node.port || args.id != peer.node.id.0.to_vec()) {
             return Err(Status::invalid_argument("Node provided in destination does not match this node"))
         }
 
@@ -80,7 +80,7 @@ impl ReqHandler {
         // We decided to go with the second option given that the first would require the 1st node to wait for the 2nd, the 2nd for the 3rd,
         // the 3rd for the 4th and so on. Which, in a big network would become very problematic
         println!("Got a Store from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
-        println!("Key to be stored: {}", request.get_ref().value.clone());
+        let ttl = request.get_ref().ttl.clone();
         let input = request.get_ref();
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
@@ -97,7 +97,8 @@ impl ReqHandler {
         //let mut mutex_guard = peer.kademlia.lock().unwrap();
         let nodes = peer.kademlia.lock().unwrap().is_closest(&Identifier::new(id_array));
         let node_list: Vec<Node>;
-        if nodes.is_none() {
+        // If we are the closest, or the packet as traveled the entire network and died on us, store the key
+        if nodes.is_none() || ttl == 0 {
             // Means we are the closest node to the key
             peer.kademlia.lock().unwrap().add_key(Identifier::new(id_array), input.value.clone());
             return if !peer.kademlia.lock().unwrap().get_value(Identifier::new(id_array)).is_none() {
@@ -118,8 +119,9 @@ impl ReqHandler {
             } else {
                 node_list = nodes.unwrap();
                 for i in &node_list{
-                    debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
-                    arguments.push((i.ip.clone(), i.port))
+                    if i.clone().ip != src.ip.clone() && i.clone().port != src.port{
+                        arguments.push((i.ip.clone(), i.port))
+                    }
                 }
             }
 
@@ -134,10 +136,7 @@ impl ReqHandler {
                     tokio::spawn(async move {
                         // Acquire a permit from the semaphore
                         let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                        if arg.1 == 8935 {
-                            println!("DEBUG REQ_HANDLER::STORE -> Contacting: {}:{}", arg.0, arg.1);
-                        }
-                        let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val).await;
+                        let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val, ttl-1).await;
                         drop(permit);
                         res
                     })

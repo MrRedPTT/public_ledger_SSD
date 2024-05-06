@@ -34,7 +34,10 @@ impl Heads {
 
             // @ tail of head
             loop {
-                index-=1;
+                if index != 0{
+                    index-=1;
+                }
+
 
                 if head[index].hash == b.prev_hash {
                     let mut nh = vec![];

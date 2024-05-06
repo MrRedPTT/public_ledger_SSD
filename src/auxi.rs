@@ -1,4 +1,6 @@
+use rand::Rng;
 use sha3::{Digest, Sha3_256};
+use tokio::net::TcpListener;
 
 use crate::kademlia::node::ID_LEN;
 // Auxiliary functions
@@ -89,4 +91,21 @@ pub fn gen_address(id: Identifier, ip: String, port: u32) -> Option<Address> {
 
 pub fn return_option<T>(arg: T) -> Option<T> {
     Some(arg)
+}
+
+pub async fn get_port() -> u16 {
+    let mut rng = rand::thread_rng();
+    let random_number = rng.gen_range(1025..=65535);
+    loop {
+        match TcpListener::bind(("127.0.0.1", random_number)).await {
+            Ok(_) => {
+                // Binding succeeded, port is not in use
+                return random_number;
+            }
+            Err(_) => {
+                // Binding failed, port is already in use
+            }
+        }
+    }
+
 }

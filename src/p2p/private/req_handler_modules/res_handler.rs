@@ -1,17 +1,10 @@
-use std::{fs, io};
+use std::io;
 use std::io::{Error, ErrorKind};
-use std::time::Duration;
 
 use log::{error, info};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
-use tonic::{Request, Response};
-use tonic::client::GrpcService;
-use tonic::codegen::Service;
-use tonic::codegen::tokio_stream::StreamExt;
-use tonic::transport::{Certificate, Channel, ClientTlsConfig, Uri};
+use tonic::Response;
 
 use crate::auxi;
 use crate::kademlia::node::{Identifier, Node};
@@ -31,7 +24,6 @@ impl  ResHandler {
     /// by either problems in the connections or a Status returned by the receiver. In either case, the error message is returned.
     pub(crate) async fn ping(peer: &Peer, ip: &str, port: u32) -> Result<Response<PongPacket>, io::Error> {
         let mut url = "http://".to_string();
-        println!("Contacting: {}{}:{}", url, ip, port);
         url += &format!("{}:{}", ip, port);
 
         // Generate a random string
@@ -48,7 +40,7 @@ impl  ResHandler {
 
         match c {
             Err(e) => {
-                error!("An error has occurred while trying to establish a connection for find node: {}", e);
+                error!("An error has occurred while trying to establish a connection for ping: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
             Ok(mut client) => {
@@ -165,7 +157,7 @@ impl  ResHandler {
     /// and on the receiver side, if the receiver is the closest node to the key than stores it, otherwise the receiver itself will forward the key to the k nearest nodes.
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::StoreResponse].
-    pub(crate) async fn store(node: &Node, ip: String, port: u32, key_id: Identifier, value: String) -> Result<Response<StoreResponse> , io::Error> {
+    pub(crate) async fn store(node: &Node, ip: String, port: u32, key_id: Identifier, value: String, ttl: u32) -> Result<Response<StoreResponse> , io::Error> {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
 
@@ -181,6 +173,7 @@ impl  ResHandler {
                     value,
                     src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
                     dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                    ttl
                 };
 
                 let request = tonic::Request::new(req);

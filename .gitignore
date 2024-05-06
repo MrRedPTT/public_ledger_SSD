@@ -1,3 +1,4 @@
 /target
 proto/rpcpacket.rs
 cert/*
+src/bootstrap.txt

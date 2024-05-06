@@ -84,6 +84,7 @@ message StoreRequest {
   string value = 2;
   Address src = 3; // Node that originated the request
   Address dst = 4; // Node to which the request was originally sent
+  uint32 ttl = 5;
 }
 
 enum StoreType {

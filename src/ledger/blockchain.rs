@@ -80,7 +80,7 @@ impl Blockchain {
         let f = self.heads.add_block(b.clone());
         // if not then is it a new head ?
         if !f {
-            if self.chain.last().unwrap().clone().hash == b.clone().prev_hash {
+            if self.chain.last().unwrap_or(&Block::new(0, "ERROR".to_string(), 0, "ERROR".to_string(), 0.0)).clone().hash == b.clone().prev_hash {
                 self.heads.add_head(vec![b]);
             }
             else {

@@ -102,7 +102,13 @@ impl ReqHandler {
         }
 
         let id = Identifier::new(id_array);
-        let lookup = peer.kademlia.lock().unwrap().get_node(id.clone());
+
+        let mut lookup = None;
+        // If we are bootstrap, and the node is requesting itself, send back only
+        // the knearest nodes, even if we have that node stored already
+        if !(peer.bootstrap && id.0.to_vec() == src.id.clone()){
+            lookup = peer.kademlia.lock().unwrap().get_node(id.clone());
+        }
 
         if lookup.is_none() {
             // Node not found, send k nearest nodes to
@@ -114,7 +120,12 @@ impl ReqHandler {
                 // The type cant be our definition of node but proto::Node
                 // Therefore we need to create instances of those and place them inside a new vector
                 for i in k_nearest.unwrap() {
-                    list.push(proto::Node{id:i.id.0.to_vec(), ip:i.ip, port:i.port});
+                    // Same as before, if the we are the bootstrap and the node is requesting
+                    // it self, don't return the node itself
+                    if !(peer.bootstrap && id.0.to_vec() == src.id.clone() && i.id == id) {
+                        list.push(proto::Node{id:i.id.0.to_vec(), ip:i.ip, port:i.port});
+                    }
+
                 }
                 let response = FindNodeResponse {
                     response_type: 1, // KNear => Send up to k near nodes to the target
@@ -148,7 +159,7 @@ impl ReqHandler {
     /// to the target ID. If anything goes wrong, a [Status] will be returned indicating either a request or response related problem.
     ///
     pub(crate) async fn find_value(peer: &Peer, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
-        println!("Got a Find_value from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        println!("Got a Find Value from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
@@ -209,8 +220,6 @@ impl ReqHandler {
 
     pub(crate) async fn get_block(peer: &Peer, request: Request<GetBlockRequest>) -> Result<Response<GetBlockResponse>, Status> {
         println!("Got a Get_Block from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
-        println!("DEBUG IN REQ_HANDLER_LOOKUPS::GET_BLOCK -> Got hash: {}", request.get_ref().id.clone());
-        println!("Have this block?: {}", !peer.blockchain.lock().unwrap().get_block_by_hash(request.get_ref().id.clone()).is_none());
         let list = peer.blockchain.lock().unwrap().chain.clone();
         for i in list {
             println!("Block: id: {{{}}} hash:{} -> prev: {}",i.index.clone(), i.hash.clone(), i.prev_hash.clone());

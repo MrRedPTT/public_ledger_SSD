@@ -1,10 +1,9 @@
-use std::fs;
 use std::sync::{Arc, Mutex};
 
 use log::{debug, info};
 use tokio::signal;
 use tokio::sync::oneshot;
-use tonic::transport::{Identity, Server, ServerTlsConfig};
+use tonic::transport::Server;
 
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::Node;
@@ -70,7 +69,8 @@ impl Peer {
         let server = Server::builder()
             .concurrency_limit_per_connection(256)
             .add_service(PacketSendingServer::new(self))
-            .serve(format!("{}:{}", node.ip, node.port).parse().unwrap());
+            .serve(format!("{}:{}", "0.0.0.0", node.port).parse().unwrap());
+
 
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
