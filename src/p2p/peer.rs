@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use log::{debug, info};
 use tokio::signal;
 use tokio::sync::oneshot;
-use tonic::transport::Server;
+use tonic::transport::{Identity, Server};
 
 use crate::kademlia::kademlia::Kademlia;
 use crate::kademlia::node::Node;
@@ -64,9 +64,19 @@ impl Peer {
     pub async fn init_server(self) -> oneshot::Receiver<()> {
         let node = self.node.clone();
         debug!("DEBUG PEER::INIT_SERVER => Creating server at {}:{}", node.ip, node.port);
+        let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
+        println!("Path: <{}>", data_dir.display());
+        let cert = std::fs::read_to_string(data_dir.join("cert\\server.pem")).expect("Failed to open file server.crt");
+        let key = std::fs::read_to_string(data_dir.join("cert\\server.key")).expect("Failed to open file server.key");
 
+        let identity = Identity::from_pem(cert, key);
+
+        let tls = tonic::transport::ServerTlsConfig::new()
+            .identity(identity);
 
         let server = Server::builder()
+            .tls_config(tls)
+            .expect("Failed to configure TLS on server")
             .concurrency_limit_per_connection(256)
             .add_service(PacketSendingServer::new(self))
             .serve(format!("{}:{}", "0.0.0.0", node.port).parse().unwrap());

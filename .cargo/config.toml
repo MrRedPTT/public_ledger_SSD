@@ -1,0 +1,12 @@
+[env]
+TLS="1" # 1 for True 0 for False
+
+[http]
+timeout = 30
+multiplexing = true
+
+[alias]
+bootstrap = ["run", "--", "bootstrap"]
+client = ["run", "--", "2"]
+server1 = ["run", "--", "1"]
+server3 = ["run", "--", "3"]

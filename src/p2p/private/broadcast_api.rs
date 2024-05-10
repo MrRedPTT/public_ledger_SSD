@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use std::time::Duration;
 
 use log::{error, info};
+use tonic::transport::{Certificate, ClientTlsConfig, Identity};
 
 use crate::{auxi, proto};
 use crate::kademlia::node::{ID_LEN, Node};
@@ -98,96 +98,108 @@ impl BroadCastReq {
     }
 
     async fn send_request(node: &Node, ip: String, port: u32, transaction_op: Option<Transaction>, block_op: Option<Block>, ttl: u32) {
-        let mut url = "http://".to_string();
-        url += &format!("{}:{}", ip, port);
-        // Set the timeout duration
-        let timeout_duration = Duration::from_secs(5); // 5 seconds
+        if std::env!("TLS").to_string() == "1" {
+            let mut url = "https://".to_string();
+            url += &format!("{}:{}", ip, port);
 
-        // Wrap the connect call with a timeout
-        let c = tokio::time::timeout(timeout_duration, async {
-            // Establish the gRPC connection
-            proto::packet_sending_client::PacketSendingClient::connect(url).await
-        }).await;
+            let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
+            let pem = std::fs::read_to_string(data_dir.join("cert\\ca.pem")).expect("Failed to read ca.pem");
+            let ca = Certificate::from_pem(pem);
+            let client_cert = std::fs::read_to_string(data_dir.join("cert\\client1.pem")).expect("Failed to open Client pem");
+            let client_key = std::fs::read_to_string(data_dir.join("cert\\client1.key")).expect("Failed to open client key");
+            let client_identity = Identity::from_pem(client_cert, client_key);
 
-        match c {
-            Ok(Err(e)) => {
-                error!("An error has occurred while trying to establish a connection for transaction broadcast: {}", e);
-                return;
-            },
-            Ok(Ok(mut client)) => {
-                if transaction_op.is_none() {
-                    let block = block_op.unwrap();
-                    let mut trans: Vec<proto::Transaction> = Vec::new();
-                    for i in block.transactions {
-                        trans.push(proto::Transaction {
-                            from: i.from,
-                            to: i.to,
-                            amount_in: i.amount_in,
-                            amount_out: i.amount_out,
-                            miner_fee: i.miner_fee,
-                        });
+            let tls = ClientTlsConfig::new()
+                .domain_name("example.com")
+                .ca_certificate(ca)
+                .identity(client_identity);
+
+            let ch = tonic::transport::Channel::from_shared(url.clone())
+                .unwrap()
+                .tls_config(tls)
+                .expect("Failed to configure TLS channel on client")
+                .connect()
+                .await;
+            let channel = match ch {
+                Err(_) => {
+                    println!("Error while broadcasting for {url}");
+                    return;
+                }
+                Ok(channel) => { channel }
+            };
+
+            let mut c = proto::packet_sending_client::PacketSendingClient::new(channel);
+            if transaction_op.is_none() {
+                let block = block_op.unwrap();
+                let mut trans: Vec<proto::Transaction> = Vec::new();
+                for i in block.transactions {
+                    trans.push(proto::Transaction {
+                        from: i.from,
+                        to: i.to,
+                        amount_in: i.amount_in,
+                        amount_out: i.amount_out,
+                        miner_fee: i.miner_fee,
+                    });
+                }
+                let req = proto::BlockBroadcast {
+                    src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
+                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                    block: Some(proto::Block {
+                        hash: block.hash,
+                        index: block.index as u64,
+                        timestamp: block.timestamp,
+                        prev_hash: block.prev_hash,
+                        nonce: block.nonce,
+                        difficulty: block.difficulty as u64,
+                        miner_id: block.miner_id,
+                        merkle_tree_root: block.merkle_tree_root,
+                        confirmations: 0,
+                        transactions: trans,
+                    }),
+                    ttl
+                };
+                let request = tonic::Request::new(req);
+                let res = c.send_block(request).await;
+                match res {
+                    Err(e) => {
+                        error!("An error has occurred while trying to broadcast Block: {{{}}}", e);
+                        return;
+                    },
+                    Ok(_) => {
+                        info!("Send Broadcast Returned");
+                        return;
                     }
-                    let req = proto::BlockBroadcast {
-                        src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
-                        dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
-                        block: Some(proto::Block {
-                            hash: block.hash,
-                            index: block.index as u64,
-                            timestamp: block.timestamp,
-                            prev_hash: block.prev_hash,
-                            nonce: block.nonce,
-                            difficulty: block.difficulty as u64,
-                            miner_id: block.miner_id,
-                            merkle_tree_root: block.merkle_tree_root,
-                            confirmations: 0,
-                            transactions: trans,
-                        }),
-                        ttl
-                    };
-                    let request = tonic::Request::new(req);
-                    let res = client.send_block(request).await;
-                    match res {
-                        Err(e) => {
-                            error!("An error has occurred while trying to broadcast Block: {{{}}}", e);
-                            return;
-                        },
-                        Ok(_) => {
-                            info!("Send Broadcast Returned");
-                            return;
-                        }
-                    }
-                } else {
-                    let transaction = transaction_op.unwrap();
-                    let req = proto::TransactionBroadcast { // Ask for a node that the server holds
-                        src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
-                        dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
-                        transaction: Some(proto::Transaction {
-                            from: transaction.from,
-                            to: transaction.to,
-                            amount_in: transaction.amount_in,
-                            amount_out: transaction.amount_out,
-                            miner_fee: transaction.miner_fee,
-                        }),
-                        ttl,
-                    };
-                    let request = tonic::Request::new(req);
-                    let res = client.send_transaction(request).await;
-                    match res {
-                        Err(e) => {
-                            error!("An error has occurred while trying to broadcast Transaction: {{{}}}", e);
-                            return;
-                        },
-                        Ok(_) => {
-                            info!("Send Broadcast Returned");
-                            return;
-                        }
+                }
+            } else {
+                let transaction = transaction_op.unwrap();
+                let req = proto::TransactionBroadcast { // Ask for a node that the server holds
+                    src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
+                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                    transaction: Some(proto::Transaction {
+                        from: transaction.from,
+                        to: transaction.to,
+                        amount_in: transaction.amount_in,
+                        amount_out: transaction.amount_out,
+                        miner_fee: transaction.miner_fee,
+                    }),
+                    ttl,
+                };
+                let request = tonic::Request::new(req);
+                let res = c.send_transaction(request).await;
+                match res {
+                    Err(e) => {
+                        error!("An error has occurred while trying to broadcast Transaction: {{{}}}", e);
+                        return;
+                    },
+                    Ok(_) => {
+                        info!("Send Broadcast Returned");
+                        return;
                     }
                 }
             }
-            Err(_) => {
-                error!("Connection Timeout");
-                return;
-            }
+        } else {
+            // Un-Encrypted communication is no longer supported
+            return;
         }
     }
 
