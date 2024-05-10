@@ -55,7 +55,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    println!("Error while creating ping channel for {url}");
+                    error!("Error while creating ping channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -118,7 +118,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    println!("Error while creating find node channel for {url}");
+                    error!("Error while creating find node channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -179,7 +179,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    println!("Error while creating find value channel for {url}");
+                    error!("Error while creating find value channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -239,7 +239,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    println!("Error while creating store channel for {url}");
+                    error!("Error while creating store channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -295,7 +295,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    println!("Error while creating get block channel for {url}");
+                    error!("Error while creating get block channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}

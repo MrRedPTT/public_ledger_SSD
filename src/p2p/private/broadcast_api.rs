@@ -122,7 +122,7 @@ impl BroadCastReq {
                 .await;
             let channel = match ch {
                 Err(_) => {
-                    println!("Error while broadcasting for {url}");
+                    error!("Error while broadcasting for {url}");
                     return;
                 }
                 Ok(channel) => { channel }

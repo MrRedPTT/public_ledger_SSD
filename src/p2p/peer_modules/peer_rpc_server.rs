@@ -172,6 +172,9 @@ impl PacketSending for Peer {
         println!("Reveived a Block: {:?} with TTL: {} from : {}:{}", block, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
 
         // Block Handler
+        if self.blockchain.lock().unwrap().get_block_by_hash(block.hash.clone()).is_some() {
+            return Ok(Response::new(()));
+        }
         self.blockchain.lock().unwrap().add_block(block.clone());
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)

@@ -66,6 +66,7 @@ async fn test_server_blockchain_node() {
             Ok(_) => {ping_boot = false;}
         }
     }
+    client.boot().await;
 
     // Creating a blockchain to test the get_block RPC
     println!("Creating blockchain for testing");
@@ -115,19 +116,21 @@ async fn test_server_blockchain_node() {
 }
 
 async fn test_server() {
-    let node = &Node::new("127.0.0.1".to_string(), 8888).unwrap();
+    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
     let (client, server) = Peer::new(node, false);
     let shutdown_rx = server.init_server().await;
 
     // Ping bootstrap node to make sure we're added to the KBucket (In a real scenario we will use bootstrap)
-    /*let mut ping_boot = true;
+    let mut ping_boot = true;
     while ping_boot {
         let ping = client.ping("127.0.0.1", 8635, auxi::gen_id(format!("{}:{}", "127.0.0.1", 8635))).await;
         match ping {
             Err(_) => {},
             Ok(_) => {ping_boot = false;}
         }
-    }*/
+    }
+    client.boot().await;
+
     let mut key_server_should_have = node.id.clone();
     if key_server_should_have.0[ID_LEN - 1] == 0 {
         key_server_should_have.0[ID_LEN - 1] = 1;
@@ -154,11 +157,8 @@ async fn test_client() {
     let (client, server) = Peer::new(node, false);
     let _ = server.init_server().await;
     println!("Listening at 127.0.0.1:{}", node.port);
-    //client.boot().await;
-    println!("Pinging the server1 (Disabled boot, ping from server1 to bootstrap and hardcoded server1 port to 8888)");
-    println!("Ping -> {:?}", client.ping("127.0.0.1", 8888, auxi::gen_id(format!("{}:{}", "127.0.0.1", 8888))).await);
+    client.boot().await;
     let mut keys: Vec<Identifier> = Vec::new();
-    client.kademlia.lock().unwrap().add_node(&Node::new("127.0.0.1".to_string(), 8888).unwrap());
     let nodes_stored = client.kademlia.lock().unwrap().get_all_nodes().unwrap_or(Vec::new());
     // Here we can always assume the vec is not empty
     for i in nodes_stored {
@@ -169,7 +169,6 @@ async fn test_client() {
         } else {
             key_id.0[ID_LEN - 1] = 0;
         }
-        println!("{}:{} => {:?}", i.ip, i.port, key_id.clone());
         keys.push(key_id);
     }
 
