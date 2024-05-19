@@ -1,12 +1,15 @@
 [env]
 TLS="1" # 1 for True 0 for False
+OS_CONF="windows"
+DEFAULT_BOOTSTRAP="y"
+EXEC_MODE="BOOTSTRAP"
 
 [http]
 timeout = 30
 multiplexing = true
 
 [alias]
-bootstrap = ["run", "--", "bootstrap"]
-client = ["run", "--", "2"]
-server1 = ["run", "--", "1"]
-server3 = ["run", "--", "3"]
+bootstrap = ["run", "--", "BOOTSTRAP"]
+client = ["run", "--", "CLIENT"]
+server1 = ["run", "--", "SERVER1"]
+server3 = ["run", "--", "SERVER3"]

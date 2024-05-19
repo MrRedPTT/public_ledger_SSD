@@ -1,4 +1,4 @@
-use std::io;
+use std::{env, io};
 use std::io::{Error, ErrorKind};
 
 use log::{error, info};
@@ -36,10 +36,14 @@ impl  ResHandler {
 
             let rand_id = auxi::gen_id(rand_str);
             let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
-            let pem = std::fs::read_to_string(data_dir.join("cert\\ca.pem")).expect("Failed to read ca.pem");
+            let mut slash = "\\";
+            if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+                slash = "/";
+            }
+            let pem = std::fs::read_to_string(data_dir.join(format!("cert{slash}ca.crt"))).expect("Failed to read ca.pem");
             let ca = Certificate::from_pem(pem);
-            let client_cert = std::fs::read_to_string(data_dir.join("cert\\client1.pem"))?;
-            let client_key = std::fs::read_to_string(data_dir.join("cert\\client1.key"))?;
+            let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt")))?;
+            let client_key = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.key")))?;
             let client_identity = Identity::from_pem(client_cert, client_key);
 
             let tls = ClientTlsConfig::new()
@@ -55,7 +59,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    error!("Error while creating ping channel for {url}");
+                    println!("Error while creating ping channel for {url}: {e}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -69,7 +73,7 @@ impl  ResHandler {
             let res = c.ping(req).await;
             match res {
                 Err(e) => {
-                    error!("An error has occurred while trying to ping: {{{}}}", e);
+                    println!("An error has occurred while trying to ping: {{{}}}", e);
                     Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                 },
                 Ok(response) => {
@@ -99,10 +103,14 @@ impl  ResHandler {
             url += &format!("{}:{}", ip, port);
 
             let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
-            let pem = std::fs::read_to_string(data_dir.join("cert\\ca.pem")).expect("Failed to read ca.pem");
+            let mut slash = "\\";
+            if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+                slash = "/";
+            }
+            let pem = std::fs::read_to_string(data_dir.join(format!("cert{slash}ca.crt"))).expect("Failed to read ca.pem");
             let ca = Certificate::from_pem(pem);
-            let client_cert = std::fs::read_to_string(data_dir.join("cert\\client1.pem"))?;
-            let client_key = std::fs::read_to_string(data_dir.join("cert\\client1.key"))?;
+            let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt")))?;
+            let client_key = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.key")))?;
             let client_identity = Identity::from_pem(client_cert, client_key);
 
             let tls = ClientTlsConfig::new()
@@ -160,10 +168,14 @@ impl  ResHandler {
             url += &format!("{}:{}", ip, port);
 
             let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
-            let pem = std::fs::read_to_string(data_dir.join("cert\\ca.pem")).expect("Failed to read ca.pem");
+            let mut slash = "\\";
+            if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+                slash = "/";
+            }
+            let pem = std::fs::read_to_string(data_dir.join(format!("cert{slash}ca.crt"))).expect("Failed to read ca.pem");
             let ca = Certificate::from_pem(pem);
-            let client_cert = std::fs::read_to_string(data_dir.join("cert\\client1.pem"))?;
-            let client_key = std::fs::read_to_string(data_dir.join("cert\\client1.key"))?;
+            let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt")))?;
+            let client_key = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.key")))?;
             let client_identity = Identity::from_pem(client_cert, client_key);
 
             let tls = ClientTlsConfig::new()
@@ -220,10 +232,14 @@ impl  ResHandler {
             url += &format!("{}:{}", ip, port);
 
             let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
-            let pem = std::fs::read_to_string(data_dir.join("cert\\ca.pem")).expect("Failed to read ca.pem");
+            let mut slash = "\\";
+            if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+                slash = "/";
+            }
+            let pem = std::fs::read_to_string(data_dir.join(format!("cert{slash}ca.crt"))).expect("Failed to read ca.pem");
             let ca = Certificate::from_pem(pem);
-            let client_cert = std::fs::read_to_string(data_dir.join("cert\\client1.pem"))?;
-            let client_key = std::fs::read_to_string(data_dir.join("cert\\client1.key"))?;
+            let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt")))?;
+            let client_key = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.key")))?;
             let client_identity = Identity::from_pem(client_cert, client_key);
 
             let tls = ClientTlsConfig::new()
@@ -276,10 +292,14 @@ impl  ResHandler {
             url += &format!("{}:{}", ip, port);
 
             let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
-            let pem = std::fs::read_to_string(data_dir.join("cert\\ca.pem")).expect("Failed to read ca.pem");
+            let mut slash = "\\";
+            if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+                slash = "/";
+            }
+            let pem = std::fs::read_to_string(data_dir.join(format!("cert{slash}ca.crt"))).expect("Failed to read ca.pem");
             let ca = Certificate::from_pem(pem);
-            let client_cert = std::fs::read_to_string(data_dir.join("cert\\client1.pem"))?;
-            let client_key = std::fs::read_to_string(data_dir.join("cert\\client1.key"))?;
+            let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt")))?;
+            let client_key = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.key")))?;
             let client_identity = Identity::from_pem(client_cert, client_key);
 
             let tls = ClientTlsConfig::new()

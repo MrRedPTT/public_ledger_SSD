@@ -1,3 +1,4 @@
+use std::env;
 use std::sync::Arc;
 
 use log::{error, info};
@@ -103,10 +104,14 @@ impl BroadCastReq {
             url += &format!("{}:{}", ip, port);
 
             let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
-            let pem = std::fs::read_to_string(data_dir.join("cert\\ca.pem")).expect("Failed to read ca.pem");
+            let mut slash = "\\";
+            if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+                slash = "/";
+            }
+            let pem = std::fs::read_to_string(data_dir.join(format!("cert{slash}ca.crt"))).expect("Failed to read ca.pem");
             let ca = Certificate::from_pem(pem);
-            let client_cert = std::fs::read_to_string(data_dir.join("cert\\client1.pem")).expect("Failed to open Client pem");
-            let client_key = std::fs::read_to_string(data_dir.join("cert\\client1.key")).expect("Failed to open client key");
+            let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt"))).expect("Failed to open server.crt");
+            let client_key = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.key"))).expect("Failed to open server.key");
             let client_identity = Identity::from_pem(client_cert, client_key);
 
             let tls = ClientTlsConfig::new()

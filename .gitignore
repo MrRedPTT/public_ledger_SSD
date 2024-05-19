@@ -1,4 +1,7 @@
 /target
 proto/rpcpacket.rs
-cert/*
+cert/server.crt
+cert/server.csr
+cert/server.key
+cert/demoCA
 src/bootstrap.txt

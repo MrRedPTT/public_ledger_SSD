@@ -1,0 +1,97 @@
+# Gen CA priv key
+openssl genpkey -algorithm RSA -out ca.key
+
+# Gen CA cert
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.crt -subj "/C=US/ST=State/L=City/O=Organization/OU=OrgUnit/CN=RootCA"
+
+# Gen server priv key
+openssl genpkey -algorithm RSA -out server.key
+
+################## server.cnf #################################
+[req]
+default_bits       = 2048
+distinguished_name = req_distinguished_name
+req_extensions     = req_ext
+prompt             = no
+
+[req_distinguished_name]
+C  = US
+ST = State
+L  = City
+O  = Organization
+OU = OrgUnit
+CN = example.com
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1   = example.com
+DNS.2   = *.example.com
+DNS.3   = example.test
+DNS.4   = localhost
+IP.1    = 127.0.0.1
+IP.2    = ::1
+##################################################################################
+
+# Generate Certificate Signing Request
+openssl req -new -key server.key -out server.csr -config server.cnf
+
+##################### ca.cnf #########################################
+[ca]
+default_ca = CA_default
+
+[CA_default]
+dir               = ./demoCA
+certs             = $dir/certs
+new_certs_dir     = $dir/newcerts
+database          = $dir/index.txt
+serial            = $dir/serial
+private_key       = ./ca.key
+certificate       = ./ca.crt
+default_md        = sha256
+policy            = policy_any
+default_days      = 375
+
+[policy_any]
+countryName            = optional
+stateOrProvinceName    = optional
+localityName           = optional
+organizationName       = optional
+organizationalUnitName = optional
+commonName             = supplied
+emailAddress           = optional
+
+[v3_req]
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+authorityKeyIdentifier=keyid,issuer:always
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1   = example.com
+DNS.2   = *.example.com
+DNS.3   = example.test
+DNS.4   = localhost
+IP.1    = 127.0.0.1
+IP.2    = ::1
+#############################################################################################
+
+########### Windows ##########################
+New-Item -Path .\demoCA\certs -ItemType Directory
+New-Item -Path .\demoCA\newcerts -ItemType Directory
+New-Item -Path .\demoCA\private -ItemType Directory
+New-Item -Path .\demoCA\index.txt -ItemType File
+Set-Content -Path .\demoCA\serial -Value "1000"
+########### Linux #############################
+mkdir -p demoCA/{certs,newcerts,private}
+touch demoCA/index.txt
+echo 1000 > demoCA/serial
+###############################################
+
+# Sign Certificate
+openssl ca -config ca.cnf -extensions v3_req -days 375 -notext -md sha256 -in server.csr -out server.crt
+
+
+

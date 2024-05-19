@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::{env, fs, io};
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
@@ -18,7 +18,7 @@ impl Peer {
             exe_path.push("src");
             exe_path.push("main");
             if let Some(dir) = exe_path.parent() {
-                if std::env::consts::OS == "windows" {
+                if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "windows" {
                     path = dir.display().to_string() + "\\bootstrap.txt";
                 } else {
                     path = dir.display().to_string() + "/bootstrap.txt";
@@ -30,29 +30,32 @@ impl Peer {
                             for i in &bootstrap_nodes {
                                 println!("{}", i);
                             }
-                            println!("Do you wish to rewrite the list? (y/n)");
-                            let mut input = String::new();
-                            io::stdin().read_line(&mut input)
-                                .expect("Failed to read line");
-                            if input.ends_with('\n') {
-                                input.pop();
-                                if input.ends_with('\r') {
+                            let skip_list = env::var("DEFAULT_BOOTSTRAP").unwrap_or_else(|_| "y".to_string());
+                            if skip_list != "y" {
+                                println!("Do you wish to rewrite the list? (y/n)");
+                                let mut input = String::new();
+                                io::stdin().read_line(&mut input)
+                                    .expect("Failed to read line");
+                                if input.ends_with('\n') {
                                     input.pop();
+                                    if input.ends_with('\r') {
+                                        input.pop();
+                                    }
                                 }
-                            }
-                            if input.to_ascii_lowercase() == "y" {
-                                bootstrap_nodes = Self::read_ips_from_user();
-                                let _ = Self::write_file(path.as_str(), bootstrap_nodes.clone());
+                                if input.to_ascii_lowercase() == "y" {
+                                    bootstrap_nodes = Self::read_ips_from_user();
+                                    let _ = Self::write_file(path.as_str(), bootstrap_nodes.clone());
+                                }
                             }
                             for i in &bootstrap_nodes {
                                 self.kademlia.lock().unwrap().add_node(&Node::new(i.to_string(), 8635).unwrap());
                             }
-
                         }
                     } else {
                         println!("No bootstrap ip list was found!");
                         let bootstrap_nodes = Self::read_ips_from_user();
-                        Self::create_file(path.as_str(), bootstrap_nodes.clone()).unwrap();
+                        println!("DEBUG PEER_BOOT => Path: {}", path.as_str());
+                        let _ = Self::create_file(path.as_str(), bootstrap_nodes.clone());
                         for i in bootstrap_nodes {
                             self.kademlia.lock().unwrap().add_node(&Node::new(i, 8635).unwrap());
                         }
@@ -75,6 +78,7 @@ impl Peer {
 
     // Function to check if the file exists
     fn file_exists(file_path: &str) -> std::io::Result<bool> {
+        println!("DEBUG PEER_BOOT::FILE_EXISTS => Was queried for file: {file_path}");
         let metadata = fs::metadata(file_path);
         match metadata {
             Ok(_) => Ok(true), // File exists

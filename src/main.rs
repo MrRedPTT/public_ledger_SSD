@@ -21,16 +21,20 @@ pub mod auxi;
 
 #[tokio::main]
 async fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let server = &args[1];
-    if server.to_string() == "1" {
+    // This is here so that I can still test the project outside of docker
+    let os = env::var("OS_CONF").unwrap_or_else(|_| "client".to_string());
+    let mut server = env::var("EXEC_MODE").unwrap_or_else(|_| "CLIENT".to_string());
+    if os == "windows" {
+        let args: Vec<String> = env::args().collect();
+        server = args[1].clone();
+    }
+    if server.to_string() == "SERVER1" {
         println!("Argument \"1\" passed, creating server...");
         test_server().await;
-    } else if server.to_string() == "3" {
+    } else if server.to_string() == "SERVER3" {
         println!("Argument \"3\" passed, creating server...");
         test_server_blockchain_node().await;
-    } else if server.to_string() == "bootstrap" {
+    } else if server.to_string() == "BOOTSTRAP" {
         println!("Bootstraping this shiiiiiiiiiiii...");
         test_bootstrap_code().await;
     } else {
@@ -53,7 +57,7 @@ async fn test_bootstrap_code() {
 
 async fn test_server_blockchain_node() {
     println!("Creating server with blockchain content");
-    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
+    let node = &Node::new("127.0.0.1".to_string(), 8889).unwrap();
     let (client, server) = Peer::new(node, false);
     let shutdown_rx = server.init_server().await;
 
@@ -116,7 +120,7 @@ async fn test_server_blockchain_node() {
 }
 
 async fn test_server() {
-    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
+    let node = &Node::new("127.0.0.1".to_string(), 8888).unwrap();
     let (client, server) = Peer::new(node, false);
     let shutdown_rx = server.init_server().await;
 
@@ -125,7 +129,7 @@ async fn test_server() {
     while ping_boot {
         let ping = client.ping("127.0.0.1", 8635, auxi::gen_id(format!("{}:{}", "127.0.0.1", 8635))).await;
         match ping {
-            Err(_) => {},
+            Err(e) => {println!("DEBUG MAIN::TEST_SERVER => {e}")},
             Ok(_) => {ping_boot = false;}
         }
     }
@@ -153,7 +157,7 @@ async fn test_server() {
 }
 
 async fn test_client() {
-    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
+    let node = &Node::new("127.0.0.1".to_string(), 9999).unwrap();
     let (client, server) = Peer::new(node, false);
     let _ = server.init_server().await;
     println!("Listening at 127.0.0.1:{}", node.port);

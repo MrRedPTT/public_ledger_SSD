@@ -1,3 +1,4 @@
+use std::env;
 use std::sync::{Arc, Mutex};
 
 use log::{debug, info};
@@ -66,8 +67,12 @@ impl Peer {
         debug!("DEBUG PEER::INIT_SERVER => Creating server at {}:{}", node.ip, node.port);
         let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
         println!("Path: <{}>", data_dir.display());
-        let cert = std::fs::read_to_string(data_dir.join("cert\\server.pem")).expect("Failed to open file server.crt");
-        let key = std::fs::read_to_string(data_dir.join("cert\\server.key")).expect("Failed to open file server.key");
+        let mut slash = "\\";
+        if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+            slash = "/";
+        }
+        let cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt"))).expect("Failed to open file server.crt");
+        let key = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.key"))).expect("Failed to open file server.key");
 
         let identity = Identity::from_pem(cert, key);
 
