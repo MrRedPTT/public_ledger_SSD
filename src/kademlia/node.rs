@@ -70,4 +70,5 @@ impl Node {
     pub fn get_addr(self) -> String {
         format!("{}:{}", self.ip, self.port).to_string()
     }
+
 }

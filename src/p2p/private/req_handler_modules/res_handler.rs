@@ -66,8 +66,8 @@ impl  ResHandler {
             };
             let mut c = proto::packet_sending_client::PacketSendingClient::new(channel);
             let req = proto::PingPacket {
-                src: auxi::gen_address(peer.node.id.clone(), peer.node.ip.clone(), peer.node.port),
-                dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                src: auxi::gen_address_src(peer.id.clone(), peer.node.ip.clone(), peer.node.port),
+                dst: auxi::gen_address_dst(ip.to_string(), port),
                 rand_id: rand_id.0.to_vec()
             };
             let res = c.ping(req).await;
@@ -97,7 +97,7 @@ impl  ResHandler {
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::FindNodeResponse].
 
-    pub async fn find_node(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
+    pub async fn find_node(node: &Node, ip: &str, port: u32, id: &Identifier, own_id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
         if std::env!("TLS").to_string() == "1" {
             let mut url = "https://".to_string();
             url += &format!("{}:{}", ip, port);
@@ -134,8 +134,8 @@ impl  ResHandler {
             let mut c = proto::packet_sending_client::PacketSendingClient::new(channel);
             let req = proto::FindNodeRequest {
                 id: id.0.to_vec(),
-                src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
-                dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                src: auxi::gen_address_src(own_id.clone(), node.ip.clone(), node.port),
+                dst: auxi::gen_address_dst(ip.to_string(), port),
             };
 
             let request = tonic::Request::new(req);
@@ -162,7 +162,7 @@ impl  ResHandler {
     ///
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::FindValueResponse].
-    pub(crate) async fn find_value(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindValueResponse>, io::Error> {
+    pub(crate) async fn find_value(node: &Node, ip: &str, port: u32, id: &Identifier, own_id: &Identifier) -> Result<Response<FindValueResponse>, io::Error> {
         if std::env!("TLS").to_string() == "1" {
             let mut url = "https://".to_string();
             url += &format!("{}:{}", ip, port);
@@ -199,8 +199,8 @@ impl  ResHandler {
             let mut c = proto::packet_sending_client::PacketSendingClient::new(channel);
             let req = proto::FindValueRequest {
                 value_id: id.0.to_vec(),
-                src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
-                dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                src: auxi::gen_address_src(own_id.clone(), node.ip.clone(), node.port),
+                dst: auxi::gen_address_dst(ip.to_string(), port),
             };
 
             let request = tonic::Request::new(req);
@@ -226,7 +226,7 @@ impl  ResHandler {
     /// and on the receiver side, if the receiver is the closest node to the key than stores it, otherwise the receiver itself will forward the key to the k nearest nodes.
     /// ### Returns
     /// This function can either return an error, from connection or packet-related issues, or a [proto::StoreResponse].
-    pub(crate) async fn store(node: &Node, ip: String, port: u32, key_id: Identifier, value: String, ttl: u32) -> Result<Response<StoreResponse>, io::Error> {
+    pub(crate) async fn store(node: &Node, ip: String, port: u32, key_id: Identifier, value: String, ttl: u32, own_id: &Identifier) -> Result<Response<StoreResponse>, io::Error> {
         if std::env!("TLS").to_string() == "1" {
             let mut url = "https://".to_string();
             url += &format!("{}:{}", ip, port);
@@ -264,8 +264,8 @@ impl  ResHandler {
             let req = StoreRequest {
                 key: key_id.0.to_vec(),
                 value,
-                src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
-                dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                src: auxi::gen_address_src(own_id.clone(), node.ip.clone(), node.port),
+                dst: auxi::gen_address_dst(ip.to_string(), port),
                 ttl
             };
 
@@ -286,7 +286,7 @@ impl  ResHandler {
         }
     }
 
-    pub(crate) async fn get_block(node: &Node, ip: &str, port: u32, id: &String) -> Result<Response<GetBlockResponse>, io::Error> {
+    pub(crate) async fn get_block(node: &Node, ip: &str, port: u32, id: &String, own_id: &Identifier) -> Result<Response<GetBlockResponse>, io::Error> {
         if std::env!("TLS").to_string() == "1" {
             let mut url = "https://".to_string();
             url += &format!("{}:{}", ip, port);
@@ -323,8 +323,8 @@ impl  ResHandler {
 
             let mut c = proto::packet_sending_client::PacketSendingClient::new(channel);
             let req = proto::GetBlockRequest {
-                src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
-                dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                src: auxi::gen_address_src(own_id.clone(), node.ip.clone(), node.port),
+                dst: auxi::gen_address_dst(ip.to_string(), port),
                 id: id.clone(),
             };
 

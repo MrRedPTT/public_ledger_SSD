@@ -6,7 +6,7 @@ use tonic::{Request, Response, Status};
 use crate::{auxi, proto};
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::p2p::peer::Peer;
-use crate::proto::{Address, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, KNearestNodes};
+use crate::proto::{DstAddress, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, KNearestNodes, SrcAddress};
 
 /// # Request Handler
 /// This struct is where we define the handlers for all possible gRPC requests.
@@ -35,8 +35,8 @@ impl ReqHandler {
     pub(crate) async fn find_node(peer: &Peer, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
         println!("Got a Find Node from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
-        let dst =  <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
-        let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        let dst =  <Option<DstAddress> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
+        let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
         let node_id = &input.id;
         let my_node = &peer.node;
@@ -92,7 +92,7 @@ impl ReqHandler {
             return Err(Status::invalid_argument("The supplied source is different from the one stored"))
         }
 
-        if dst.ip != peer.node.ip || dst.port != peer.node.port || dst.id != peer.node.id.0.to_vec() {
+        if dst.ip != peer.node.ip || dst.port != peer.node.port {
             return Err(Status::invalid_argument("The supplied destination is invalid!"));
         }
         info!("Node: {:?} asked about node: {:?}", request.remote_addr(), input);
@@ -161,7 +161,7 @@ impl ReqHandler {
     pub(crate) async fn find_value(peer: &Peer, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
         println!("Got a Find Value from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
-        let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
         let value_id = &input.value_id;
         let mut id_array: [u8; ID_LEN] = [0; ID_LEN];

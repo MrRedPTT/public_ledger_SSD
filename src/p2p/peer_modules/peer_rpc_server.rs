@@ -2,6 +2,7 @@
 use log::{error, info};
 use tonic::{Request, Response, Status};
 
+use crate::auxi;
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
 use crate::ledger::transaction::Transaction;
@@ -147,8 +148,7 @@ impl PacketSending for Peer {
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
             let ttl: u32 = input.ttl.clone() - 1;
-            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
-            BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), Some(sender)).await;
+            BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), None, Some(request)).await;
         }
         return Ok(Response::new(()));
     }
@@ -170,7 +170,7 @@ impl PacketSending for Peer {
 
         let block = Block::proto_to_block(unpacked);
         println!("Reveived a Block: {:?} with TTL: {} from : {}:{}", block, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
-
+        println!("Public key extracted from certificate: {}", auxi::get_public_key(request.get_ref().cert.clone()));
         // Block Handler
         if self.blockchain.lock().unwrap().get_block_by_hash(block.hash.clone()).is_some() {
             return Ok(Response::new(()));
@@ -180,8 +180,7 @@ impl PacketSending for Peer {
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
             let ttl: u32 = input.ttl.clone() - 1;
-            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
-            BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(sender)).await;
+            BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(request), None).await;
         }
         return Ok(Response::new(()));
     }
@@ -203,5 +202,6 @@ impl PacketSending for Peer {
             }
         }
     }
+
 
 }

@@ -73,7 +73,6 @@ impl Heads {
             if i >= self.list.len() {
                 break;
             }
-            println!("DEBUG HEAD::PRUNE => index: {i} list len: {}", self.list.len());
             if  self.list[i][0].prev_hash == hash {
                 self.list.remove(i);
             }

@@ -240,8 +240,6 @@ impl Blockchain {
 // =============================== TESTS ======================================== //
 #[cfg(test)]
 mod test {
-    use std::time::Duration;
-
     use rand::Rng;
 
     use crate::ledger::blockchain::*;
@@ -272,22 +270,6 @@ mod test {
         }
         bc.mine();
     }
-
-    fn test_adding_blocks() {
-        let mut blockchain = Blockchain::new(true,"mario".to_string());
-
-        let blocks:usize = 4;
-        for _i in 0..blocks {
-            let timeout_duration = Duration::from_secs(5); // 5 seconds
-
-            // Wrap the connect call with a timeout
-            add_block(&mut blockchain);
-        }
-
-        println!("{:#?}", blockchain);
-        //assert_eq!(blockchain.get_current_index(), blocks+1);
-    }
-
     #[test]
     fn test_branching() {
         let mut bc = Blockchain::new(true,"mario".to_string());

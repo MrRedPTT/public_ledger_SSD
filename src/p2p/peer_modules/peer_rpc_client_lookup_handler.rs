@@ -42,10 +42,11 @@ impl Peer {
                 let semaphore = semaphore.clone();
                 let node = self.node.clone();
                 let ident = id.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::find_node(&node, arg.0.as_ref(), arg.1, &ident).await;
+                    let res = ResHandler::find_node(&node, arg.0.as_ref(), arg.1, &ident, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })
@@ -122,10 +123,11 @@ impl Peer {
                 let semaphore = semaphore.clone();
                 let node = self.node.clone();
                 let ident = id.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::find_value(&node, arg.0.as_ref(), arg.1, &ident).await;
+                    let res = ResHandler::find_value(&node, arg.0.as_ref(), arg.1, &ident, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })
@@ -197,10 +199,11 @@ impl Peer {
                 let semaphore = semaphore.clone();
                 let node = self.node.clone();
                 let ident = id.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::get_block(&node, arg.0.as_ref(), arg.1, &ident).await;
+                    let res = ResHandler::get_block(&node, arg.0.as_ref(), arg.1, &ident, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })

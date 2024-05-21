@@ -57,7 +57,7 @@ async fn test_bootstrap_code() {
 
 async fn test_server_blockchain_node() {
     println!("Creating server with blockchain content");
-    let node = &Node::new("127.0.0.1".to_string(), 8889).unwrap();
+    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
     let (client, server) = Peer::new(node, false);
     let shutdown_rx = server.init_server().await;
 
@@ -120,7 +120,7 @@ async fn test_server_blockchain_node() {
 }
 
 async fn test_server() {
-    let node = &Node::new("127.0.0.1".to_string(), 8888).unwrap();
+    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
     let (client, server) = Peer::new(node, false);
     let shutdown_rx = server.init_server().await;
 
@@ -157,7 +157,7 @@ async fn test_server() {
 }
 
 async fn test_client() {
-    let node = &Node::new("127.0.0.1".to_string(), 9999).unwrap();
+    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
     let (client, server) = Peer::new(node, false);
     let _ = server.init_server().await;
     println!("Listening at 127.0.0.1:{}", node.port);

@@ -2,12 +2,13 @@ use std::env;
 use std::sync::{Arc, Mutex};
 
 use log::{debug, info};
+use sha3::{Digest, Sha3_256};
 use tokio::signal;
 use tokio::sync::oneshot;
 use tonic::transport::{Identity, Server};
 
 use crate::kademlia::kademlia::Kademlia;
-use crate::kademlia::node::Node;
+use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::ledger::blockchain::Blockchain;
 use crate::proto::packet_sending_server::PacketSendingServer;
 
@@ -18,7 +19,8 @@ pub struct Peer {
     pub node: Node,
     pub kademlia: Arc<Mutex<Kademlia>>,
     pub blockchain: Arc<Mutex<Blockchain>>,
-    pub bootstrap: bool
+    pub bootstrap: bool,
+    pub id: Identifier
 }
 
 impl Peer {
@@ -33,18 +35,21 @@ impl Peer {
     pub fn new(node: &Node, bootstrap: bool) -> (Peer, Peer) {
         let kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
         let blockchain = Arc::new(Mutex::new(Blockchain::new(true, "My Name Is Mario".to_string())));
+        let id = Self::gen_id(node.ip.clone(), node.port);
         let server = Peer {
             node: node.clone(),
             kademlia: Arc::clone(&kademlia),
             blockchain: Arc::clone(&blockchain),
-            bootstrap
+            bootstrap,
+            id: id.clone()
         };
 
         let client = Peer {
             node: node.clone(),
             kademlia,
             blockchain,
-            bootstrap
+            bootstrap,
+            id
         };
         (server, client) // Return 2 instances of Peer that share the same kademlia object
     }
@@ -107,5 +112,33 @@ impl Peer {
         shutdown_rx // Channel to receive shutdown signal from the server thread
     }
 
+    fn gen_id(ip: String, port: u32) -> Identifier {
+        let mut slash = "/";
+        if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "windows" {
+            slash = "\\";
+        }
+        let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
+        let mut pem = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt"))).expect("Failed to read ca.pem");
+        pem += format!("{}:{}", ip, port).as_str();
+        let mut hasher = Sha3_256::new();
+        hasher.update(pem.as_bytes());
+
+        // we know that the hash output is going to be 256 bits = 32 bytes
+        let result = hasher.finalize();
+
+        let mut hash = [0; ID_LEN];
+        let mut bin_str = "".to_string();
+        for b in result {
+            bin_str += &format!("{:0>8b}", b); // Force the representation to pad with 0's in case there aren't 8 bits
+        }
+
+        let mut i = 0;
+        assert_eq!(bin_str.len(), ID_LEN); // assert that we indeed have ID_LEN bits
+        for b in bin_str.chars() {
+            hash[i] = b.to_digit(2).unwrap() as u8;
+            i += 1;
+        }
+        Identifier::new(hash)
+    }
 
 }

@@ -242,7 +242,6 @@ mod tests {
     #[test]
     fn test_get_key() {
         let ip = "127.0.0.1".to_string();
-        let port = 8888;
         let node = Node::new(ip.clone(), 8888);
         assert!(!node.is_none());
         let mut kademlia = Kademlia::new(node.unwrap());
@@ -256,7 +255,6 @@ mod tests {
     #[test]
     fn test_remove_key() {
         let ip = "127.0.0.1".to_string();
-        let port = 8888;
         let node = Node::new(ip.clone(), 8888);
         let mut kademlia = Kademlia::new(node.unwrap());
 

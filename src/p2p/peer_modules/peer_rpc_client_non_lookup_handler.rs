@@ -54,10 +54,11 @@ impl Peer {
                 let node = self.node.clone();
                 let ident = key.clone();
                 let val = value.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::store(&node, arg.0, arg.1, ident, val, 15).await;
+                    let res = ResHandler::store(&node, arg.0, arg.1, ident, val, 15, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })

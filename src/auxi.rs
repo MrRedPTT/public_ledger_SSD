@@ -1,13 +1,17 @@
+use base64::Engine as _;
+use pem::{encode, Pem};
 use rand::Rng;
 use sha3::{Digest, Sha3_256};
 use tokio::net::TcpListener;
+use x509_certificate::X509Certificate;
 
 use crate::kademlia::node::ID_LEN;
 // Auxiliary functions
 #[doc(inline)]
 use crate::kademlia::node::Identifier;
 use crate::proto;
-use crate::proto::Address;
+use crate::proto::DstAddress;
+use crate::proto::SrcAddress;
 
 /// Converts a node identifier (Vec<u8>) into a string, after hashing
 pub fn convert_node_id_to_string (node_id: &Identifier) -> String{
@@ -81,9 +85,16 @@ pub fn gen_id (str: String) -> Identifier {
     Identifier::new(hash)
 }
 
-pub fn gen_address(id: Identifier, ip: String, port: u32) -> Option<Address> {
-    Some(proto::Address {
+pub fn gen_address_src(id: Identifier,ip: String, port: u32) -> Option<SrcAddress> {
+    Some(proto::SrcAddress {
         id: id.0.to_vec(),
+        ip,
+        port
+    })
+}
+
+pub fn gen_address_dst(ip: String, port: u32) -> Option<DstAddress> {
+    Some(proto::DstAddress {
         ip,
         port
     })
@@ -107,5 +118,17 @@ pub async fn get_port() -> u16 {
             }
         }
     }
+}
 
+pub fn get_public_key(cert_pem: String) -> String {
+    let cert = &X509Certificate::from_pem(cert_pem.as_bytes()).unwrap();
+
+    // Pick public key
+    let public_key = &X509Certificate::public_key_data(&cert);
+
+    // Export public key as PEM encoded public key in PKCS#1 format
+    let pem = Pem::new(String::from("RSA PUBLIC KEY"), public_key.to_vec());
+
+    let public_pkcs1_pem = encode(&pem);
+    return public_pkcs1_pem;
 }

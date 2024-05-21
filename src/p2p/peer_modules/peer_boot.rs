@@ -72,7 +72,7 @@ impl Peer {
             exit(1);
         }
 
-        let _ = self.find_node(self.node.id.clone()).await;
+        let _ = self.find_node(self.id.clone()).await;
 
     }
 

@@ -10,7 +10,7 @@ use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::p2p::peer::Peer;
 use crate::p2p::private::req_handler_modules::req_handler_lookups::ReqHandler;
 use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
-use crate::proto::{Address, PingPacket, PongPacket, StoreRequest, StoreResponse};
+use crate::proto::{DstAddress, PingPacket, PongPacket, SrcAddress, StoreRequest, StoreResponse};
 
 impl ReqHandler {
     /// # ping
@@ -27,16 +27,16 @@ impl ReqHandler {
         if input.src.is_none() || input.dst.is_none() {
             return Err(Status::invalid_argument("Source and/or destination not found"));
         }
-        let args = <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
-        if request.remote_addr().unwrap().ip().to_string() != "127.0.0.1" && (args.ip != peer.node.ip || args.port != peer.node.port || args.id != peer.node.id.0.to_vec()) {
+        let args = <Option<DstAddress> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
+        if request.remote_addr().unwrap().ip().to_string() != "127.0.0.1" && (args.ip != peer.node.ip || args.port != peer.node.port) {
             return Err(Status::invalid_argument("Node provided in destination does not match this node"))
         }
 
         let node = peer.node.clone();
 
         let pong = PongPacket {
-            src: auxi::return_option(Address{id: node.id.0.to_vec(), ip: node.ip, port: node.port}),
-            dst: input.clone().src,
+            src: auxi::return_option(SrcAddress{id: peer.id.0.to_vec().clone(), ip: node.ip, port: node.port}),
+            dst: input.clone().dst,
             rand_id: input.clone().rand_id
         };
 
@@ -82,7 +82,7 @@ impl ReqHandler {
         println!("Got a Store from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let ttl = request.get_ref().ttl.clone();
         let input = request.get_ref();
-        let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
         let key = &input.key;
         let mut id_array: [u8; ID_LEN] = [0; ID_LEN];
@@ -133,10 +133,11 @@ impl ReqHandler {
                     let node = peer.node.clone();
                     let ident = id_array.clone();
                     let val = value.clone();
+                    let own_id = peer.id.clone();
                     tokio::spawn(async move {
                         // Acquire a permit from the semaphore
                         let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                        let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val, ttl-1).await;
+                        let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val, ttl-1, &own_id.clone()).await;
                         drop(permit);
                         res
                     })

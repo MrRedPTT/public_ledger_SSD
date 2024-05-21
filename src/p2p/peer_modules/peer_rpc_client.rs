@@ -51,11 +51,11 @@ impl Ord for NodeNewDistance {
 impl Peer {
 
     pub async fn send_block(&self, block: Block) {
-        BroadCastReq::broadcast(self, None, Some(block), None, None).await;
+        BroadCastReq::broadcast(self, None, Some(block), None, None, None).await;
     }
 
     pub async fn send_transaction(&self, transaction: Transaction) {
-        BroadCastReq::broadcast(self, Some(transaction), None, None, None).await;
+        BroadCastReq::broadcast(self, Some(transaction), None, None, None, None).await;
     }
     pub async fn find_node(&self, id: Identifier) -> Result<Node, io::Error>
     {
