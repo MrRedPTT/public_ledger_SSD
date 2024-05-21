@@ -10,12 +10,8 @@ service PacketSending {
   rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
   rpc SendTransaction(TransactionBroadcast) returns (google.protobuf.Empty); // BlockChain
   rpc SendBlock(BlockBroadcast) returns (google.protobuf.Empty); // BlockChain
-  // rpc GetBlock(id) // BlockChain => Ask for a block already in the blockchain
+  rpc GetBlock(GetBlockRequest) returns (GetBlockResponse); // BlockChain => Ask for a block already in the blockchain
 }
-
-// TODO
-// use the "optional" key to avoid sending useless information
-
 
 message Address {
   bytes id = 1;
@@ -133,4 +129,23 @@ message BlockBroadcast {
   Address dst = 2;
   Block block = 3;
   uint32 ttl = 4;
+}
+
+
+enum GetBlockType {
+    UNKNOWN_TYPE_GET_BLOCK = 0;
+    REROUTE = 1;
+    TARGET_BLOCK = 2;
+}
+
+message GetBlockRequest {
+  Address src = 1;
+  Address dst = 2;
+  string id = 3;
+}
+
+message GetBlockResponse {
+  GetBlockType response_type = 1;
+  kNearestNodes list = 2;
+  Block block = 3;
 }

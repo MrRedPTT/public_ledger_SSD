@@ -1,8 +1,8 @@
 use std::io;
 use std::io::{Error, ErrorKind};
+use std::time::Duration;
 
-use egui::mutex::MutexGuard;
-use log::{debug, error, info};
+use log::{error, info};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use tonic::Response;
@@ -11,7 +11,7 @@ use crate::auxi;
 use crate::kademlia::node::{Identifier, Node};
 use crate::p2p::peer::Peer;
 use crate::proto;
-use crate::proto::{FindNodeResponse, FindValueResponse, PongPacket, StoreRequest, StoreResponse};
+use crate::proto::{FindNodeResponse, FindValueResponse, GetBlockResponse, PongPacket, StoreRequest, StoreResponse};
 
 pub(crate) struct ResHandler{}
 
@@ -36,7 +36,7 @@ impl  ResHandler {
 
         let rand_id = auxi::gen_id(rand_str);
 
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
 
         match c {
             Err(e) => {
@@ -79,7 +79,7 @@ impl  ResHandler {
     pub async fn find_node(node: &Node, ip: &str, port: u32, id: &Identifier) -> Result<Response<FindNodeResponse>, Error> {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
             Err(e) => {
                 error!("An error has occurred while trying to establish a connection for find node: {}", e);
@@ -117,14 +117,21 @@ impl  ResHandler {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
 
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        // Set the timeout duration
+        let timeout_duration = Duration::from_secs(5); // 5 seconds
+
+        // Wrap the connect call with a timeout
+        let c = tokio::time::timeout(timeout_duration, async {
+            // Establish the gRPC connection
+            proto::packet_sending_client::PacketSendingClient::connect(url).await
+        }).await;
 
         match c {
-            Err(e) => {
+            Ok(Err(e)) => {
                 error!("An error has occurred while trying to establish a connection for find value: {}", e);
                 Err(io::Error::new(ErrorKind::ConnectionRefused, e))
             },
-            Ok(mut client) => {
+            Ok(Ok(mut client)) => {
                 let req = proto::FindValueRequest {
                     value_id: id.0.to_vec(),
                     src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
@@ -144,6 +151,10 @@ impl  ResHandler {
                     }
                 }
             }
+            Err(e) => {
+                error!("Connection Timeout");
+                Err(io::Error::new(ErrorKind::TimedOut, e))
+            }
         }
 
     }
@@ -157,7 +168,7 @@ impl  ResHandler {
         let mut url = "http://".to_string();
         url += &format!("{}:{}", ip, port);
 
-        let mut c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
+        let c = proto::packet_sending_client::PacketSendingClient::connect(url).await;
         match c {
             Err(e) => {
                 error!("An error has occurred while trying to establish a connection for store: {}", e);
@@ -179,13 +190,58 @@ impl  ResHandler {
                         Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                     },
                     Ok(response) => {
-                        info!("Store Response: {:?}", response.get_ref());
                         Ok(response)
                     }
                 }
             }
         }
 
+
+    }
+
+    pub(crate) async fn get_block(node: &Node, ip: &str, port: u32, id: &String) -> Result<Response<GetBlockResponse> , io::Error> {
+        let mut url = "http://".to_string();
+        url += &format!("{}:{}", ip, port);
+
+        // Set the timeout duration
+        let timeout_duration = Duration::from_secs(5); // 5 seconds
+
+        // Wrap the connect call with a timeout
+        let c = tokio::time::timeout(timeout_duration, async {
+            // Establish the gRPC connection
+            proto::packet_sending_client::PacketSendingClient::connect(url).await
+        }).await;
+
+        match c {
+            Ok(Err(e)) => {
+                error!("An error has occurred while trying to establish a connection for get block: {}", e);
+                Err(io::Error::new(ErrorKind::ConnectionRefused, e))
+            },
+            Ok(Ok(mut client)) => {
+                let req = proto::GetBlockRequest {
+                    src: auxi::gen_address(node.id.clone(), node.ip.clone(), node.port),
+                    dst: auxi::gen_address(auxi::gen_id(format!("{}:{}", ip, port).to_string()), ip.to_string(), port),
+                    id: id.clone(),
+                };
+
+                let request = tonic::Request::new(req);
+                let res = client.get_block(request).await;
+                match res {
+                    Err(e) => {
+                        error!("An error has occurred while trying to get block: {{{}}}", e);
+                        Err(io::Error::new(ErrorKind::ConnectionAborted, e))
+                    },
+                    Ok(response) => {
+                        info!("Get Block Response: {:?}", response.get_ref());
+                        Ok(response)
+                    }
+                }
+            }
+            Err(e) => {
+                error!("Connection Timeout");
+                Err(io::Error::new(ErrorKind::TimedOut, e))
+            }
+        }
 
     }
 

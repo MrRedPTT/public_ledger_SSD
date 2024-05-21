@@ -1,14 +1,13 @@
-use std::collections::HashMap;
-
-use sha3::Digest;
+use std::collections::{BinaryHeap, HashMap};
 
 use crate::auxi;
-use crate::kademlia;
 use crate::kademlia::bucket::K;
 use crate::kademlia::k_buckets::{KBucket, MAX_BUCKETS};
 use crate::kademlia::node::{ID_LEN, Identifier};
 #[doc(inline)]
 use crate::kademlia::node::Node;
+use crate::kademlia::trust_score::TrustScore;
+use crate::p2p::peer_modules::peer_rpc_client::NodeNewDistance;
 
 #[derive(Debug, Clone)]
 /// ## Kademlia
@@ -155,6 +154,42 @@ impl Kademlia {
         self.kbuckets.get_n_closest_nodes(self.node.id.clone(), K * ID_LEN)
     }
 
+    // This function will return K nodes based on the new distance
+    // Will be used to return nodes for the GetBlock RPC given that
+    // we can't really get the closest nodes to a block in the blockchain
+    // so we will base our selves in the reputation
+    pub fn get_k_nodes_new_distance(&mut self) -> Option<Vec<Node>> {
+        let priority_queue: &mut BinaryHeap<crate::p2p::peer_modules::peer_rpc_client::NodeNewDistance> = &mut BinaryHeap::new();
+        let all_nodes = self.get_all_nodes();
+        if all_nodes.is_none() {
+            return None;
+        }
+        for i in all_nodes.unwrap() {
+            priority_queue.push(NodeNewDistance::new(i.clone(), self.get_trust_score(i.id.clone()).get_score()));
+        }
+
+        let mut closest_nodes: Vec<Node> = Vec::new();
+        let mut count = 0;
+
+        while !priority_queue.is_empty() || count < K {
+            let element = priority_queue.pop();
+            if element.is_none() {
+                if closest_nodes.len() == 0 {
+                    return None;
+                } else {
+                    return Some(closest_nodes);
+                }
+            }
+            closest_nodes.push(element.unwrap().node);
+            count += 1;
+        }
+        if closest_nodes.len() == 0 {
+            return None;
+        }
+        return Some(closest_nodes);
+
+    }
+
     /// # remove_node
     /// Attempts to remove a node from the [KBucket]
     ///
@@ -163,6 +198,37 @@ impl Kademlia {
     pub fn remove_node (&mut self, id: Identifier) -> bool {
         self.kbuckets.remove(&id);
         return Self::get_node(self, id).is_none();
+    }
+
+    pub fn reputation_penalty(&mut self, identifier: Identifier) {
+        self.kbuckets.reputation_penalty(identifier);
+    }
+
+    pub fn reputation_reward(&mut self, identifier: Identifier) {
+        self.kbuckets.reputation_reward(identifier);
+    }
+
+    pub fn risk_penalty(&mut self, identifier: Identifier) {
+        self.kbuckets.risk_penalty(identifier);
+    }
+
+    pub fn increment_interactions(&mut self, identifier: Identifier) {
+        self.kbuckets.increment_interactions(identifier);
+    }
+
+    pub fn increment_lookups(&mut self, identifier: Identifier) {
+        self.kbuckets.increment_lookups(identifier);
+    }
+
+    pub fn get_trust_score(&mut self, identifier: Identifier) -> TrustScore {
+        self.kbuckets.get_trust_score(&identifier).unwrap_or(TrustScore::new())
+    }
+    pub fn get_all_trust_scores(&mut self) -> Vec<(Node, TrustScore)>{
+        self.kbuckets.get_all_trust_scores()
+    }
+
+    pub fn sort_by_new_distance(&self, nodes: Vec<Node>) -> Vec<Node> {
+        self.kbuckets.sort_by_new_distance(nodes)
     }
 
 }

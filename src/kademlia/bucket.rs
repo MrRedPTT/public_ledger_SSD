@@ -1,14 +1,16 @@
+use std::borrow::BorrowMut;
 #[doc(inline)]
 use std::collections::VecDeque;
 
 use crate::kademlia::node::{Identifier, Node};
+use crate::kademlia::trust_score::TrustScore;
 
 /// Defines the maximum number of nodes allowed per bucket
 pub const K: usize = 20; // Max bucket size
 #[derive(Clone, Debug, Default, PartialEq)]
 /// ## Bucket
 pub struct Bucket {
-    pub map: VecDeque<Node>,
+    pub map: VecDeque<(Node, TrustScore)>,
 }
 
 impl Bucket {
@@ -31,14 +33,19 @@ impl Bucket {
     /// If the bucket is full, return the top [Node] otherwise return [None].
     pub fn add(&mut self, node: &Node) -> Option<Node> {
         return if self.map.len() < K {
-            self.map.push_back(node.clone()); // Add node to the back of the Vector
+            for i in self.map.iter() {
+                if i.0.id == node.id { // Sanity to check to make sure the node is not inside the bucket
+                    return None;
+                }
+            }
+            self.map.push_back((node.clone(), TrustScore::new())); // Add node to the back of the Vector
             None
         } else {
             let top_node = self.map.get(0);
             if top_node.is_none() {
                 return None;
             }
-            Some(top_node.unwrap().clone())
+            Some(top_node.unwrap().clone().0)
         }
     }
 
@@ -48,7 +55,7 @@ impl Bucket {
     /// the last position. In kademlia the nodes are stored from the older node contacted to the most recent (top to bottom).
     pub fn replace_node(&mut self, node: &Node){
         self.map.pop_front();
-        self.map.push_back(node.clone());
+        self.map.push_back((node.clone(), TrustScore::new()));
     }
 
     /// # send_back
@@ -67,14 +74,24 @@ impl Bucket {
     /// to the back
     pub fn send_back_specific_node(&mut self, node: Node) {
         let mut count: usize = 0;
+        let mut trust = TrustScore::new();
+        let mut flag = false;
         for i in self.map.iter() {
-            if *i == node.clone() {
-                self.map.remove(count);
-                self.map.push_back(node.clone());
-                return;
+            if i.0 == node.clone() {
+                trust = i.1.clone();
+                flag = true;
+                break;
             }
             count += 1;
         }
+        // Had to take this snippet out of the for because
+        // doing it inside the for means that we get both a mutable and immutable
+        // reference to self in the same instance (Something Rust does not allow)
+        if flag {
+            self.map.remove(count);
+            self.map.push_back((node.clone(), trust));
+        }
+        return;
     }
 
 
@@ -83,11 +100,56 @@ impl Bucket {
     pub fn remove(&mut self, id: Identifier){
         let mut i = 0;
         for node in self.map.iter() {
-            if node.id == id {
+            if node.0.id == id {
                 self.map.remove(i);
                 return;
             }
             i += 1;
+        }
+    }
+
+    pub fn reputation_penalty(&mut self, identifier: Identifier) {
+        for node in self.map.iter_mut() {
+            if node.0.id == identifier {
+                node.1.bad_reputation();
+                return;
+            }
+        }
+    }
+
+    pub fn good_reputation(&mut self, identifier: Identifier) {
+        for node in self.map.iter_mut() {
+            if node.0.id == identifier {
+                node.1.good_reputation();
+                return;
+            }
+        }
+    }
+
+    pub fn risk_penalty(&mut self, identifier: Identifier) {
+        for node in self.map.iter_mut() {
+            if node.0.id == identifier {
+                node.1.bad_interaction();
+                return;
+            }
+        }
+    }
+
+    pub fn increment_interactions(&mut self, identifier: Identifier) {
+        for node in self.map.iter_mut() {
+            if node.0.id == identifier {
+                node.1.borrow_mut().new_interaction();
+                return;
+            }
+        }
+    }
+
+    pub fn increment_lookups(&mut self, identifier: Identifier) {
+        for node in self.map.iter_mut() {
+            if node.0.id == identifier {
+                node.1.borrow_mut().new_lookup();
+                return;
+            }
         }
     }
 }
@@ -96,6 +158,7 @@ impl Bucket {
 mod tests {
     use crate::kademlia::bucket::Bucket;
     use crate::kademlia::node::Node;
+    use crate::kademlia::trust_score::TrustScore;
 
     #[test]
     fn test_add () {
@@ -107,6 +170,6 @@ mod tests {
         let mut bucket = Bucket::new();
         bucket.add(&node.clone());
 
-        assert!(bucket.map.contains(&node));
+        assert!(bucket.map.contains(&(node, TrustScore::new())));
     }
 }

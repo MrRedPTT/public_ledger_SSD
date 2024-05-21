@@ -1,14 +1,14 @@
 extern crate core;
 
 use std::env;
-use std::sync::{Arc, Mutex};
+use std::io::stdin;
+use std::sync::{Arc, RwLock};
 
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::ledger::block::Block;
 use crate::ledger::blockchain::Blockchain;
 use crate::ledger::transaction::Transaction;
 use crate::p2p::peer::Peer;
-use crate::proto::packet_sending_server::PacketSending;
 
 pub mod kademlia;
 pub mod ledger;
@@ -21,7 +21,6 @@ pub mod proto {
 
 pub mod ledger_gui;
 pub mod auxi;
-mod observer;
 
 
 #[tokio::main]
@@ -44,7 +43,7 @@ async fn main() {
         println!("Argument \"3\" passed, creating server...");
         server_node = node3.clone();
     }
-    let (rpc, mut client) = Peer::new(&server_node);
+    let (rpc, client) = Peer::new(&server_node);
     if server.to_string() == "3" {let _ = rpc.kademlia.lock().unwrap().add_node(&Node::new("127.54.123.2".to_string(),9981).unwrap());}
 
     if server_bool {
@@ -60,6 +59,36 @@ async fn main() {
         }
         // Add a key value to the hashmap to be looked up
         let _ = rpc.kademlia.lock().unwrap().add_key(auxi::gen_id("Some Key".to_string()), "Some Value".to_string());
+
+        if server.to_string() == "3" {
+            println!("Creating blockchain for testing");
+            let strings = vec![
+                "Alice".to_string(),
+                "Bob".to_string(),
+                "Carlos".to_string(),
+                "Diana".to_string(),
+                "Luna".to_string(),
+                "Sofia".to_string(),
+                "Catarina".to_string(),
+                "Roberto".to_string(),
+                "Gabriel".to_string(),
+                "Daniel".to_string()
+            ];
+            for i in 0..3 {
+                for j in 0..Blockchain::MAX_TRANSACTIONS {
+                    client.blockchain.lock().unwrap().add_transaction(gen_transaction(strings[i+j].clone()));
+                }
+                client.blockchain.lock().unwrap().mine();
+            }
+            let list = client.blockchain.lock().unwrap().chain.clone();
+            for i in list {
+                println!("Block: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
+            }
+            let list = client.blockchain.lock().unwrap().heads.get_main().clone();
+            for i in list {
+                println!("Block{{Head}}: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
+            }
+        }
 
         // Start Server
         let shutdown_rx = rpc.init_server().await;
@@ -83,21 +112,19 @@ async fn main() {
             key_server3_should_have.0[ID_LEN - 1] = 0;
         }
 
-        let mut test_block_events = Blockchain::new(false, "BlockHey".to_string());
-        let observer = Arc::new(Mutex::new(test_block_events));
+        let test_block_events = Blockchain::new(false, "BlockHey".to_string());
+        let observer = Arc::new(RwLock::new(test_block_events));
         let blockchainclient = Arc::clone(&observer);
-        client.add_observer(observer);
-        let client1 = Arc::new(Mutex::new(client));
+        let client1 = Arc::new(RwLock::new(client));
         let client2 = Arc::clone(&client1);
-        blockchainclient.lock().unwrap().add_observer(client1);
 
-        println!("Do I have the key1?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
-        println!("Do I have the key3?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
-        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-        println!("Do I have the key1?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
-        println!("Do I have the key3?: {}", !client2.lock().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
-        println!("Do I have the Block/Transaction?: {:?}", blockchainclient.lock().unwrap().chain);
-        let transaction = Transaction {
+        println!("Do I have the key1?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        println!("Do I have the key3?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
+        tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+        println!("Do I have the key1?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server1_should_have.clone()).is_none());
+        println!("Do I have the key3?: {}", !client2.read().unwrap().kademlia.lock().unwrap().get_value(key_server3_should_have.clone()).is_none());
+        println!("Do I have the Block/Transaction?: {:?}", blockchainclient.read().unwrap().chain);
+        let _transaction = Transaction {
             from: "Transaction Mined".to_string(),
             to: "".to_string(),
             amount_in: 0.0,
@@ -105,18 +132,13 @@ async fn main() {
             miner_fee: 0.0,
         };
 
-        blockchainclient.lock().unwrap().add_transaction(transaction.clone());
-        blockchainclient.lock().unwrap().add_transaction(transaction.clone());
-        blockchainclient.lock().unwrap().add_transaction(transaction.clone());
-        blockchainclient.lock().unwrap().add_transaction(transaction.clone());
-        blockchainclient.lock().unwrap().add_transaction(transaction.clone());
 
         // gui(); // Function responsible for displaying the GUI. When used the next instruction should be removed (also removing the signal thread)
         let _ = shutdown_rx.await;
 
     } else {
         let target_node = &node1;
-        let (peer, client) = &Peer::new(node2);
+        let (peer, client) = Peer::new(node2);
         let _ = peer.kademlia.lock().unwrap().add_node(target_node); // Add server node
         for i in 1..15 {
             let _ = peer.kademlia.lock().unwrap().add_node(&Node::new(format!("127.0.0.{}", i), 8888+i).unwrap()); // Add random nodes
@@ -138,7 +160,7 @@ async fn main() {
             key_server1_should_have.0[ID_LEN - 1] = 0;
         }
 
-        let transaction = Transaction {
+        let _transaction = Transaction {
             from: "Test Transaction Observer".to_string(),
             to: "".to_string(),
             amount_in: 0.0,
@@ -146,30 +168,70 @@ async fn main() {
             miner_fee: 0.0,
         };
         
-        let block = Block::new(1, "ahsahsahsa".to_string(), 1, "jose".to_string(), 0.0);
+        let _block = Block::new(1, "ahsahsahsa".to_string(), 1, "jose".to_string(), 0.0);
 
-        let server = peer.clone();
-        // TODO
-        // To avoid the previous problem we are now getting a reference to the kademlia attribute
-        // from the server object, but now we need to specify that in order to create the Peer object
-        // we have to implicitly pass the kademlia object, that way we can use the same.
-        let _ = server.init_server().await;
+        let _ = peer.init_server().await;
 
+        println!("Get Block -> {:?}", client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
+        //println!("Broadcasted Transaction -> {:?}", peer.send_transaction(_transaction).await);
+        //println!("Broadcast Block -> {:?}", peer.send_block(_block).await);
+        //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port, node1.id.clone()).await);
+        //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port, node3.id.clone()).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await);
+        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await);
+        println!("Result Store Key3 -> {:?}", client.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
+        println!("Result Find Key3 -> {:?}", client.find_value(key_server3_should_have).await);
+        client.blockchain.lock().unwrap().mine();
+        let list = client.blockchain.lock().unwrap().chain.clone();
+        for i in list {
+            println!("Block{{{}}}: hash -> {}; prev_hash -> {}", i.index, i.hash.clone(), i.prev_hash.clone());
+        }
+        println!("Enter the hash you want to search for:");
+        let stdin = stdin();
+        let mut hash = String::new();
+        stdin.read_line(&mut hash).expect("Failed to read line");
+        if hash.ends_with('\n') {
+            hash.pop();
+            if hash.ends_with('\r') {
+                hash.pop();
+            }
+        }
 
-        println!("Broadcast Transaction -> {:?}", peer.send_transaction(transaction, None, None).await);
-        //println!("Broadcast Block -> {:?}", peer.send_block(block, None, None).await);
-        //println!("Ping Server1 -> {:?}", peer.ping(&node1.ip, node1.port).await);
-        //println!("Ping Server3 -> {:?}", peer.ping(&node3.ip, node3.port).await);
-        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.0.0.2:8890".to_string()), None, None).await);
-        //println!("Result -> {:?}", peer.find_node(auxi::gen_id("127.54.123.2:9981".to_string()), None, None).await);
-        //println!("Result -> {:?}", peer.store(key_server3_should_have.clone(), "Some Random Value Server3 Should Have".to_string()).await);
-        //println!("Result -> {:?}", peer.find_value(key_server3_should_have, None, None).await);
-        //println!("Result -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
-        //println!("Result -> {:?}", peer.find_value(key_server1_should_have, None, None).await);
+        println!("Get Block with hash: {} ->\n{:?}",hash.clone(), client.get_block(hash).await);
+        let list = client.blockchain.lock().unwrap().chain.clone();
+        for i in list {
+            println!("Block{{{}}}: hash -> {}; prev_hash -> {}", i.index, i.hash.clone(), i.prev_hash.clone());
+        }
+        let list = client.blockchain.lock().unwrap().heads.get_main().clone();
+        for i in list {
+            println!("Block{{Head}}: hash -> {}; prev_hash -> {}", i.hash.clone(), i.prev_hash.clone());
+        }
+        //println!("Result Store Key1 -> {:?}", peer.store(key_server1_should_have.clone(), "Some Random Value Server1 Should Have".to_string()).await);
+        //println!("Result Find Key 1-> {:?}", peer.find_value(key_server1_should_have).await);
+        /*let trust_scores = peer.kademlia.lock().unwrap().get_all_trust_scores();
+        for mut i in trust_scores {
+            println!("Node: {}:{} -> TrustScore: {}", i.0.ip, i.0.port, i.1.get_score());
+        }*/
 
     }
 }
 
+fn gen_transaction(from: String) -> Transaction {
+
+    let from = from;
+    let to = "test".to_string();
+    let out = 0.0;
+    let _in = 0.0;
+
+    Transaction::new(out,
+                     from,
+                     out-_in,
+                     to)
+}
+
+
+
+/*
 #[cfg(not(target_arch = "wasm32"))]
 fn gui() -> eframe::Result<()>{
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -191,3 +253,4 @@ fn gui() -> eframe::Result<()>{
         Box::new(|cc| Box::new(ledger_gui::TemplateApp::new(cc))),
     )
 }
+*/
