@@ -161,7 +161,7 @@ impl Block {
             let (first, rest) = self.transactions.split_at(2);
             let a = hash2(first[0].hash(),first[1].hash());
             fin = vec![a];
-            fin.extend(rest.iter()
+            fin.extend(rest.iter_mut()
                     .map(|trans| trans.hash() )
                     .collect::<Vec<String>>());
         }else {

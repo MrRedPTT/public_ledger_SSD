@@ -3,9 +3,9 @@
 use std::fmt;
 use std::fmt::Display;
 
-use rsa::{RsaPublicKey, RsaPrivateKey};
-use rsa::sha2::{Sha256};
-use rsa::pss::{Pss};
+use rsa::{RsaPrivateKey, RsaPublicKey};
+use rsa::pss::Pss;
+use rsa::sha2::Sha256;
 
 use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
@@ -30,11 +30,11 @@ pub enum Data {
 impl Marco{
     pub fn hash(&mut self) -> String {
         if self.hash != "".to_string() {
-            return self.hash;
+            return self.hash.clone();
         }
 
         self.hash = self.data.to_hash();
-        return self.hash;
+        return self.hash.clone();
     }
     
     pub fn sign(&mut self, skey: RsaPrivateKey) -> String {
@@ -43,10 +43,10 @@ impl Marco{
         }
 
         let signature = skey.sign::<Pss>(Pss::new::<Sha256>(),
-            &self.hash.into_bytes()).unwrap();
+            &self.hash.clone().into_bytes()).unwrap();
         self.signature = String::from_utf8(signature).unwrap_or_default();
 
-        return self.signature;
+        return self.signature.clone();
     }
 
     pub fn check_signature(&self, pkey: RsaPublicKey) -> bool{
@@ -54,7 +54,7 @@ impl Marco{
         if self.hash != self.data.to_hash() {return false;}
 
         let res = pkey.verify::<Pss>(Pss::new::<Sha256>(),
-            &self.hash.into_bytes(), &self.signature.into_bytes());
+            &self.hash.clone().into_bytes(), &self.signature.clone().into_bytes());
 
         match res {
             Ok(()) => true,
@@ -92,7 +92,7 @@ impl Marco{
 
 impl Display for Marco { 
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.data {
+        match self.data.clone() {
             Data::Transaction(t) =>
                 write!(f, "Data:{}, with hash {} and signature {}",
                        t.to_string(), self.hash, self.signature),

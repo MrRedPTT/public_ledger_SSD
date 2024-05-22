@@ -1,3 +1,5 @@
+use rsa::RsaPublicKey;
+
 #[doc(inline)]
 use crate::ledger::block::*;
 use crate::ledger::heads::*;
@@ -135,7 +137,7 @@ impl Blockchain {
     /// 
     /// ** Note ** this method is only important to miners,
     /// as non miners dont care about transactions
-    pub fn add_marco(&mut self, t:Marco) {
+    pub fn add_marco(&mut self, t:Marco, _publicKey: RsaPublicKey) {
         if self.can_mine() { return}
         let _index = self.temporary_block.add_marco(t);
         //self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
@@ -240,14 +242,16 @@ impl Blockchain {
 // =============================== TESTS ======================================== //
 #[cfg(test)]
 mod test {
+    use std::env;
     use std::time::Duration;
 
     use rand::Rng;
 
+    use crate::auxi;
     use crate::ledger::blockchain::*;
     use crate::marco::transaction::Transaction;
 
-    fn gen_transaction() -> Transaction {
+    fn gen_transaction() -> Marco {
         let strings = vec![
             "Alice".to_string(),
             "Bob".to_string(),
@@ -262,14 +266,21 @@ mod test {
         let out = rng.gen_range(4.0..=10.0);
         let _in = rng.gen_range(1.0..=3.0);
 
-        Transaction::new(out,
+        Marco::from_transaction(Transaction::new(out,
             from,
             out-_in,
-            to)
+            to))
     }    
     fn add_block(bc : &mut Blockchain){
+        let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
+        let mut slash = "\\";
+        if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+            slash = "/";
+        }
+        let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt"))).expect("Failed to open server.crt");
+        let pub_key = auxi::get_public_key(client_cert);
         for _ in 0..Blockchain::MAX_TRANSACTIONS {
-            bc.add_transaction( gen_transaction());
+            bc.add_marco( gen_transaction(), pub_key.clone());
         }
         bc.mine();
     }
@@ -305,7 +316,7 @@ mod test {
             100.00);
 
         for _ in 1..Blockchain::MAX_TRANSACTIONS {
-            b.add_transaction( gen_transaction());
+            b.add_marco( gen_transaction());
         }
         b.mine();
 
@@ -321,10 +332,16 @@ mod test {
     #[test]
     fn test_prunning() {
         let mut bc = Blockchain::new(true,"mario".to_string());
-
+        let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
+        let mut slash = "\\";
+        if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+            slash = "/";
+        }
+        let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt"))).expect("Failed to open server.crt");
+        let pub_key = auxi::get_public_key(client_cert);
         for _i in 0..2 {
             for _ in 1..Blockchain::MAX_TRANSACTIONS {
-                bc.add_transaction( gen_transaction());
+                bc.add_marco( gen_transaction(), pub_key.clone());
             }
         }
         let h = bc.get_head();
@@ -336,7 +353,7 @@ mod test {
             100.00);
 
         for _ in 1..Blockchain::MAX_TRANSACTIONS {
-            b.add_transaction( gen_transaction());
+            b.add_marco( gen_transaction());
         }
         b.mine();
         bc.add_block(b);

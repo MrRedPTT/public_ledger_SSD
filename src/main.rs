@@ -88,9 +88,16 @@ async fn test_server_blockchain_node() {
         "Gabriel".to_string(),
         "Daniel".to_string()
     ];
+    let data_dir = std::path::PathBuf::from_iter([std::env!("CARGO_MANIFEST_DIR")]);
+    let mut slash = "\\";
+    if env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string()) == "linux" {
+        slash = "/";
+    }
+    let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt"))).expect("Failed to open server.crt");
+    let pub_key = auxi::get_public_key(client_cert);
     for i in 0..3 {
         for j in 0..Blockchain::MAX_TRANSACTIONS {
-            client.blockchain.lock().unwrap().add_marco(gen_transaction(strings[i+j].clone()));
+            client.blockchain.lock().unwrap().add_marco(gen_transaction(strings[i+j].clone()), pub_key.clone());
         }
         client.blockchain.lock().unwrap().mine();
     }

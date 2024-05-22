@@ -134,11 +134,12 @@ impl PacketSending for Peer {
 
         let transaction = auxi::transform_proto_to_marco(&unpacked);
 
-        println!("Reveived a Transaction: {:?} with TTL: {} from : {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        println!("Reveived a Marco: {:?} with TTL: {} from : {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
 
         // Marco received
-        println!("DEBUG PEER_RPC_SERVER::SEND_MARCO => Fix marco handler");
-        // let _ = self.blockchain.lock().unwrap().add_transaction(transaction.clone());
+        let cert = input.cert.clone();
+        let pub_key = auxi::get_public_key(cert);
+        let _ = self.blockchain.lock().unwrap().add_marco(transaction.clone(), pub_key);
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
