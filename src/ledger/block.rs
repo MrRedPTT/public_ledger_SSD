@@ -3,12 +3,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha512};
 
-use crate::ledger::transaction::*;
+use crate::marco::marco::Marco;
+use crate::marco::transaction::Transaction;
 use crate::proto;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 
-/// ## BLock
+/// ## Block
 pub struct Block {
     pub hash: String,
 
@@ -21,7 +22,7 @@ pub struct Block {
     pub merkle_tree_root: String,
     pub(crate) confirmations: usize,
 
-    pub transactions: Vec<Transaction>,
+    pub transactions: Vec<Marco>,
 }
 
 impl Block {
@@ -45,25 +46,27 @@ impl Block {
             merkle_tree_root: "".to_string()
         };
 
-        block.add_transaction( Transaction::new(miner_reward,
-                                                  "network".to_string(),
-                                                  miner_reward,
-                                                  miner_id));
+        block.add_marco(Marco::from_transaction( 
+            Transaction::new(miner_reward,
+                "network".to_string(),
+                miner_reward,
+                miner_id)
+        ));
 
         return block
     }
 
     pub fn proto_to_block(proto_block: proto::Block) -> Self {
-        let mut trans: Vec<Transaction> = Vec::new();
+        let mut trans: Vec<Marco> = Vec::new();
+
         for i in &proto_block.transactions {
-            trans.push(Transaction {
-                from: i.from.clone(),
-                to: i.to.clone(),
-                amount_in: i.amount_in,
-                amount_out: i.amount_out,
-                miner_fee: i.miner_fee,
+            trans.push(Marco {
+                hash: i.hash.clone(),
+                signature: i.signature.clone(),
+                data: i.data.clone(),
             });
         }
+
         Block {
             hash: proto_block.hash.clone(),
             index: proto_block.index as usize,
@@ -124,7 +127,7 @@ impl Block {
     /// then the block is mined
     ///
     /// **outputs:** id of the transaction
-    pub fn add_transaction(&mut self, t: Transaction) -> usize{
+    pub fn add_marco(&mut self, t: Marco) -> usize{
         self.transactions.push(t);
         return self.transactions.len()
     }
@@ -151,7 +154,7 @@ impl Block {
             return false;
         }
         else if n_transac == 1 {
-            self.merkle_tree_root = self.transactions[0].to_hash();
+            self.merkle_tree_root = self.transactions[0].hash();
             return true;
         }
 
@@ -160,14 +163,14 @@ impl Block {
 
         if n_transac % 2 == 1 && n_transac >= 3 {
             let (first, rest) = self.transactions.split_at(2);
-            let a = hash2(first[0].to_hash(),first[1].to_hash());
+            let a = hash2(first[0].hash(),first[1].hash());
             fin = vec![a];
             fin.extend(rest.iter()
-                    .map(|trans| trans.to_hash() )
+                    .map(|trans| trans.hash() )
                     .collect::<Vec<String>>());
         }else {
             fin = self.transactions.iter()
-                    .map(|trans| trans.to_hash() )
+                    .map(|trans| trans.hash() )
                     .collect::<Vec<String>>();
         }
         
@@ -218,14 +221,14 @@ mod test {
                                "test".to_string(),
                                3.5);
 
-        block.add_transaction( Transaction::new(5.0,
+        block.add_marco(Marco::from_transaction( Transaction::new(5.0,
                                           "alice".to_string(),
                                           4.5,
-                                          "bob".to_string()));
-        block.add_transaction( Transaction::new(4.0,
+                                          "bob".to_string())));
+        block.add_marco(Marco::from_transaction(Transaction::new(4.0,
                                           "Carlos".to_string(),
                                           2.0,
-                                          "bob".to_string()));
+                                          "bob".to_string())));
 
         if block.mine() {
             println!("Block mined! Nonce: {} Hash: {}", 
@@ -233,5 +236,4 @@ mod test {
                      block.calculate_hash());
         }
     }
-
 }

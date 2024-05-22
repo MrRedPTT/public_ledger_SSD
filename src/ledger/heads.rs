@@ -34,10 +34,7 @@ impl Heads {
 
             // @ tail of head
             loop {
-                if index != 0{
-                    index-=1;
-                }
-
+                index-=1;
 
                 if head[index].hash == b.prev_hash {
                     let mut nh = vec![];
@@ -69,10 +66,6 @@ impl Heads {
 
     pub fn prune(&mut self, hash: String){
         for i in 0..self.list.len(){
-            // this is a temporary fix given that inside the loop we are removing elements
-            if i >= self.list.len() {
-                break;
-            }
             if  self.list[i][0].prev_hash == hash {
                 self.list.remove(i);
             }

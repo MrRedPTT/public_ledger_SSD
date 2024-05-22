@@ -1,7 +1,7 @@
 #[doc(inline)]
 use crate::ledger::block::*;
 use crate::ledger::heads::*;
-use crate::ledger::transaction::*;
+use crate::marco::marco::Marco;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated
@@ -80,7 +80,7 @@ impl Blockchain {
         let f = self.heads.add_block(b.clone());
         // if not then is it a new head ?
         if !f {
-            if self.chain.last().unwrap_or(&Block::new(0, "ERROR".to_string(), 0, "ERROR".to_string(), 0.0)).clone().hash == b.clone().prev_hash {
+            if self.chain.last().unwrap().clone().hash == b.clone().prev_hash {
                 self.heads.add_head(vec![b]);
             }
             else {
@@ -135,9 +135,9 @@ impl Blockchain {
     /// 
     /// ** Note ** this method is only important to miners,
     /// as non miners dont care about transactions
-    pub fn add_transaction(&mut self, t:Transaction) {
+    pub fn add_marco(&mut self, t:Marco) {
         if self.can_mine() { return}
-        let _index = self.temporary_block.add_transaction(t);
+        let _index = self.temporary_block.add_marco(t);
         //self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
     }
 
@@ -240,6 +240,9 @@ impl Blockchain {
 // =============================== TESTS ======================================== //
 #[cfg(test)]
 mod test {
+    use std::time::Duration;
+    use crate::ledger::marco::transaction::*;
+
     use rand::Rng;
 
     use crate::ledger::blockchain::*;
@@ -270,6 +273,22 @@ mod test {
         }
         bc.mine();
     }
+
+    fn test_adding_blocks() {
+        let mut blockchain = Blockchain::new(true,"mario".to_string());
+
+        let blocks:usize = 4;
+        for _i in 0..blocks {
+            let timeout_duration = Duration::from_secs(5); // 5 seconds
+
+            // Wrap the connect call with a timeout
+            add_block(&mut blockchain);
+        }
+
+        println!("{:#?}", blockchain);
+        //assert_eq!(blockchain.get_current_index(), blocks+1);
+    }
+
     #[test]
     fn test_branching() {
         let mut bc = Blockchain::new(true,"mario".to_string());

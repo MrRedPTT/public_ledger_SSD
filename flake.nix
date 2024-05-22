@@ -8,35 +8,30 @@
     outputs = { self, ... } @ inputs: 
     let
         pkgs = import inputs.nixpkgs { inherit system; };
-        root = builtins.getEnv "PWD";
+        devroot = builtins.getEnv "PWD";
         name = "Trabalho de SSD";
         system = "x86_64-linux";
     in {
         devShells."${system}".default = pkgs.mkShell {
-            inherit name;
+            inherit name devroot;
 
             buildInputs = with pkgs; [
                 cargo
                 rustc
                 rust-analyzer
                 protobuf
+                openssl
             ];
-
-            ROOT=root;
+            OPENSSL_DIR="${pkgs.openssl.dev}";
+            OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib";
 
             shellHook = ''
-                export NIX_SHELL_NAME="${name}" 
-                echo -ne "\033]0;${name}\007"
-
                 alias build='cargo build'
                 alias run='cargo run'
                 alias test='cargo test'
                 alias doc='cargo doc'
                 alias odoc='cargo doc --open'
 
-                echo 'rustc is @ version ${pkgs.rustc}'
-                echo 'cargo is @ version ${pkgs.cargo}'
-                reload
             '';
 
         };

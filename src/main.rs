@@ -5,9 +5,11 @@ use std::io::stdin;
 
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::ledger::blockchain::Blockchain;
-use crate::ledger::transaction::Transaction;
+use crate::marco::transaction::Transaction;
+use crate::marco::marco::Marco;
 use crate::p2p::peer::Peer;
 
+pub mod marco;
 pub mod kademlia;
 pub mod ledger;
 
@@ -88,7 +90,7 @@ async fn test_server_blockchain_node() {
     ];
     for i in 0..3 {
         for j in 0..Blockchain::MAX_TRANSACTIONS {
-            client.blockchain.lock().unwrap().add_transaction(gen_transaction(strings[i+j].clone()));
+            client.blockchain.lock().unwrap().add_marco(gen_transaction(strings[i+j].clone()));
         }
         client.blockchain.lock().unwrap().mine();
     }
@@ -215,15 +217,15 @@ async fn test_client() {
 
 }
 
-fn gen_transaction(from: String) -> Transaction {
+fn gen_transaction(from: String) -> Marco{
 
     let from = from;
     let to = "test".to_string();
     let out = 0.0;
     let _in = 0.0;
 
-    Transaction::new(out,
+    Marco::from_transaction(Transaction::new(out,
                      from,
                      out-_in,
-                     to)
+                     to))
 }
