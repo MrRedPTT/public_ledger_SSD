@@ -3,9 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha512};
 
+use crate::{auxi, proto};
 use crate::marco::marco::Marco;
 use crate::marco::transaction::Transaction;
-use crate::proto;
 
 #[derive(Debug, Clone)]
 
@@ -60,11 +60,7 @@ impl Block {
         let mut trans: Vec<Marco> = Vec::new();
 
         for i in &proto_block.transactions {
-            trans.push(Marco {
-                hash: i.hash.clone(),
-                signature: i.signature.clone(),
-                data: i.data.clone(),
-            });
+            trans.push(auxi::transform_proto_to_marco(i));
         }
 
         Block {
