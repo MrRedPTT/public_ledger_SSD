@@ -3,7 +3,9 @@
 use std::fmt;
 use std::fmt::Display;
 
-use rsa::{Pkcs1v15Encrypt, RsaPrivateKey};
+use rsa::{RsaPublicKey, RsaPrivateKey};
+use rsa::sha2::{Sha256};
+use rsa::pss::{Pss};
 
 use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
@@ -39,21 +41,25 @@ impl Marco{
         if self.hash == "".to_string() {
             self.hash();
         }
-        let enc_data = skey.sign(Pkcs1v15Encrypt, self.hash.into_bytes()).expect("failed to encrypt");
-        assert_ne!(&data[..], &enc_data[..]);
 
+        let signature = skey.sign::<Pss>(Pss::new::<Sha256>(),
+            &self.hash.into_bytes()).unwrap();
         self.signature = String::from_utf8(signature).unwrap_or_default();
 
         return self.signature;
     }
 
-    pub fn check_signature(&self, pkey: PKey<Public>) -> bool{
+    pub fn check_signature(&self, pkey: RsaPublicKey) -> bool{
         if self.hash != "".to_string() { return false; }
         if self.hash != self.data.to_hash() {return false;}
-        
-        let mut verifier = Verifier::new(MessageDigest::sha256(), &pkey).unwrap();
-        verifier.update(&self.hash.into_bytes()).unwrap();
-        return verifier.verify(&self.signature.into_bytes()).unwrap();
+
+        let res = pkey.verify::<Pss>(Pss::new::<Sha256>(),
+            &self.hash.into_bytes(), &self.signature.into_bytes());
+
+        match res {
+            Ok(()) => true,
+            Err(..) => false
+        }
     }
 
     pub fn from_transaction(t: Transaction) -> Marco {

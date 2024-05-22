@@ -349,6 +349,15 @@ checksum = "ed570934406eb16438a4e976b1b4500774099c13b8cb96eec99f620f05090ddf"
 
 [[package]]
 name = "block-buffer"
+version = "0.10.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3078c7629b62d3f0439517fa394996acacc5cbc91c5a20d8c658e77abd503a71"
+dependencies = [
+ "generic-array",
+]
+
+[[package]]
+name = "block-buffer"
 version = "0.11.0-pre.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded684142010808eb980d9974ef794da2bcf97d13396143b1515e9f0fb4a10e"
@@ -513,6 +522,7 @@ version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
+ "block-buffer 0.10.4",
  "const-oid 0.9.6",
  "crypto-common 0.1.6",
 ]
@@ -523,7 +533,7 @@ version = "0.11.0-pre.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "065d93ead7c220b85d5b4be4795d8398eac4ff68b5ee63895de0a3c1fb6edf25"
 dependencies = [
- "block-buffer",
+ "block-buffer 0.11.0-pre.5",
  "const-oid 0.10.0-pre.2",
  "crypto-common 0.2.0-pre.5",
 ]
@@ -1689,7 +1699,7 @@ dependencies = [
  "reqwest",
  "rsa",
  "serde_json",
- "sha2",
+ "sha2 0.11.0-pre.3",
  "sha3",
  "time",
  "tokio",
@@ -1846,6 +1856,7 @@ dependencies = [
  "pkcs1",
  "pkcs8",
  "rand_core",
+ "sha2 0.10.8",
  "signature",
  "spki",
  "subtle",
@@ -2017,6 +2028,17 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "sha2"
+version = "0.10.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+ "digest 0.10.7",
 ]
 
 [[package]]
