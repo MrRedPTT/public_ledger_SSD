@@ -8,34 +8,39 @@ service PacketSending {
   rpc Store(StoreRequest) returns (StoreResponse);  // Kademlia
   rpc FindNode(FindNodeRequest) returns (FindNodeResponse); // Kademlia
   rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
-  rpc SendTransaction(TransactionBroadcast) returns (google.protobuf.Empty); // BlockChain
+  rpc SendMarco(MarcoBroadcast) returns (google.protobuf.Empty); // BlockChain
   rpc SendBlock(BlockBroadcast) returns (google.protobuf.Empty); // BlockChain
   rpc GetBlock(GetBlockRequest) returns (GetBlockResponse); // BlockChain => Ask for a block already in the blockchain
 }
 
-message Address {
+message SrcAddress {
   bytes id = 1;
   string ip = 2;
   uint32 port = 3;
 }
 
+message DstAddress {
+  string ip = 1;
+  uint32 port = 2;
+}
+
 message PingPacket {
     // Maybe add the Identifier entry
-    Address src = 1;
-    Address dst = 2;
+    SrcAddress src = 1;
+    DstAddress dst = 2;
     bytes randID = 3;
 }
 
 message PongPacket {
-  Address src = 1;
-  Address dst = 2;
+  SrcAddress src = 1;
+  DstAddress dst = 2;
   bytes randID = 3;
 }
 
 message FindNodeRequest {
   bytes id = 1;
-  Address src = 2;
-  Address dst = 3;
+  SrcAddress src = 2;
+  DstAddress dst = 3;
 }
 
 message Node {
@@ -62,8 +67,8 @@ message FindNodeResponse {
 
 message FindValueRequest {
   bytes value_id = 1; // Since every record is stored inside of a hashmap, we can pass a [u8; ID_LEN] (Identifier) as argument
-  Address src = 2; // Node that originated the request
-  Address dst = 3; // Node to which the request was originally sent
+  SrcAddress src = 2;
+  DstAddress dst = 3;
 }
 
 enum FindValueType {
@@ -82,8 +87,9 @@ message FindValueResponse {
 message StoreRequest {
   bytes key = 1;
   string value = 2;
-  Address src = 3; // Node that originated the request
-  Address dst = 4; // Node to which the request was originally sent
+  SrcAddress src = 3;
+  DstAddress dst = 4;
+  uint32 ttl = 5;
 }
 
 enum StoreType {
@@ -114,21 +120,50 @@ message Block {
   string miner_id = 7;
   string merkle_tree_root = 8;
   uint64 confirmations = 9;
-  repeated Transaction transactions = 10;
+  repeated Marco transactions = 10;
 }
 
-message TransactionBroadcast {
-  Address src = 1;
-  Address dst = 2;
-  Transaction transaction = 3;
-  uint32 ttl = 4; // Limit the amount of hops the request will make to avoid overloading the network (let's make 15)
+message Bid {
+  int64 auction_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  double amount = 4;
+}
+
+message Auction {
+  int64 auction_id = 1;
+  string seller_id = 2;
+  double amount = 3;
+}
+
+message Data {
+  oneof data_type {
+    Transaction transaction = 1;
+    Auction create_auction = 2;
+    Bid bid = 3;
+  }
+}
+
+message Marco {
+  string hash = 1;
+  string signature = 2;
+  Data data = 3;
+}
+
+message MarcoBroadcast {
+  SrcAddress src = 1;
+  DstAddress dst = 2;
+  Marco marco = 3;
+  string cert = 4;
+  uint32 ttl = 5;
 }
 
 message BlockBroadcast {
-  Address src = 1;
-  Address dst = 2;
+  SrcAddress src = 1;
+  DstAddress dst = 2;
   Block block = 3;
   uint32 ttl = 4;
+  string cert = 5;
 }
 
 
@@ -139,8 +174,8 @@ enum GetBlockType {
 }
 
 message GetBlockRequest {
-  Address src = 1;
-  Address dst = 2;
+  SrcAddress src = 1;
+  DstAddress dst = 2;
   string id = 3;
 }
 

@@ -10,7 +10,7 @@ use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::p2p::peer::Peer;
 use crate::p2p::private::req_handler_modules::req_handler_lookups::ReqHandler;
 use crate::p2p::private::req_handler_modules::res_handler::ResHandler;
-use crate::proto::{Address, PingPacket, PongPacket, StoreRequest, StoreResponse};
+use crate::proto::{DstAddress, PingPacket, PongPacket, SrcAddress, StoreRequest, StoreResponse};
 
 impl ReqHandler {
     /// # ping
@@ -27,16 +27,16 @@ impl ReqHandler {
         if input.src.is_none() || input.dst.is_none() {
             return Err(Status::invalid_argument("Source and/or destination not found"));
         }
-        let args = <Option<Address> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
-        if args.ip != peer.node.ip || args.port != peer.node.port || args.id != peer.node.id.0.to_vec() {
+        let args = <Option<DstAddress> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
+        if request.remote_addr().unwrap().ip().to_string() != "127.0.0.1" && (args.ip != peer.node.ip || args.port != peer.node.port) {
             return Err(Status::invalid_argument("Node provided in destination does not match this node"))
         }
 
         let node = peer.node.clone();
 
         let pong = PongPacket {
-            src: auxi::return_option(Address{id: node.id.0.to_vec(), ip: node.ip, port: node.port}),
-            dst: input.clone().src,
+            src: auxi::return_option(SrcAddress{id: peer.id.0.to_vec().clone(), ip: node.ip, port: node.port}),
+            dst: input.clone().dst,
             rand_id: input.clone().rand_id
         };
 
@@ -80,9 +80,9 @@ impl ReqHandler {
         // We decided to go with the second option given that the first would require the 1st node to wait for the 2nd, the 2nd for the 3rd,
         // the 3rd for the 4th and so on. Which, in a big network would become very problematic
         println!("Got a Store from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
-        println!("Key to be stored: {}", request.get_ref().value.clone());
+        let ttl = request.get_ref().ttl.clone();
         let input = request.get_ref();
-        let src =  &<Option<Address> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
         let key = &input.key;
         let mut id_array: [u8; ID_LEN] = [0; ID_LEN];
@@ -97,7 +97,8 @@ impl ReqHandler {
         //let mut mutex_guard = peer.kademlia.lock().unwrap();
         let nodes = peer.kademlia.lock().unwrap().is_closest(&Identifier::new(id_array));
         let node_list: Vec<Node>;
-        if nodes.is_none() {
+        // If we are the closest, or the packet as traveled the entire network and died on us, store the key
+        if nodes.is_none() || ttl == 0 {
             // Means we are the closest node to the key
             peer.kademlia.lock().unwrap().add_key(Identifier::new(id_array), input.value.clone());
             return if !peer.kademlia.lock().unwrap().get_value(Identifier::new(id_array)).is_none() {
@@ -118,8 +119,9 @@ impl ReqHandler {
             } else {
                 node_list = nodes.unwrap();
                 for i in &node_list{
-                    debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
-                    arguments.push((i.ip.clone(), i.port))
+                    if i.clone().ip != src.ip.clone() && i.clone().port != src.port{
+                        arguments.push((i.ip.clone(), i.port))
+                    }
                 }
             }
 
@@ -131,13 +133,11 @@ impl ReqHandler {
                     let node = peer.node.clone();
                     let ident = id_array.clone();
                     let val = value.clone();
+                    let own_id = peer.id.clone();
                     tokio::spawn(async move {
                         // Acquire a permit from the semaphore
                         let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                        if arg.1 == 8935 {
-                            println!("DEBUG REQ_HANDLER::STORE -> Contacting: {}:{}", arg.0, arg.1);
-                        }
-                        let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val).await;
+                        let res = ResHandler::store(&node, arg.0, arg.1, Identifier::new(ident), val, ttl-1, &own_id.clone()).await;
                         drop(permit);
                         res
                     })

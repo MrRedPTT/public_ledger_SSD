@@ -2,12 +2,12 @@
 use log::{error, info};
 use tonic::{Request, Response, Status};
 
+use crate::auxi;
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
 use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler_modules::req_handler_lookups::ReqHandler;
-use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
+use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, PingPacket, PongPacket, StoreRequest, StoreResponse};
 use crate::proto::packet_sending_server::PacketSending;
 
 use super::super::peer::Peer;
@@ -22,7 +22,7 @@ impl PacketSending for Peer {
         let res = ReqHandler::ping(self, request).await;
         return match res {
             Err(e) => {
-                error!("An error has occurred while receiving the Pong from {}: {}", addr, e);
+                println!("An error has occurred while receiving the Pong from {}: {}", addr, e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 Err(Status::aborted(e.to_string()))
             }
@@ -59,6 +59,9 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::store],
     /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn store(&self, request: Request<StoreRequest>) -> Result<Response<StoreResponse>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         let id = request.get_ref().src.as_ref().unwrap().id.clone();
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(id.try_into().unwrap())).await;
         let src = request.get_ref().src.as_ref().unwrap();
@@ -96,6 +99,9 @@ impl PacketSending for Peer {
     /// This function acts like a proxy function to the [ReqHandler::find_value],
     /// however it pings the sender before proceeding with the request (to strengthen source address spoofing resistance)
     async fn find_value(&self, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
@@ -111,40 +117,41 @@ impl PacketSending for Peer {
     }
 
     // ===================== block_chain Network APIs (Server Side) ============================ //
-    async fn send_transaction(&self, request: Request<TransactionBroadcast>) -> Result<Response<()>, Status> {
+    async fn send_marco(&self, request: Request<crate::proto::MarcoBroadcast>) -> Result<Response<()>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
-        let packed = input.transaction.clone();
+        let packed = input.marco.clone();
         let src = request.get_ref().src.as_ref().unwrap();
         self.kademlia.lock().unwrap().increment_interactions(Identifier::new(src.id.clone().try_into().unwrap()));
         if packed.is_none() {
             self.kademlia.lock().unwrap().reputation_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-            return Err(Status::invalid_argument("The provided transaction is invalid"));
+            return Err(Status::invalid_argument("The provided marco is invalid"));
         }
         let unpacked = packed.unwrap();
-        let transaction: Transaction = Transaction{
-            from: unpacked.from,
-            to: unpacked.to,
-            amount_in: unpacked.amount_in,
-            amount_out: unpacked.amount_out,
-            miner_fee: unpacked.miner_fee,
-        };
+
+        let transaction = auxi::transform_proto_to_marco(&unpacked);
 
         println!("Reveived a Transaction: {:?} with TTL: {} from : {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
 
-        // Transaction received
-        let _ = self.blockchain.lock().unwrap().add_transaction(transaction.clone());
+        // Marco received
+        println!("DEBUG PEER_RPC_SERVER::SEND_MARCO => Fix marco handler");
+        // let _ = self.blockchain.lock().unwrap().add_transaction(transaction.clone());
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
-            let ttl: u32 = input.ttl.clone() - 1;
-            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
-            BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), Some(sender)).await;
+            let ttl: u32 = (input.ttl.clone() - 1).try_into().unwrap();
+            BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), None, Some(request)).await;
         }
         return Ok(Response::new(()));
     }
 
     async fn send_block(&self, request: Request<BlockBroadcast>) -> Result<Response<()>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
         let packed = input.block.clone();
@@ -158,20 +165,24 @@ impl PacketSending for Peer {
 
         let block = Block::proto_to_block(unpacked);
         println!("Reveived a Block: {:?} with TTL: {} from : {}:{}", block, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
-
         // Block Handler
+        if self.blockchain.lock().unwrap().get_block_by_hash(block.hash.clone()).is_some() {
+            return Ok(Response::new(()));
+        }
         self.blockchain.lock().unwrap().add_block(block.clone());
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
             let ttl: u32 = input.ttl.clone() - 1;
-            let sender = Node::new(input.src.as_ref().unwrap().ip.clone(), input.src.as_ref().unwrap().port).unwrap();
-            BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(sender)).await;
+            BroadCastReq::broadcast(self, None, Some(block), Some(ttl), Some(request), None).await;
         }
         return Ok(Response::new(()));
     }
 
     async fn get_block(&self, request: Request<GetBlockRequest>) -> Result<Response<GetBlockResponse>, Status> {
+        if self.bootstrap {
+            return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
+        }
         let pong = self.ping(&request.get_ref().src.as_ref().unwrap().ip, request.get_ref().src.as_ref().unwrap().port, Identifier::new(request.get_ref().src.as_ref().unwrap().id.clone().try_into().unwrap())).await;
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
@@ -185,4 +196,6 @@ impl PacketSending for Peer {
             }
         }
     }
+
+
 }

@@ -2,7 +2,7 @@ use std::io;
 use std::io::ErrorKind;
 use std::sync::Arc;
 
-use log::{debug, error};
+use log::error;
 use tonic::Response;
 
 use crate::kademlia::node::{Identifier, Node};
@@ -36,10 +36,7 @@ impl Peer {
             return Err(io::Error::new(ErrorKind::NotFound, "No nodes found"));
         } else {
             node_list = nodes.unwrap();
-            debug!("DEBUGG IN PEER::STORE -> NodeList len: {}", node_list.len());
-            debug!("DEBUGG IN PEER:STORE -> Contains server3: {}", node_list.contains(&Node::new("127.0.46.1".to_string(), 8935).unwrap()));
             for i in &node_list{
-                debug!("DEBUGG IN PEER::STORE -> Peers discovered: {}:{}", i.ip, i.port);
                 // Exclude the possibility of creating a loop within it self
                 if i == &self.node {
                     continue;
@@ -57,10 +54,11 @@ impl Peer {
                 let node = self.node.clone();
                 let ident = key.clone();
                 let val = value.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::store(&node, arg.0, arg.1, ident, val).await;
+                    let res = ResHandler::store(&node, arg.0, arg.1, ident, val, 15, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })
@@ -78,7 +76,6 @@ impl Peer {
                 }
                 Ok(res) => {
                     if res.get_ref().response_type != 0 {
-                        debug!("DEBUG PEER::STORE -> Either Forwarded or Stored");
                         return Ok(res);
                     }
                 }

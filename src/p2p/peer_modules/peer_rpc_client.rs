@@ -6,9 +6,12 @@ use std::io::ErrorKind;
 
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
+use crate::marco::marco::Marco;
 use crate::p2p::peer::Peer;
 use crate::p2p::private::broadcast_api::BroadCastReq;
+
+// Max allowed iterations
+pub const MAX_ITER: u32 = 13;
 
 #[derive(Clone)]
 pub(crate) struct NodeNewDistance {
@@ -48,11 +51,11 @@ impl Ord for NodeNewDistance {
 impl Peer {
 
     pub async fn send_block(&self, block: Block) {
-        BroadCastReq::broadcast(self, None, Some(block), None, None).await;
+        BroadCastReq::broadcast(self, None, Some(block), None, None, None).await;
     }
 
-    pub async fn send_transaction(&self, transaction: Transaction) {
-        BroadCastReq::broadcast(self, Some(transaction), None, None, None).await;
+    pub async fn send_marco(&self, transaction: Marco) {
+        BroadCastReq::broadcast(self, Some(transaction), None, None, None, None).await;
     }
     pub async fn find_node(&self, id: Identifier) -> Result<Node, io::Error>
     {
@@ -64,6 +67,7 @@ impl Peer {
         let mut already_checked: Vec<Node> = Vec::new();
         // First iterate through our own nodes (according to old distance)
         let priority_queue: &mut BinaryHeap<NodeNewDistance> = &mut BinaryHeap::new();
+        let mut count = 1;
         while !&nodes.is_empty(){
             let res = self.find_node_handler(id.clone(), self.get_batch(Some(nodes), None, 14), already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
 
@@ -84,7 +88,7 @@ impl Peer {
             }
         }
 
-        while !priority_queue.is_empty() {
+        while !priority_queue.is_empty() && count < MAX_ITER{
             let batch = self.get_batch(None, Some(priority_queue), 14);
             let res = self.find_node_handler(id.clone(), batch, already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
             match res {
@@ -102,8 +106,16 @@ impl Peer {
                     }
                 }
             }
+            count+=1;
         }
 
+        // In the boot process we won't find ourselves (most likely) therefore, we will add everyone we found so far
+        // to out kbucket
+        if id == self.node.id {
+            for i in already_checked {
+                self.kademlia.lock().unwrap().add_node(&i);
+            }
+        }
 
         return Err(io::Error::new(ErrorKind::NotFound, "The node was not found"));
     }

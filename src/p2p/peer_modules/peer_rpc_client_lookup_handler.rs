@@ -21,16 +21,19 @@ impl Peer {
     /// If you're calling this function both the [peers] and [already_checked] arguments should be passed as [None]
     pub async fn find_node_handler(&self, id: Identifier, peers: Vec<Node>, already_checked: &mut Vec<Node>, recommended_map: &mut HashMap<Node, Vec<Node>>) -> Result<Option<(Node, Node)>, Option<Vec<Node>>> {
 
+
         for peer in &peers {
             self.kademlia.lock().unwrap().increment_interactions(peer.id.clone());
             self.kademlia.lock().unwrap().increment_lookups(peer.id.clone());
             self.kademlia.lock().unwrap().send_back_specific_node(&peer);
-            already_checked.push(peer.clone());
         }
 
         let mut arguments: Vec<(String, u32, Node)> = Vec::new();
         for i in &peers{
-            arguments.push((i.ip.clone(), i.port, i.clone()));
+            if !already_checked.contains(i) {
+                arguments.push((i.ip.clone(), i.port, i.clone()));
+                already_checked.push(i.clone());
+            }
         }
         let semaphore = Arc::new(tokio::sync::Semaphore::new(7)); // Limit the number of threads
 
@@ -39,10 +42,11 @@ impl Peer {
                 let semaphore = semaphore.clone();
                 let node = self.node.clone();
                 let ident = id.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::find_node(&node, arg.0.as_ref(), arg.1, &ident).await;
+                    let res = ResHandler::find_node(&node, arg.0.as_ref(), arg.1, &ident, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })
@@ -119,10 +123,11 @@ impl Peer {
                 let semaphore = semaphore.clone();
                 let node = self.node.clone();
                 let ident = id.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::find_value(&node, arg.0.as_ref(), arg.1, &ident).await;
+                    let res = ResHandler::find_value(&node, arg.0.as_ref(), arg.1, &ident, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })
@@ -194,10 +199,11 @@ impl Peer {
                 let semaphore = semaphore.clone();
                 let node = self.node.clone();
                 let ident = id.clone();
+                let own_id = self.id.clone();
                 tokio::spawn(async move {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
-                    let res = ResHandler::get_block(&node, arg.0.as_ref(), arg.1, &ident).await;
+                    let res = ResHandler::get_block(&node, arg.0.as_ref(), arg.1, &ident, &own_id.clone()).await;
                     drop(permit);
                     (res, arg.2)
                 })

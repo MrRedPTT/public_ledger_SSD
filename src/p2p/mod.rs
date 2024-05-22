@@ -10,6 +10,8 @@ pub mod private {
 }
 
 pub(super) mod peer_modules {
+
+    pub (super) mod peer_boot;
     pub(super) mod peer_rpc_server;
     pub(super) mod peer_rpc_client_non_lookup_handler;
     pub(super) mod peer_rpc_client_lookup_handler;
