@@ -230,15 +230,9 @@ impl ReqHandler {
 
         if let Some(block) = peer.blockchain.lock().unwrap().get_block_by_hash(_block_requested) {
             // Got the block
-            let mut trans: Vec<proto::Transaction> = Vec::new();
+            let mut trans: Vec<proto::Marco> = Vec::new();
             for i in block.transactions {
-                trans.push(proto::Transaction {
-                    from: i.from,
-                    to: i.to,
-                    amount_in: i.amount_in,
-                    amount_out: i.amount_out,
-                    miner_fee: i.miner_fee,
-                });
+                trans.push(auxi::transform_marco_to_proto(&i));
             }
             let res = GetBlockResponse {
                 response_type: 2,

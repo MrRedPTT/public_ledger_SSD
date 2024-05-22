@@ -6,7 +6,7 @@ use std::io::ErrorKind;
 
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
+use crate::marco::marco::Marco;
 use crate::p2p::peer::Peer;
 use crate::p2p::private::broadcast_api::BroadCastReq;
 
@@ -54,7 +54,7 @@ impl Peer {
         BroadCastReq::broadcast(self, None, Some(block), None, None, None).await;
     }
 
-    pub async fn send_transaction(&self, transaction: Transaction) {
+    pub async fn send_marco(&self, transaction: Marco) {
         BroadCastReq::broadcast(self, Some(transaction), None, None, None, None).await;
     }
     pub async fn find_node(&self, id: Identifier) -> Result<Node, io::Error>

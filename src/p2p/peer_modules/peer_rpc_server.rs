@@ -5,10 +5,9 @@ use tonic::{Request, Response, Status};
 use crate::auxi;
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
 use crate::p2p::private::broadcast_api::BroadCastReq;
 use crate::p2p::private::req_handler_modules::req_handler_lookups::ReqHandler;
-use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, PingPacket, PongPacket, StoreRequest, StoreResponse, TransactionBroadcast};
+use crate::proto::{BlockBroadcast, FindNodeRequest, FindNodeResponse, FindValueRequest, FindValueResponse, GetBlockRequest, GetBlockResponse, PingPacket, PongPacket, StoreRequest, StoreResponse};
 use crate::proto::packet_sending_server::PacketSending;
 
 use super::super::peer::Peer;
@@ -118,36 +117,32 @@ impl PacketSending for Peer {
     }
 
     // ===================== block_chain Network APIs (Server Side) ============================ //
-    async fn send_transaction(&self, request: Request<TransactionBroadcast>) -> Result<Response<()>, Status> {
+    async fn send_marco(&self, request: Request<crate::proto::MarcoBroadcast>) -> Result<Response<()>, Status> {
         if self.bootstrap {
             return Err(Status::aborted("Bootstrap node. Available RPCS: {PING, FIND_NODE}".to_string()));
         }
         // This is a broadcast so there is no need to ping back the sender
         let input = request.get_ref();
-        let packed = input.transaction.clone();
+        let packed = input.marco.clone();
         let src = request.get_ref().src.as_ref().unwrap();
         self.kademlia.lock().unwrap().increment_interactions(Identifier::new(src.id.clone().try_into().unwrap()));
         if packed.is_none() {
             self.kademlia.lock().unwrap().reputation_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
-            return Err(Status::invalid_argument("The provided transaction is invalid"));
+            return Err(Status::invalid_argument("The provided marco is invalid"));
         }
         let unpacked = packed.unwrap();
-        let transaction: Transaction = Transaction{
-            from: unpacked.from,
-            to: unpacked.to,
-            amount_in: unpacked.amount_in,
-            amount_out: unpacked.amount_out,
-            miner_fee: unpacked.miner_fee,
-        };
+
+        let transaction = auxi::transform_proto_to_marco(&unpacked);
 
         println!("Reveived a Transaction: {:?} with TTL: {} from : {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
 
-        // Transaction received
-        let _ = self.blockchain.lock().unwrap().add_transaction(transaction.clone());
+        // Marco received
+        println!("DEBUG PEER_RPC_SERVER::SEND_MARCO => Fix marco handler");
+        // let _ = self.blockchain.lock().unwrap().add_transaction(transaction.clone());
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
-            let ttl: u32 = input.ttl.clone() - 1;
+            let ttl: u32 = (input.ttl.clone() - 1).try_into().unwrap();
             BroadCastReq::broadcast(self, Some(transaction), None, Some(ttl), None, Some(request)).await;
         }
         return Ok(Response::new(()));
@@ -170,7 +165,6 @@ impl PacketSending for Peer {
 
         let block = Block::proto_to_block(unpacked);
         println!("Reveived a Block: {:?} with TTL: {} from : {}:{}", block, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
-        println!("Public key extracted from certificate: {}", auxi::get_public_key(request.get_ref().cert.clone()));
         // Block Handler
         if self.blockchain.lock().unwrap().get_block_by_hash(block.hash.clone()).is_some() {
             return Ok(Response::new(()));

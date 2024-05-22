@@ -1,14 +1,21 @@
-use base64::Engine as _;
 use pem::{encode, Pem};
 use rand::Rng;
+use rsa::{pkcs1::DecodeRsaPublicKey, RsaPublicKey};
 use sha3::{Digest, Sha3_256};
 use tokio::net::TcpListener;
 use x509_certificate::X509Certificate;
+
+use proto::{Auction as ProtoAuction, Bid as ProtoBid, Data as ProtoData, Marco as ProtoMarco, Transaction as ProtoTransaction};
+use proto::data::DataType as ProtoDataType;
 
 use crate::kademlia::node::ID_LEN;
 // Auxiliary functions
 #[doc(inline)]
 use crate::kademlia::node::Identifier;
+use crate::marco::auction::Auction;
+use crate::marco::bid::Bid;
+use crate::marco::marco::{Data, Marco};
+use crate::marco::transaction::Transaction;
 use crate::proto;
 use crate::proto::DstAddress;
 use crate::proto::SrcAddress;
@@ -120,7 +127,7 @@ pub async fn get_port() -> u16 {
     }
 }
 
-pub fn get_public_key(cert_pem: String) -> String {
+pub fn get_public_key(cert_pem: String) -> RsaPublicKey {
     let cert = &X509Certificate::from_pem(cert_pem.as_bytes()).unwrap();
 
     // Pick public key
@@ -128,7 +135,71 @@ pub fn get_public_key(cert_pem: String) -> String {
 
     // Export public key as PEM encoded public key in PKCS#1 format
     let pem = Pem::new(String::from("RSA PUBLIC KEY"), public_key.to_vec());
-
     let public_pkcs1_pem = encode(&pem);
-    return public_pkcs1_pem;
+    let public_key = RsaPublicKey::from_pkcs1_pem(public_pkcs1_pem.as_str()).expect("Failed to Retrieve public key");
+    return public_key;
+}
+
+pub fn transform_proto_to_marco(proto_marco: &ProtoMarco) -> Marco {
+    let data = match proto_marco.data.as_ref().expect("Data is missing").data_type.as_ref().expect("Data type is missing") {
+        ProtoDataType::Transaction(t) => Data::Transaction(Transaction {
+            from: t.from.clone(),
+            to: t.to.clone(),
+            amount_in: t.amount_in,
+            amount_out: t.amount_out,
+            miner_fee: t.miner_fee,
+        }),
+        ProtoDataType::CreateAuction(a) => Data::CreateAuction(Auction {
+            auction_id: a.auction_id,
+            seller_id: a.seller_id.clone(),
+            amount: a.amount,
+        }),
+        ProtoDataType::Bid(b) => Data::Bid(Bid {
+            auction_id: b.auction_id,
+            buyer_id: b.buyer_id.clone(),
+            seller_id: b.seller_id.clone(),
+            amount: b.amount,
+        }),
+    };
+
+    Marco {
+        hash: proto_marco.hash.clone(),
+        signature: proto_marco.signature.clone(),
+        data,
+    }
+}
+
+pub fn transform_marco_to_proto(marco: &Marco) -> ProtoMarco {
+    let data = match &marco.data {
+        Data::Transaction(t) => ProtoData {
+            data_type: Some(ProtoDataType::Transaction(ProtoTransaction {
+                from: t.from.clone(),
+                to: t.to.clone(),
+                amount_in: t.amount_in,
+                amount_out: t.amount_out,
+                miner_fee: t.miner_fee,
+            })),
+        },
+        Data::CreateAuction(a) => ProtoData {
+            data_type: Some(ProtoDataType::CreateAuction(ProtoAuction {
+                auction_id: a.auction_id,
+                seller_id: a.seller_id.clone(),
+                amount: a.amount,
+            })),
+        },
+        Data::Bid(b) => ProtoData {
+            data_type: Some(ProtoDataType::Bid(ProtoBid {
+                auction_id: b.auction_id,
+                buyer_id: b.buyer_id.clone(),
+                seller_id: b.seller_id.clone(),
+                amount: b.amount,
+            })),
+        },
+    };
+
+    proto::Marco {
+        hash: marco.hash.clone(),
+        signature: marco.signature.clone(),
+        data: Some(data)
+    }
 }

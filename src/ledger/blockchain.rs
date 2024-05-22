@@ -241,11 +241,11 @@ impl Blockchain {
 #[cfg(test)]
 mod test {
     use std::time::Duration;
-    use crate::ledger::marco::transaction::*;
 
     use rand::Rng;
 
     use crate::ledger::blockchain::*;
+    use crate::marco::transaction::Transaction;
 
     fn gen_transaction() -> Transaction {
         let strings = vec![

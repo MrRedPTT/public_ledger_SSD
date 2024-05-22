@@ -1,14 +1,16 @@
 #[doc(inline)]
 use std::fmt;
+
 use sha2::{Digest, Sha512};
+
 use crate::marco::sha512hash::Sha512Hash;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bid {
-    auction_id: i64,
-    buyer_id: String,
-    seller_id: String,
-    amount: f64,
+    pub(crate) auction_id: i64,
+    pub(crate) buyer_id: String,
+    pub(crate) seller_id: String,
+    pub(crate) amount: f64,
 }
 
 impl Bid{}

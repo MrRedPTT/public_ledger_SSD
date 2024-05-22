@@ -8,7 +8,7 @@ service PacketSending {
   rpc Store(StoreRequest) returns (StoreResponse);  // Kademlia
   rpc FindNode(FindNodeRequest) returns (FindNodeResponse); // Kademlia
   rpc FindValue(FindValueRequest) returns (FindValueResponse); // Kademlia
-  rpc SendTransaction(TransactionBroadcast) returns (google.protobuf.Empty); // BlockChain
+  rpc SendMarco(MarcoBroadcast) returns (google.protobuf.Empty); // BlockChain
   rpc SendBlock(BlockBroadcast) returns (google.protobuf.Empty); // BlockChain
   rpc GetBlock(GetBlockRequest) returns (GetBlockResponse); // BlockChain => Ask for a block already in the blockchain
 }
@@ -120,15 +120,42 @@ message Block {
   string miner_id = 7;
   string merkle_tree_root = 8;
   uint64 confirmations = 9;
-  repeated Transaction transactions = 10;
+  repeated Marco transactions = 10;
 }
 
-message TransactionBroadcast {
+message Bid {
+  int64 auction_id = 1;
+  string buyer_id = 2;
+  string seller_id = 3;
+  double amount = 4;
+}
+
+message Auction {
+  int64 auction_id = 1;
+  string seller_id = 2;
+  double amount = 3;
+}
+
+message Data {
+  oneof data_type {
+    Transaction transaction = 1;
+    Auction create_auction = 2;
+    Bid bid = 3;
+  }
+}
+
+message Marco {
+  string hash = 1;
+  string signature = 2;
+  Data data = 3;
+}
+
+message MarcoBroadcast {
   SrcAddress src = 1;
   DstAddress dst = 2;
-  Transaction transaction = 3;
-  uint32 ttl = 4; // Limit the amount of hops the request will make to avoid overloading the network (let's make 15)
-  string cert = 5;
+  Marco marco = 3;
+  string cert = 4;
+  uint32 ttl = 5;
 }
 
 message BlockBroadcast {

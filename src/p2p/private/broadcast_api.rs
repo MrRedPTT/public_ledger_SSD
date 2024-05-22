@@ -8,14 +8,14 @@ use tonic::transport::{Certificate, ClientTlsConfig, Identity};
 use crate::{auxi, proto};
 use crate::kademlia::node::{ID_LEN, Node};
 use crate::ledger::block::Block;
-use crate::ledger::transaction::Transaction;
+use crate::marco::marco::Marco;
 use crate::p2p::peer::{Peer, TTL};
-use crate::proto::{BlockBroadcast, SrcAddress, TransactionBroadcast};
+use crate::proto::{BlockBroadcast, MarcoBroadcast, SrcAddress};
 
 pub struct BroadCastReq {}
 
 impl BroadCastReq {
-    pub async fn broadcast(peer: &Peer, transaction: Option<Transaction>, block: Option<Block>, ttl: Option<u32>, block_request: Option<Request<BlockBroadcast>>, trans_request: Option<Request<TransactionBroadcast>>) {
+    pub async fn broadcast(peer: &Peer, transaction: Option<Marco>, block: Option<Block>, ttl: Option<u32>, block_request: Option<Request<BlockBroadcast>>, trans_request: Option<Request<MarcoBroadcast>>) {
         let mut time_to_live: u32 = TTL;
         if !ttl.is_none() {
             time_to_live = ttl.unwrap();
@@ -123,7 +123,7 @@ impl BroadCastReq {
 
     }
 
-    async fn send_request(ip: String, port: u32, transaction_op: Option<Transaction>, block_op: Option<Block>, ttl: u32, sender: SrcAddress, cert: String) {
+    async fn send_request(ip: String, port: u32, marco_op: Option<Marco>, block_op: Option<Block>, ttl: u32, sender: SrcAddress, cert: String) {
         if std::env!("TLS").to_string() == "1" {
             let mut url = "https://".to_string();
             url += &format!("{}:{}", ip, port);
@@ -159,17 +159,12 @@ impl BroadCastReq {
             };
 
             let mut c = proto::packet_sending_client::PacketSendingClient::new(channel);
-            if transaction_op.is_none() {
+            if marco_op.is_none() {
                 let block = block_op.unwrap();
-                let mut trans: Vec<proto::Transaction> = Vec::new();
+                let mut trans: Vec<proto::Marco> = Vec::new();
                 for i in block.transactions {
-                    trans.push(proto::Transaction {
-                        from: i.from,
-                        to: i.to,
-                        amount_in: i.amount_in,
-                        amount_out: i.amount_out,
-                        miner_fee: i.miner_fee,
-                    });
+                    let data = auxi::transform_marco_to_proto(&i);
+                    trans.push(data);
                 }
                 let req = proto::BlockBroadcast {
                     src: Some(sender.clone()),
@@ -202,22 +197,16 @@ impl BroadCastReq {
                     }
                 }
             } else {
-                let transaction = transaction_op.unwrap();
-                let req = proto::TransactionBroadcast { // Ask for a node that the server holds
+                let transaction = marco_op.unwrap();
+                let req = proto::MarcoBroadcast { // Ask for a node that the server holds
                     src: Some(sender),
                     dst: auxi::gen_address_dst(ip.to_string(), port),
-                    transaction: Some(proto::Transaction {
-                        from: transaction.from,
-                        to: transaction.to,
-                        amount_in: transaction.amount_in,
-                        amount_out: transaction.amount_out,
-                        miner_fee: transaction.miner_fee,
-                    }),
-                    ttl,
-                    cert
+                    cert,
+                    marco: Some(auxi::transform_marco_to_proto(&transaction)),
+                    ttl
                 };
                 let request = tonic::Request::new(req);
-                let res = c.send_transaction(request).await;
+                let res = c.send_marco(request).await;
                 match res {
                     Err(e) => {
                         error!("An error has occurred while trying to broadcast Transaction: {{{}}}", e);

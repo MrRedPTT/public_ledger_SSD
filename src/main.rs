@@ -5,8 +5,8 @@ use std::io::stdin;
 
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::ledger::blockchain::Blockchain;
-use crate::marco::transaction::Transaction;
 use crate::marco::marco::Marco;
+use crate::marco::transaction::Transaction;
 use crate::p2p::peer::Peer;
 
 pub mod marco;
@@ -180,7 +180,7 @@ async fn test_client() {
 
 
     println!("Get Block -> {:?}", client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
-    println!("Broadcasted Transaction -> {:?}", client.send_transaction(gen_transaction("Testing broadcast of transaction in Client".to_string())).await);
+    println!("Broadcasted Transaction -> {:?}", client.send_marco(gen_transaction("Testing broadcast of transaction in Client".to_string())).await);
     println!("Broadcast Block -> {:?}", client.send_block(client.blockchain.lock().unwrap().get_head()).await);
     println!("Result -> {:?}", client.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await); // Should fail
     println!("Result -> {:?}", client.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await); // Should succeed (Server1 has this node)

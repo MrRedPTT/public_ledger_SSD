@@ -2,13 +2,12 @@
 
 use std::fmt;
 use std::fmt::Display;
-use openssl::pkey::{PKey, Private, Public};
-use openssl::sign::{Verifier, Signer};
-use openssl::hash::MessageDigest;
 
-use crate::marco::sha512hash::Sha512Hash;
-use crate::marco::bid::Bid;
+use rsa::{Pkcs1v15Encrypt, RsaPrivateKey};
+
 use crate::marco::auction::Auction;
+use crate::marco::bid::Bid;
+use crate::marco::sha512hash::Sha512Hash;
 use crate::marco::transaction::Transaction;
 
 ///## MARCO
@@ -36,14 +35,12 @@ impl Marco{
         return self.hash;
     }
     
-    pub fn sign(&mut self, skey: PKey<Private>) -> String {
+    pub fn sign(&mut self, skey: RsaPrivateKey) -> String {
         if self.hash == "".to_string() {
             self.hash();
         }
-        
-        let mut signer = Signer::new(MessageDigest::sha256(), &skey).unwrap();
-        signer.update(&self.hash.into_bytes()).unwrap();
-        let signature = signer.sign_to_vec().unwrap();
+        let enc_data = skey.sign(Pkcs1v15Encrypt, self.hash.into_bytes()).expect("failed to encrypt");
+        assert_ne!(&data[..], &enc_data[..]);
 
         self.signature = String::from_utf8(signature).unwrap_or_default();
 
