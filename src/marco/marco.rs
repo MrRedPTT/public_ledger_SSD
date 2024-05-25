@@ -1,10 +1,11 @@
 #[doc(inline)]
+
 use std::fmt;
 use std::fmt::Display;
-
+use std::time::SystemTime;
 use rsa::{RsaPrivateKey, RsaPublicKey};
 use rsa::pss::Pss;
-use rsa::sha2::Sha256;
+use rsa::sha2::{Digest,Sha512};
 
 use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
@@ -16,6 +17,7 @@ use crate::marco::sha512hash::Sha512Hash;
 pub struct Marco {
     pub(crate) hash: String,
     pub(crate) signature: String,
+    pub(crate) timestamp: SystemTime,
     pub data : Data
 }
 
@@ -32,7 +34,17 @@ impl Marco{
             return self.hash.clone();
         }
 
-        self.hash = self.data.to_hash();
+       
+        let mut hasher = Sha512::new();
+        hasher.update(self.data.to_hash().into_bytes());
+
+        let hash_result = hasher.finalize();
+
+        self.hash = hash_result.iter()
+            .map(|byte| format!("{:02x}",byte))
+            .collect::<Vec<String>>()
+            .join("");
+
         return self.hash.clone();
     }
     
@@ -41,7 +53,7 @@ impl Marco{
             self.calc_hash();
         }
 
-        let signature = skey.sign::<Pss>(Pss::new::<Sha256>(),
+        let signature = skey.sign::<Pss>(Pss::new::<Sha512>(),
             &self.hash.clone().into_bytes()).unwrap();
         self.signature = String::from_utf8(signature).unwrap_or_default();
 
@@ -52,7 +64,7 @@ impl Marco{
         if self.hash != "".to_string() { return false; }
         if self.hash != self.data.to_hash() {return false;}
 
-        let res = pkey.verify::<Pss>(Pss::new::<Sha256>(),
+        let res = pkey.verify::<Pss>(Pss::new::<Sha512>(),
             &self.hash.clone().into_bytes(), &self.signature.clone().into_bytes());
 
         match res {
@@ -62,27 +74,37 @@ impl Marco{
     }
 
     pub fn from_transaction(t: Transaction) -> Marco {
-        Marco {
+        let mut m = Marco {
             hash: "".to_string(),
             signature: "".to_string(),
+            timestamp: SystemTime::now(),
             data: Data::Transaction(t)
-        }
+        };
+        m.calc_hash();
+        return m;
+
     }
 
     pub fn from_auction(a: Auction) -> Marco {
-        Marco {
+        let mut m = Marco {
             hash: "".to_string(),
             signature: "".to_string(),
+            timestamp: SystemTime::now(),
             data: Data::CreateAuction(a)
-        }
+        };
+        m.calc_hash();
+        return m;
     }
 
     pub fn from_bid(b: Bid) -> Marco {
-        Marco {
+        let mut m = Marco {
             hash: "".to_string(),
             signature: "".to_string(),
+            timestamp: SystemTime::now(),
             data: Data::Bid(b)
-        }
+        };
+        m.calc_hash();
+        return m;
     }
     
     pub fn get_signature(&self) -> String { self.signature.clone()}
