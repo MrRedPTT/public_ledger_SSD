@@ -12,6 +12,7 @@ use crate::p2p::peer::Peer;
 pub mod marco;
 pub mod kademlia;
 pub mod ledger;
+pub mod auction;
 
 pub mod p2p;
 
