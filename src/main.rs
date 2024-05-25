@@ -3,6 +3,7 @@ extern crate core;
 use std::env;
 use std::io::stdin;
 
+use crate::auction::auction::Auction;
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::ledger::blockchain::Blockchain;
 use crate::marco::marco::Marco;
@@ -167,13 +168,11 @@ async fn test_server() {
 }
 
 async fn test_client() {
-    let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
-    let (client, server) = Peer::new(node, false);
-    let _ = server.init_server().await;
-    println!("Listening at 127.0.0.1:{}", node.port);
-    client.boot().await;
+    let auction = &Auction::new().await;
+    println!("Listening at 127.0.0.1:{}", auction.client.node.port);
+
     let mut keys: Vec<Identifier> = Vec::new();
-    let nodes_stored = client.kademlia.lock().unwrap().get_all_nodes().unwrap_or(Vec::new());
+    let nodes_stored = auction.client.kademlia.lock().unwrap().get_all_nodes().unwrap_or(Vec::new());
     // Here we can always assume the vec is not empty
     for i in nodes_stored {
         if i.port == 8635 {continue;}
@@ -187,18 +186,18 @@ async fn test_client() {
     }
 
 
-    println!("Get Block -> {:?}", client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
-    println!("Broadcasted Transaction -> {:?}", client.send_marco(gen_transaction("Testing broadcast of transaction in Client".to_string())).await);
-    println!("Broadcast Block -> {:?}", client.send_block(client.blockchain.lock().unwrap().get_head()).await);
-    println!("Result -> {:?}", client.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await); // Should fail
-    println!("Result -> {:?}", client.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await); // Should succeed (Server1 has this node)
+    println!("Get Block -> {:?}", auction.client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
+    println!("Broadcasted Transaction -> {:?}", auction.client.send_marco(gen_transaction("Testing broadcast of transaction in Client".to_string())).await);
+    println!("Broadcast Block -> {:?}", auction.client.send_block(auction.client.blockchain.lock().unwrap().get_head()).await);
+    println!("Result -> {:?}", auction.client.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await); // Should fail
+    println!("Result -> {:?}", auction.client.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await); // Should succeed (Server1 has this node)
     for i in &keys {
-        println!("Result Store -> {:?}", client.store(i.clone(), "Some Random Value Server3 Should Have".to_string()).await); // Should get remote store
-        println!("Result Find Key -> {:?}", client.find_value(i.clone()).await); // Should succeed
+        println!("Result Store -> {:?}", auction.client.store(i.clone(), "Some Random Value Server3 Should Have".to_string()).await); // Should get remote store
+        println!("Result Find Key -> {:?}", auction.client.find_value(i.clone()).await); // Should succeed
     }
 
-    client.blockchain.lock().unwrap().mine();
-    let list = client.blockchain.lock().unwrap().chain.clone();
+    auction.client.blockchain.lock().unwrap().mine();
+    let list = auction.client.blockchain.lock().unwrap().chain.clone();
     for i in list {
         println!("Block{{{}}}: hash -> {}; prev_hash -> {}", i.index, i.hash.clone(), i.prev_hash.clone());
     }
@@ -213,12 +212,12 @@ async fn test_client() {
         }
     }
 
-    println!("Get Block with hash: {} ->\n{:?}",hash.clone(), client.get_block(hash).await);
-    let list = client.blockchain.lock().unwrap().chain.clone();
+    println!("Get Block with hash: {} ->\n{:?}",hash.clone(), auction.client.get_block(hash).await);
+    let list = auction.client.blockchain.lock().unwrap().chain.clone();
     for i in list {
         println!("Block{{{}}}: hash -> {}; prev_hash -> {}", i.index, i.hash.clone(), i.prev_hash.clone());
     }
-    let list = client.blockchain.lock().unwrap().heads.get_main().clone();
+    let list = auction.client.blockchain.lock().unwrap().heads.get_main().clone();
     for i in list {
         println!("Block{{Head}}: hash -> {}; prev_hash -> {}", i.hash.clone(), i.prev_hash.clone());
     }
