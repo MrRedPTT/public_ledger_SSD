@@ -73,7 +73,7 @@ impl Blockchain {
     ///
     /// ** TODO: **
     /// - verification is also not fully done
-    pub fn add_block(&mut self, b:Block) -> bool{
+    pub fn add_block(&mut self, b:Block) -> bool {
         if !b.check_hash() {
             return false;
         }

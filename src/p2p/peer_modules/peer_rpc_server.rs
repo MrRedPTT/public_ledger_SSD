@@ -170,8 +170,10 @@ impl PacketSending for Peer {
         if self.blockchain.lock().unwrap().get_block_by_hash(block.hash.clone()).is_some() {
             return Ok(Response::new(()));
         }
-        self.blockchain.lock().unwrap().add_block(block.clone());
-
+        let added = self.blockchain.lock().unwrap().add_block(block.clone());
+        if !added {
+            let _ = self.get_block(block.hash.clone()).await;
+        }
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate
             let ttl: u32 = input.ttl.clone() - 1;
