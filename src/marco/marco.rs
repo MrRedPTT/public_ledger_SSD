@@ -9,8 +9,8 @@ use rsa::sha2::Sha256;
 
 use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
-use crate::marco::sha512hash::Sha512Hash;
 use crate::marco::transaction::Transaction;
+use crate::marco::sha512hash::Sha512Hash;
 
 ///## MARCO
 #[derive(Debug, Clone, PartialEq)]
@@ -105,6 +105,7 @@ impl Display for Marco {
         }
     }
 }
+
 impl Sha512Hash for Data {
     fn to_hash(&self) -> String {
         match self {
@@ -114,4 +115,3 @@ impl Sha512Hash for Data {
         }
     }
 }
-

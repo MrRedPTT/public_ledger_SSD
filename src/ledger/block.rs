@@ -5,6 +5,7 @@ use sha2::{Digest, Sha512};
 
 use crate::{auxi, proto};
 use crate::marco::marco::Marco;
+use crate::marco::sha512hash::Sha512Hash;
 use crate::marco::transaction::Transaction;
 
 #[derive(Debug, Clone)]
@@ -159,14 +160,14 @@ impl Block {
 
         if n_transac % 2 == 1 && n_transac >= 3 {
             let (first, rest) = self.transactions.split_at(2);
-            let a = hash2(first[0].hash(),first[1].hash());
+            let a = hash2(first[0].data.to_hash(),first[1].data.to_hash());
             fin = vec![a];
-            fin.extend(rest.iter_mut()
-                    .map(|trans| trans.hash() )
+            fin.extend(rest.iter()
+                    .map(|trans| trans.data.to_hash() )
                     .collect::<Vec<String>>());
         }else {
             fin = self.transactions.iter()
-                    .map(|trans| trans.hash() )
+                    .map(|trans| trans.data.to_hash() )
                     .collect::<Vec<String>>();
         }
         
