@@ -1,10 +1,11 @@
+use std::collections::HashMap;
+
 use rsa::RsaPublicKey;
 
 #[doc(inline)]
 use crate::ledger::block::*;
 use crate::ledger::heads::*;
 use crate::marco::marco::Marco;
-use std::collections::HashMap;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated
@@ -155,11 +156,13 @@ impl Blockchain {
 
         let hash= t.calc_hash();
         let res = self.marco_set.contains_key(&hash);
-        if !res {return false}
+        if res {return false}
         self.marco_set.insert(hash,t.clone());
 
-        if self.can_mine() { return true; }
+        if self.can_mine() { return false; }
+        if !self.is_miner { return true; }
         let _index = self.temporary_block.add_marco(t);
+        println!("DEBUG BLOCKCHAIN::ADD_MARCO => Index: {_index}");
         return true;
         //self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
     }

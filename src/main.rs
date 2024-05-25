@@ -97,9 +97,11 @@ async fn test_server_blockchain_node() {
     }
     let client_cert = std::fs::read_to_string(data_dir.join(format!("cert{slash}server.crt"))).expect("Failed to open server.crt");
     let pub_key = auxi::get_public_key(client_cert);
+    let mut count = 0;
     for i in 0..3 {
         for j in 0..Blockchain::MAX_TRANSACTIONS {
-            client.blockchain.lock().unwrap().add_marco(gen_transaction(strings[i+j].clone()), pub_key.clone());
+            println!("Was able to add to blockchain? {}", client.blockchain.lock().unwrap().add_marco(gen_transaction(strings[i+j].clone(), count), pub_key.clone()));
+            count += 1;
         }
         client.blockchain.lock().unwrap().mine();
     }
@@ -187,7 +189,7 @@ async fn test_client() {
 
 
     println!("Get Block -> {:?}", auction.client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);
-    println!("Broadcasted Transaction -> {:?}", auction.client.send_marco(gen_transaction("Testing broadcast of transaction in Client".to_string())).await);
+    println!("Broadcasted Transaction -> {:?}", auction.client.send_marco(gen_transaction("Testing broadcast of transaction in Client".to_string(), 2)).await);
     println!("Broadcast Block -> {:?}", auction.client.send_block(auction.client.blockchain.lock().unwrap().get_head()).await);
     println!("Result -> {:?}", auction.client.find_node(auxi::gen_id("127.0.0.2:8890".to_string())).await); // Should fail
     println!("Result -> {:?}", auction.client.find_node(auxi::gen_id("127.54.123.2:9981".to_string())).await); // Should succeed (Server1 has this node)
@@ -224,10 +226,10 @@ async fn test_client() {
 
 }
 
-fn gen_transaction(from: String) -> Marco{
+fn gen_transaction(from: String, id: u32) -> Marco{
 
     let from = from;
-    let to = "test".to_string();
+    let to = "test".to_string() + &id.to_string();
     let out = 0.0;
     let _in = 0.0;
 

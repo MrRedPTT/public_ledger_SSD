@@ -126,7 +126,7 @@ impl Block {
     /// - 0 if hash is not correct
     /// - id of the marco otherwise
     pub fn add_marco(&mut self,mut t: Marco) -> usize{
-        if t.get_hash() == t.calc_hash() {
+        if t.get_hash() != t.calc_hash() {
            return 0;
         }
 

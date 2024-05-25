@@ -166,6 +166,7 @@ pub fn transform_proto_to_marco(proto_marco: &ProtoMarco) -> Marco {
         hash: proto_marco.hash.clone(),
         signature: proto_marco.signature.clone(),
         data,
+        timestamp: timestamp_to_system_time(Some(&proto_marco.timestamp.clone().unwrap())).unwrap()
     }
 }
 
@@ -200,6 +201,23 @@ pub fn transform_marco_to_proto(marco: &Marco) -> ProtoMarco {
     proto::Marco {
         hash: marco.hash.clone(),
         signature: marco.signature.clone(),
-        data: Some(data)
+        data: Some(data),
+        timestamp: system_time_to_timestamp(Some(marco.timestamp))
     }
+}
+
+// Function to convert Option<SystemTime> to Option<protobuf Timestamp>
+fn system_time_to_timestamp(system_time: Option<std::time::SystemTime>) -> Option<prost_types::Timestamp> {
+    system_time.map(|st| {
+        let duration_since_epoch = st.duration_since(std::time::UNIX_EPOCH).expect("Time went backwards");
+        prost_types::Timestamp {
+            seconds: duration_since_epoch.as_secs() as i64,
+            nanos: duration_since_epoch.subsec_nanos() as i32,
+        }
+    })
+}
+
+// Function to convert Option<protobuf Timestamp> to Option<SystemTime>
+fn timestamp_to_system_time(timestamp: Option<&prost_types::Timestamp>) -> Option<std::time::SystemTime> {
+    timestamp.map(|ts| std::time::UNIX_EPOCH + std::time::Duration::new(ts.seconds as u64, ts.nanos as u32))
 }

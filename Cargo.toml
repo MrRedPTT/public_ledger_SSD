@@ -16,6 +16,7 @@ futures = "0.3"
 async-std = "1.9"
 time = "0.3.34"
 prost = "0.12.3"
+prost-types = "0.12.6"
 tonic = { version = "0.11.0", features = ["tls"] }
 log = "0.4.21"
 async-recursion = "1.1.0"
