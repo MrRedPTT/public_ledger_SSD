@@ -4,6 +4,7 @@ use rsa::RsaPublicKey;
 use crate::ledger::block::*;
 use crate::ledger::heads::*;
 use crate::marco::marco::Marco;
+use std::collections::HashMap;
 
 // Used to apply Debug and Clone traits to the struct, debug allows printing with the use of {:?} or {:#?}
 // and Clone allows for structure and its data to duplicated
@@ -15,10 +16,11 @@ pub struct Blockchain {
     pub chain: Vec<Block>, 
     pub heads: Heads,
     pub difficulty: usize,
-    mining_reward: f64, 
+        mining_reward: f64, 
     pub is_miner: bool,
     pub temporary_block: Block,
-    pub miner_id: String
+    pub miner_id: String,
+        marco_set: HashMap<String,Marco>
 }
 
 // =========================== BLOCKCHAIN CODE ==================================== //
@@ -58,7 +60,8 @@ impl Blockchain {
                                         hash.clone(),
                                         Self::INITIAL_DIFFICULTY,
                                         miner_id.clone(),
-                                        0.0)
+                                        0.0),
+            marco_set: HashMap::new()
         }
     }
 
@@ -70,13 +73,17 @@ impl Blockchain {
     ///
     /// **outputs:**
     /// returns true if the block is successfully added
-    ///
-    /// ** TODO: **
-    /// - verification is also not fully done
-    pub fn add_block(&mut self, b:Block) -> bool {
+    /// and false otherwise
+    pub fn add_block(&mut self,mut b:Block) -> bool {
         if !b.check_hash() {
             return false;
         }
+
+        for m in &mut b.transactions {
+            let hash = m.calc_hash();
+            self.marco_set.insert(hash,m.clone());
+        }
+        
 
         //check if new block fits in heads
         let f = self.heads.add_block(b.clone());
@@ -95,8 +102,7 @@ impl Blockchain {
                 self.heads.prune(confirmed_block.prev_hash.clone());
                 self.chain.push(confirmed_block);
             }
-            None => {
-            }
+            None => {}
         }
         self.heads.reorder();
         self.adjust_difficulty(); 
@@ -132,14 +138,29 @@ impl Blockchain {
     }
 
 
-    /// adds a transaction to a temporary block
-    /// the transaction is only added if the block isn't full
+    /// adds a Marco to a temporary block
+    /// the Marco is only added if the block isn't full
     /// 
-    /// ** Note ** this method is only important to miners,
-    /// as non miners dont care about transactions
-    pub fn add_marco(&mut self, t:Marco, _publicKey: RsaPublicKey) {
-        if self.can_mine() { return}
+    /// ** Note ** 
+    /// this method will return true if the the user is not a miner
+    /// but the BC already knows of the existance of the Marco
+    ///
+    /// **outputs**:
+    /// true if added successfully
+    /// and false otherwise
+    pub fn add_marco(&mut self,mut t:Marco, public_key: RsaPublicKey) -> bool {
+        if t.verify(public_key) {
+            return false
+        }
+
+        let hash= t.calc_hash();
+        let res = self.marco_set.contains_key(&hash);
+        if !res {return false}
+        self.marco_set.insert(hash,t.clone());
+
+        if self.can_mine() { return true; }
         let _index = self.temporary_block.add_marco(t);
+        return true;
         //self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
     }
 
@@ -285,12 +306,13 @@ mod test {
         bc.mine();
     }
 
+    #[test]
     fn test_adding_blocks() {
         let mut blockchain = Blockchain::new(true,"mario".to_string());
 
         let blocks:usize = 4;
         for _i in 0..blocks {
-            let timeout_duration = Duration::from_secs(5); // 5 seconds
+            let _timeout_duration = Duration::from_secs(5); // 5 seconds
 
             // Wrap the connect call with a timeout
             add_block(&mut blockchain);

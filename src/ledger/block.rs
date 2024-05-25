@@ -5,7 +5,6 @@ use sha2::{Digest, Sha512};
 
 use crate::{auxi, proto};
 use crate::marco::marco::Marco;
-use crate::marco::sha512hash::Sha512Hash;
 use crate::marco::transaction::Transaction;
 
 #[derive(Debug, Clone)]
@@ -81,8 +80,8 @@ impl Block {
 
     /// mines the block
     ///
-    ///- **outputs:**
-    ///    returns true when the block is mined with success
+    /// **outputs:**
+    /// - returns true when the block is mined with success
     pub fn mine(&mut self) -> bool {
         self.calculate_merkle_tree();
         loop {
@@ -119,12 +118,18 @@ impl Block {
         hash_hex
     }
 
-    /// adds a transaction to the block
-    /// if the number of transactions exceeds the max ammount and the client is a miner 
-    /// then the block is mined
+    /// add a marco to the block
+    /// 
+    /// The hash is calculated or, if already exits, then checks it
     ///
-    /// **outputs:** id of the transaction
-    pub fn add_marco(&mut self, t: Marco) -> usize{
+    /// **outputs:** 
+    /// - 0 if hash is not correct
+    /// - id of the marco otherwise
+    pub fn add_marco(&mut self,mut t: Marco) -> usize{
+        if t.get_hash() == t.calc_hash() {
+           return 0;
+        }
+
         self.transactions.push(t);
         return self.transactions.len()
     }
@@ -151,7 +156,7 @@ impl Block {
             return false;
         }
         else if n_transac == 1 {
-            self.merkle_tree_root = self.transactions[0].hash();
+            self.merkle_tree_root = self.transactions[0].get_hash();
             return true;
         }
 
@@ -160,14 +165,14 @@ impl Block {
 
         if n_transac % 2 == 1 && n_transac >= 3 {
             let (first, rest) = self.transactions.split_at(2);
-            let a = hash2(first[0].data.to_hash(),first[1].data.to_hash());
+            let a = hash2(first[0].get_hash(),first[1].get_hash());
             fin = vec![a];
             fin.extend(rest.iter()
-                    .map(|trans| trans.data.to_hash() )
+                    .map(|trans| trans.get_hash() )
                     .collect::<Vec<String>>());
         }else {
             fin = self.transactions.iter()
-                    .map(|trans| trans.data.to_hash() )
+                    .map(|trans| trans.get_hash() )
                     .collect::<Vec<String>>();
         }
         

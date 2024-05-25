@@ -1,5 +1,4 @@
 #[doc(inline)]
-
 use std::fmt;
 use std::fmt::Display;
 
@@ -28,7 +27,7 @@ pub enum Data {
 }
 
 impl Marco{
-    pub fn hash(&mut self) -> String {
+    pub fn calc_hash(&mut self) -> String {
         if self.hash != "".to_string() {
             return self.hash.clone();
         }
@@ -39,7 +38,7 @@ impl Marco{
     
     pub fn sign(&mut self, skey: RsaPrivateKey) -> String {
         if self.hash == "".to_string() {
-            self.hash();
+            self.calc_hash();
         }
 
         let signature = skey.sign::<Pss>(Pss::new::<Sha256>(),
@@ -49,7 +48,7 @@ impl Marco{
         return self.signature.clone();
     }
 
-    pub fn check_signature(&self, pkey: RsaPublicKey) -> bool{
+    pub fn verify(&self, pkey: RsaPublicKey) -> bool{
         if self.hash != "".to_string() { return false; }
         if self.hash != self.data.to_hash() {return false;}
 
