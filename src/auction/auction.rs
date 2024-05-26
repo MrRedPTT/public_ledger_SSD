@@ -41,11 +41,14 @@ impl Auction {
             .marco_set.clone();
 
         //println!("{:?}",list);
-        let _:Vec<_> = list.into_iter()
-            .map(|(key, value)| (
+        let mut t:Vec<(&String,&Marco)> = list.iter().collect();
+
+        t.sort_by(|a, b| a.1.timestamp.cmp(&b.1.timestamp));
+
+        let _:Vec<_> = t.into_iter().map(|(key, value)| (
                 match &value.data {
                     Data::CreateAuction(_) => {
-                        self.open.insert(key,value.clone());
+                        self.open.insert(key.clone(),value.clone());
                     },
                     Data::Bid(b) => {
                         if b.auction_id == self.my_auction {
@@ -54,14 +57,16 @@ impl Auction {
                             }
                             return;
                         }
-                        if b.seller_id != self.id {
+                        if b.seller_id == self.id {
                             return;
                         }
 
                         //update all_bids
                         let res = self.all_bids.get(&b.auction_id);
                         match res {
-                            None => {},
+                            None => {
+                                self.all_bids.insert(b.auction_id.clone() ,b.amount);
+                            },
                             Some(bid) => {
                                 if bid < &b.amount {
                                     self.all_bids.insert(b.auction_id.clone() ,b.amount);
@@ -72,7 +77,9 @@ impl Auction {
                         //update my_bids
                         let res = self.your_bids.get(&b.auction_id);
                         match res {
-                            None => {},
+                            None => {
+                                self.open.insert(key.clone(),value.clone());
+                            },
                             Some(bid) => {
                                 if bid >= &b.amount {
                                     return;
@@ -95,8 +102,8 @@ impl Auction {
                         };
                         println!("");
                     },
-                    Data::Winner(_) => {
-                        self.open.remove(&key);
+                    Data::Winner(w) => {
+                        self.open.remove(&w.auction);
                     }
                     _ => {}
                 }
@@ -357,7 +364,7 @@ impl Auction {
                 "K".bold().bright_magenta());
             
             let res = self.all_bids.get(&value.to_hash());
-            println!("Res: {:?}", res);
+            //println!("Res: {:?}", res);
             match res  {
                 None => println!("\t Currently, this auction does not have a bid"),
                 Some(b) => println!("\thighest bid is {} euros", b),
@@ -368,17 +375,21 @@ impl Auction {
     }
 
     pub fn close_auction(&self) {
+        let b;
         loop {
             let x = self.get_user_input("Do you actually want to finish your auction early?\n");
             let result = x.trim().parse::<bool>();
 
             match result {
-                Ok(_) => {
+                Ok(ob) => {
+                    b = ob;
                     break;
                 }
                 Err(e) => println!("A positive integer is needed: {}", e),
             }
         }
-        self.check_winner();
+        if b {
+            self.check_winner();
+        }
     }
 }
