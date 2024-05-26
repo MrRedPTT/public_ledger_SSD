@@ -14,6 +14,7 @@ use crate::auxi;
 use crate::kademlia::node::Node;
 use crate::marco::auction::Auction as MarcoAuction;
 use crate::marco::bid::Bid;
+use crate::marco::winner::Winner;
 use crate::marco::marco::{Data, Marco};
 use crate::p2p::peer::Peer;
 
@@ -27,6 +28,9 @@ pub struct Auction {
     pub open: HashMap<String,Marco>,
     ///max bid for auction with hash
     pub all_bids: HashMap<String,f64>,
+
+    pub my_auction: String,
+    pub my_auction_highest: Bid,
 }
 
 
@@ -44,16 +48,23 @@ impl Auction {
                         self.open.insert(key,value.clone());
                     },
                     Data::Bid(b) => {
+                        if b.auction_id == self.my_auction {
+                            if b.amount > self.my_auction_highest.amount{
+                                self.my_auction_highest = b.clone();
+                            }
+                            return;
+                        }
+                        if b.seller_id != self.id {
+                            return;
+                        }
+
                         //update all_bids
                         let res = self.all_bids.get(&b.auction_id);
                         match res {
-                            None => {
-                                self.all_bids.insert(b.auction_id.clone() ,b.amount);
-                            },
+                            None => {},
                             Some(bid) => {
                                 if bid < &b.amount {
                                     self.all_bids.insert(b.auction_id.clone() ,b.amount);
-
                                 }
                             }
                         };
@@ -61,34 +72,32 @@ impl Auction {
                         //update my_bids
                         let res = self.your_bids.get(&b.auction_id);
                         match res {
-                            None => {
-                                    //println!("NO Bid for auction you subscribe");
-                            },
+                            None => {},
                             Some(bid) => {
-                                if bid < &b.amount {
-                                    println!("New Bid for auction you subscribe");
-                                    let mut entries: Vec<_> = self.open.iter().collect();
-                                    entries.sort_by(|a, b| a.0.cmp(b.0));
-                                    let mut i = 0;
-                                    for (k, _) in entries {
-                                        if k == &b.auction_id {
-                                            println!("Auction id: {}", i);
-                                            break;
-                                        }
-                                        i+=1;
+                                if bid >= &b.amount {
+                                    return;
+                                };
+                                println!("New Bid for auction you subscribe");
+                                let mut entries: Vec<_> = self.open.iter().collect();
+                                entries.sort_by(|a, b| a.0.cmp(b.0));
+                                let mut i = 0;
+                                for (k, _) in entries {
+                                    if k == &b.auction_id {
+                                        println!("Auction id: {}", i);
+                                        break;
                                     }
+                                    i+=1;
+                                }
 
-                                    self.your_bids.insert(b.auction_id.clone() ,b.amount);
-                                    println!("Bid of {} by someone", b.amount);
-                                }
-                                else {
-                                    //println!("Lower Bid for auction you subscribe");
-                                }
+                                self.your_bids.insert(b.auction_id.clone() ,b.amount);
+                                println!("Bid of {} by someone", b.amount);
                             }
                         };
                         println!("");
-                        
                     },
+                    Data::Winner(_) => {
+                        self.open.remove(&key);
+                    }
                     _ => {}
                 }
             )).collect();
@@ -148,7 +157,8 @@ impl Auction {
             println!("2. Place Bid");
             println!("3. Show Auctions");
             println!("4. Print The BlockChain");
-            println!("5. Exit");
+            println!("5. Close your Auction");
+            println!("6. Exit");
 
             let choice = self.get_user_input("Enter your choice: ");
             match choice.trim() {
@@ -156,11 +166,12 @@ impl Auction {
                 "2" => self.place_bid(),
                 "3" => self.search_auctions(),
                 "4" => self.print_bc(),
-                "5" => {
+                "5" => self.close_auction(),
+                "6" => {
                     println!("Exiting...");
                     break;
                 },
-                _ => println!("Invalid choice, please try again."),
+                _ => self.search_auctions(),
             }
         }
     }
@@ -196,6 +207,8 @@ impl Auction {
             open: HashMap::new(),
             your_bids: HashMap::new(),
             all_bids: HashMap::new(),
+            my_auction: "".to_string(),
+            my_auction_highest: Bid::new("".to_string(),"".to_string(),"".to_string(),0.0),
         }
     }
 
@@ -232,8 +245,7 @@ impl Auction {
             }
         }
         let mut m = Marco::from_auction(MarcoAuction::new(self.id.clone(), value));
-        m.calc_hash();
-        m.sign(self.skey.clone());
+        self.my_auction = m.get_hash();
         self.add_and_broadcast(m.borrow_mut());
     }
 
@@ -295,17 +307,23 @@ impl Auction {
     }
 
     pub fn check_winner(&self) {
-        //buscar hash de auction
+        //buscar hash do meu auction
+        //ir buscar highest bid
+        //
         let mut entries: Vec<_> = self.open.iter().collect();
         entries.sort_by(|a, b| a.0.cmp(b.0));
         for (_, value) in entries {
             match &value.data {
                 Data::CreateAuction(a) => {
-                    if a.seller_id == self.id {
-                        println!("You can only have 1 open auction at the same time\n");
-
-                        return;
+                    if a.seller_id != self.id {
+                        continue;
                     }
+                    let mut m = Marco::from_winner(
+                        Winner::new(value.get_hash(), 
+                            self.my_auction_highest.amount,
+                            self.id.clone(),
+                            self.my_auction_highest.buyer_id.clone()));
+                    self.add_and_broadcast(m.borrow_mut());
                 }
                 _ => {}
             }

@@ -103,6 +103,17 @@ impl Marco{
         return m;
 
     }
+    pub fn from_winner(t: Winner) -> Marco {
+        let mut m = Marco {
+            hash: "".to_string(),
+            signature: "".to_string(),
+            timestamp: SystemTime::now(),
+            data: Data::Winner(t)
+        };
+        m.calc_hash();
+        return m;
+
+    }
 
     pub fn from_auction(a: Auction) -> Marco {
         let mut m = Marco {
