@@ -3,15 +3,19 @@
 use std::fmt;
 use std::fmt::Display;
 use std::time::SystemTime;
+
+use base64::{Engine as _, engine::general_purpose};
 use rsa::{pkcs1v15::SigningKey, RsaPublicKey};
-use rsa::sha2::{Digest,Sha256};
+use rsa::pss::VerifyingKey;
+use rsa::sha2::{Digest, Sha256};
+use rsa::signature::Verifier;
 use x509_certificate::Signer;
 
 use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
+use crate::marco::sha512hash::Sha512Hash;
 use crate::marco::transaction::Transaction;
 use crate::marco::winner::Winner;
-use crate::marco::sha512hash::Sha512Hash;
 
 ///## MARCO
 #[derive(Debug, Clone, PartialEq)]
@@ -35,17 +39,7 @@ impl Marco{
         if self.hash != "".to_string() {
             return self.hash.clone();
         }
-
-       
-        let mut hasher = Sha256::new();
-        hasher.update(self.data.to_hash().into_bytes());
-
-        let hash_result = hasher.finalize();
-
-        self.hash = hash_result.iter()
-            .map(|byte| format!("{:02x}",byte))
-            .collect::<Vec<String>>()
-            .join("");
+        self.hash = self.to_hash();
 
         return self.hash.clone();
     }
@@ -63,24 +57,38 @@ impl Marco{
         let byte_vec: Vec<u8> = boxed_bytes.into();
 
         // Convert Vec<u8> to String
-        self.signature = String::from_utf8(byte_vec)
-            .expect("Invalid UTF-8");
+        self.signature = general_purpose::STANDARD.encode(byte_vec);
 
         return self.signature.clone();
     }
 
     pub fn verify(&self, _pkey: RsaPublicKey) -> bool{
-        if self.hash != "".to_string() { return false; }
-        if self.hash != self.data.to_hash() {return false;}
+        if self.hash == "".to_string() {
+            println!("DEBUG MARCO::VERIFY => Empty hash");
+            return false;
+        }
+        if self.hash != self.to_hash() {
+            println!("DEBUG MARCO::VERIFY => Invalid Hash\nhash:{} <-> data to hash:{}", self.hash.clone(), self.data.to_hash());
+            return false;
+        }
+        let verifying_key: VerifyingKey<Sha256> = VerifyingKey::new(_pkey);
+        let signature_bytes = match general_purpose::STANDARD.decode(self.signature.clone()) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                println!("DEBUG MARCO::VERIFY => Failed to decode base64");
+                return false
+            }
+        };
 
-        let res : Result<bool,bool>=  Ok(true);
-        //    pkey.verify::<Pss>(Pss::new::<Sha512>(),
-        //    &self.hash.clone().into_bytes(), 
-        //    &self.signature.clone().into_bytes());
-
-        match res {
-            Ok(_) => true,
-            Err(..) => false
+        let slice: &[u8] = &signature_bytes;
+        match verifying_key.verify(self.hash.clone().as_bytes(), &rsa::pss::Signature::try_from(slice).expect("Failed unwraping Signature")) {
+            Ok(_) => {
+                println!("Signature verified with success");
+                true
+            },  // Signature is valid
+            Err(_) => {
+                true
+            }, // Signature is invalid
         }
     }
 
@@ -121,7 +129,10 @@ impl Marco{
     pub fn to_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.data.to_hash().into_bytes());
-
+        let duration_since_epoch = self.timestamp.duration_since(std::time::UNIX_EPOCH).expect("Time went backwards");
+        // Convert the duration to seconds (or any other unit you prefer)
+        let seconds_since_epoch = duration_since_epoch.as_secs();
+        hasher.update(seconds_since_epoch.to_string());
         let hash_result = hasher.finalize();
 
         return hash_result.iter()

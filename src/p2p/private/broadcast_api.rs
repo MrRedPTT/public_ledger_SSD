@@ -65,6 +65,11 @@ impl BroadCastReq {
             sender = auxi::gen_address_src(peer.id.clone(), peer.node.ip.clone(), peer.node.port.clone());
         }
 
+        if nodes.len() == 0 {
+            // Call bootstrap to refresh nodes
+            peer.boot().await;
+            return;
+        }
         let n = ( (ID_LEN / 16) as f32).ceil() as usize ; // Number of sub-vectors
 
         let mut chunk_size = (nodes.len() / n) + 1;

@@ -1,19 +1,21 @@
 #[doc(inline)]
-use colored::Colorize;
-use std::io::{self, Write};
+use std::borrow::BorrowMut;
 //use std::thread;
 use std::collections::HashMap;
+use std::env;
+use std::io::{self, Write};
+
+use colored::Colorize;
 //use std::time::Duration;
 use rsa::{pkcs1v15::SigningKey, pkcs8::DecodePrivateKey, RsaPublicKey};
 use rsa::sha2::Sha256;
-use std::env;
 
 use crate::auxi;
 use crate::kademlia::node::Node;
-use crate::p2p::peer::Peer;
-use crate::marco::marco::{Marco,Data};
-use crate::marco::bid::Bid;
 use crate::marco::auction::Auction as MarcoAuction;
+use crate::marco::bid::Bid;
+use crate::marco::marco::{Data, Marco};
+use crate::p2p::peer::Peer;
 
 pub struct Auction {
     pub client: Peer,
@@ -59,13 +61,28 @@ impl Auction {
                         //update my_bids
                         let res = self.your_bids.get(&b.auction_id);
                         match res {
-                            None => {},
+                            None => {
+                                    //println!("NO Bid for auction you subscribe");
+                            },
                             Some(bid) => {
                                 if bid < &b.amount {
-                                    self.your_bids.insert(b.auction_id.clone() ,b.amount);
                                     println!("New Bid for auction you subscribe");
-                                    println!("Auction id: {}", b.auction_id);
-                                    println!("Bid of {} by {}", b.amount, b.buyer_id);
+                                    let mut entries: Vec<_> = self.open.iter().collect();
+                                    entries.sort_by(|a, b| a.0.cmp(b.0));
+                                    let mut i = 0;
+                                    for (k, _) in entries {
+                                        if k == &b.auction_id {
+                                            println!("Auction id: {}", i);
+                                            break;
+                                        }
+                                        i+=1;
+                                    }
+
+                                    self.your_bids.insert(b.auction_id.clone() ,b.amount);
+                                    println!("Bid of {} by someone", b.amount);
+                                }
+                                else {
+                                    //println!("Lower Bid for auction you subscribe");
                                 }
                             }
                         };
@@ -96,7 +113,9 @@ impl Auction {
         }
     }
 
-    fn add_and_broadcast(&self, m: Marco){
+    fn add_and_broadcast(&self, m: &mut Marco){
+        m.calc_hash();
+        m.sign(self.skey.clone());
         let (res,ob) = self.client.blockchain.lock().unwrap().add_marco(m.clone(),self.pkey.clone());
         if !res {
             println!("There was an issue with the generated auction");
@@ -105,9 +124,10 @@ impl Auction {
         match ob {
             None => {
                 let local_client = self.client.clone();
+                let m_clone = m.clone();
                 tokio::spawn(async move {
                     //open auctin with value
-                    local_client.send_marco(m).await
+                    local_client.send_marco(m_clone).await
                 });
             },
             Some(b) => {
@@ -213,8 +233,8 @@ impl Auction {
         }
         let mut m = Marco::from_auction(MarcoAuction::new(self.id.clone(), value));
         m.calc_hash();
-        //m.sign(self.skey.clone());
-        self.add_and_broadcast(m);
+        m.sign(self.skey.clone());
+        self.add_and_broadcast(m.borrow_mut());
     }
 
     pub fn place_bid(&mut self) {
@@ -265,10 +285,10 @@ impl Auction {
 
         match &auction.data {
             Data::CreateAuction(a) => {
-                let mut m = Marco::from_bid(Bid::new(auction.get_hash(),self.id.clone(), a.seller_id.clone(), value ));
-                m.calc_hash();
-                //m.sign(self.skey.clone());
-                self.add_and_broadcast(m);
+
+                let mut m = Marco::from_bid(Bid::new(auction.get_hash(),self.id.clone(), a.seller_id.clone(), value.clone() ));
+                self.your_bids.insert(auction.get_hash(), value);
+                self.add_and_broadcast(m.borrow_mut());
             }
             _ => {}
         }
