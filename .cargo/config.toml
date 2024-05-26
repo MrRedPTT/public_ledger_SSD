@@ -1,0 +1,15 @@
+[env]
+TLS="1" # 1 for True 0 for False
+OS_CONF="linux"
+DEFAULT_BOOTSTRAP="y"
+EXEC_MODE="BOOTSTRAP"
+
+[http]
+timeout = 30
+multiplexing = true
+
+[alias]
+bootstrap = ["run", "--", "BOOTSTRAP"]
+client = ["run", "--", "CLIENT"]
+server1 = ["run", "--", "SERVER1"]
+server3 = ["run", "--", "SERVER3"]

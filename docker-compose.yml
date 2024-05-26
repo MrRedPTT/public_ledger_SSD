@@ -1,0 +1,43 @@
+services:
+  bootstrap:
+    build: .
+    container_name: bootstrap
+    hostname: bootstrap
+    environment:
+      EXEC_MODE: "BOOTSTRAP"
+    networks:
+      - public_ledger_network
+
+  server1:
+    build: .
+    container_name: server1
+    hostname: server1
+    environment:
+      EXEC_MODE: "SERVER1" # Change the behaviour of the node (might be changed later on)
+    networks:
+     - public_ledger_network
+
+  server3:
+    build: .
+    container_name: server3
+    hostname: server3
+    environment:
+      EXEC_MODE: "SERVER3" # Change the behaviour of the node (might be changed later on)
+    networks:
+      - public_ledger_network
+
+  client:
+    build: .
+    container_name: client
+    hostname: client
+    environment:
+      EXEC_MODE: "CLIENT" # Change the behaviour of the node (might be changed later on)
+    networks:
+      - public_ledger_network
+
+
+
+
+networks:
+  public_ledger_network:
+    driver: bridge
