@@ -26,9 +26,9 @@ pub mod auxi;
 #[tokio::main]
 async fn main() {
     // This is here so that I can still test the project outside of docker
-    let os = env::var("OS_CONF").unwrap_or_else(|_| "client".to_string());
+    let os = env::var("OS_CONF").unwrap_or_else(|_| "linux".to_string());
     let mut server = env::var("EXEC_MODE").unwrap_or_else(|_| "CLIENT".to_string());
-    if os == "windows" {
+    if os == "windows" || os == "linux" {
         let args: Vec<String> = env::args().collect();
         server = args[1].clone();
     }
@@ -100,7 +100,9 @@ async fn test_server_blockchain_node() {
     let mut count = 0;
     for i in 0..3 {
         for j in 0..Blockchain::MAX_TRANSACTIONS {
-            println!("Was able to add to blockchain? {}", client.blockchain.lock().unwrap().add_marco(gen_transaction(strings[i+j].clone(), count), pub_key.clone()));
+            println!("Was able to add to blockchain? {}", 
+                    client.blockchain.lock().unwrap()
+                        .add_marco(gen_transaction(strings[i+j].clone(), count), pub_key.clone()).0);
             count += 1;
         }
         client.blockchain.lock().unwrap().mine();
@@ -186,6 +188,7 @@ async fn test_client() {
         }
         keys.push(key_id);
     }
+    auction.main().await;
 
 
     println!("Get Block -> {:?}", auction.client.get_block("004048e475898274f4ab7e01aeaa2e4b60e4a7461024ee4cc91ac95a2205385483e8a8d4d13f9fa58b03c2ed2cd23b6fc26070745dcbae96166b1802ea5d7bfa".to_string()).await);

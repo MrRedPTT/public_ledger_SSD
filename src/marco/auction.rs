@@ -12,12 +12,19 @@ pub struct Auction {
     pub(crate) amount: f64,
 }
 
-impl Auction{} 
+impl Auction{
+    pub fn new( seller_id: String, amount: f64) -> Auction{
+        Auction{
+            auction_id: 1,
+            seller_id,
+            amount
+        }
+    }
+} 
 
 impl Sha512Hash for Auction {
     fn to_hash(&self) -> String {
         let mut hasher = Sha512::new();
-        hasher.update(self.auction_id.to_be_bytes());
         hasher.update(self.seller_id.as_bytes());
         hasher.update(self.amount.to_le_bytes());
 
@@ -34,7 +41,7 @@ impl Sha512Hash for Auction {
 // Implementing the Display trait for the Auction struct
 impl fmt::Display for Auction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f,"Auction {{ auction_id: {}, seller_id: {}, amount: {} }}",
-            self.auction_id, self.seller_id, self.amount)
+        write!(f,"Auction {{seller_id: {}, amount: {} }}",
+            self.seller_id, self.amount)
     }
 }

@@ -10,7 +10,7 @@ md5 = "0.7.0"
 sha2 = "0.11.0-pre.3"
 rand = "0.8.5"
 sha3 = "=0.11.0-pre.3"
-rsa = { version = "0.9.6", features =["sha2"] }
+rsa = { version = "0.9.6", features =["sha2", "pem", "std"] }
 tokio = { version = "1.36.0", features = ["full"] }
 futures = "0.3"
 async-std = "1.9"

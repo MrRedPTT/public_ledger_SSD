@@ -65,11 +65,16 @@ impl Heads {
     }
 
     pub fn prune(&mut self, hash: String){
-        for i in 0..self.list.len(){
-            if  self.list[i][0].prev_hash == hash {
-                self.list.remove(i);
+        let mut i :i64 = 0;
+        loop {
+            if  i as usize >= self.list.len() {
+                break;
             }
-
+            if  self.list[i as usize][0].prev_hash == hash {
+                self.list.remove(i as usize);
+                i-=1;
+            }
+            i+=1;
         }
     }
 

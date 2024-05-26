@@ -1,6 +1,6 @@
 [env]
 TLS="1" # 1 for True 0 for False
-OS_CONF="windows"
+OS_CONF="linux"
 DEFAULT_BOOTSTRAP="y"
 EXEC_MODE="BOOTSTRAP"
 

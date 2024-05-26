@@ -139,10 +139,20 @@ impl PacketSending for Peer {
         // Marco received
         let cert = input.cert.clone();
         let pub_key = auxi::get_public_key(cert);
-        if !self.blockchain.lock().unwrap().add_marco(transaction.clone(), pub_key) {
+        let (res, b) = self.blockchain.lock().unwrap().add_marco(transaction.clone(), pub_key) ;
+        if !res{
             // Marco already stored or invalid
             return Ok(Response::new(()));
         }
+        match b {
+            None  => {},
+            Some(block) => {
+                println!("A new block was mined, sending it to everybody");
+                self.send_block(block).await;
+                return Ok(Response::new(()))
+            },
+        }
+
 
         if input.ttl > 1 && input.ttl <= 15 { // We also want to avoid propagating broadcast with absurd ttls (> 15)
             // Propagate

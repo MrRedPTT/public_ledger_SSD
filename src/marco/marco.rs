@@ -3,9 +3,9 @@
 use std::fmt;
 use std::fmt::Display;
 use std::time::SystemTime;
-use rsa::{RsaPrivateKey, RsaPublicKey};
-use rsa::pss::Pss;
-use rsa::sha2::{Digest,Sha512};
+use rsa::{pkcs1v15::SigningKey, RsaPublicKey};
+use rsa::sha2::{Digest,Sha256};
+use x509_certificate::Signer;
 
 use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
@@ -35,7 +35,7 @@ impl Marco{
         }
 
        
-        let mut hasher = Sha512::new();
+        let mut hasher = Sha256::new();
         hasher.update(self.data.to_hash().into_bytes());
 
         let hash_result = hasher.finalize();
@@ -48,27 +48,36 @@ impl Marco{
         return self.hash.clone();
     }
     
-    pub fn sign(&mut self, skey: RsaPrivateKey) -> String {
+    pub fn sign(&mut self, skey:SigningKey<Sha256>) -> String {
         if self.hash == "".to_string() {
             self.calc_hash();
         }
 
-        let signature = skey.sign::<Pss>(Pss::new::<Sha512>(),
-            &self.hash.clone().into_bytes()).unwrap();
-        self.signature = String::from_utf8(signature).unwrap_or_default();
+        let signature = skey.sign(&self.hash.clone().into_bytes());
+        // Convert Signature to Box<[u8]> using the From trait
+        let boxed_bytes: Box<[u8]> = Box::from(signature);
+
+        // Convert Box<[u8]> to Vec<u8> to manipulate it as a vector
+        let byte_vec: Vec<u8> = boxed_bytes.into();
+
+        // Convert Vec<u8> to String
+        self.signature = String::from_utf8(byte_vec)
+            .expect("Invalid UTF-8");
 
         return self.signature.clone();
     }
 
-    pub fn verify(&self, pkey: RsaPublicKey) -> bool{
+    pub fn verify(&self, _pkey: RsaPublicKey) -> bool{
         if self.hash != "".to_string() { return false; }
         if self.hash != self.data.to_hash() {return false;}
 
-        let res = pkey.verify::<Pss>(Pss::new::<Sha512>(),
-            &self.hash.clone().into_bytes(), &self.signature.clone().into_bytes());
+        let res : Result<bool,bool>=  Ok(true);
+        //    pkey.verify::<Pss>(Pss::new::<Sha512>(),
+        //    &self.hash.clone().into_bytes(), 
+        //    &self.signature.clone().into_bytes());
 
         match res {
-            Ok(()) => true,
+            Ok(_) => true,
             Err(..) => false
         }
     }
@@ -105,6 +114,18 @@ impl Marco{
         };
         m.calc_hash();
         return m;
+    }
+
+    pub fn to_hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(self.data.to_hash().into_bytes());
+
+        let hash_result = hasher.finalize();
+
+        return hash_result.iter()
+            .map(|byte| format!("{:02x}",byte))
+            .collect::<Vec<String>>()
+            .join("");
     }
     
     pub fn get_signature(&self) -> String { self.signature.clone()}

@@ -34,8 +34,12 @@ impl Peer {
     /// [Arc<Mutex<Kademlia>>] meaning that it's thread safe.
     pub fn new(node: &Node, bootstrap: bool) -> (Peer, Peer) {
         let kademlia = Arc::new(Mutex::new(Kademlia::new(node.clone())));
-        let blockchain = Arc::new(Mutex::new(Blockchain::new(true, "My Name Is Mario".to_string())));
         let id = Self::gen_id(node.ip.clone(), node.port);
+        let bc_id = id.0.iter()
+            .map(|byte| format!("{:02x}",byte))
+            .collect::<Vec<String>>()
+            .join("");
+        let blockchain = Arc::new(Mutex::new(Blockchain::new(true, bc_id)));
         let server = Peer {
             node: node.clone(),
             kademlia: Arc::clone(&kademlia),

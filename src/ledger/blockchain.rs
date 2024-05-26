@@ -90,12 +90,19 @@ impl Blockchain {
         let f = self.heads.add_block(b.clone());
         // if not then is it a new head ?
         if !f {
-            if self.chain.last().unwrap().clone().hash == b.clone().prev_hash {
-                self.heads.add_head(vec![b]);
+            let last = self.chain.last();
+            match last {
+                None => return false,
+                Some(lastb) => {
+                    if lastb.clone().hash == b.clone().prev_hash {
+                        self.heads.add_head(vec![b.clone()]);
+                    }
+                    else {
+                        return false
+                    }
+                }
             }
-            else {
-                return false
-            }
+
         }
 
         match self.heads.get_confirmed() {
@@ -105,6 +112,17 @@ impl Blockchain {
             }
             None => {}
         }
+
+        //remove marcos that come in the block and that exist in the temporary block
+        println!("Size at beginning {}", self.temporary_block.transactions.len());
+        for m in b.transactions.iter() {
+            for (i, ml) in self.temporary_block.transactions.clone().iter().enumerate() {
+                if m.to_hash() == ml.to_hash() {
+                    self.temporary_block.transactions.remove(i);
+                }
+            }
+        }
+        println!("Size at end {}", self.temporary_block.transactions.len());
         self.heads.reorder();
         self.adjust_difficulty(); 
         self.adjust_temporary_block();
@@ -149,21 +167,28 @@ impl Blockchain {
     /// **outputs**:
     /// true if added successfully
     /// and false otherwise
-    pub fn add_marco(&mut self,mut t:Marco, public_key: RsaPublicKey) -> bool {
+    pub fn add_marco(&mut self,mut t:Marco, public_key: RsaPublicKey) -> (bool, Option<Block>) {
         if t.verify(public_key) {
-            return false
+            return (false,None)
         }
 
         let hash= t.calc_hash();
         let res = self.marco_set.contains_key(&hash);
-        if res {return false}
+        if res {return (false,None)}
         self.marco_set.insert(hash,t.clone());
 
-        if self.can_mine() { return false; }
-        if !self.is_miner { return true; }
+        if !self.is_miner { return (true,None); }
         let _index = self.temporary_block.add_marco(t);
+
+        if self.can_mine() { 
+            self.temporary_block.mine();
+            let r = self.temporary_block.clone();
+            self.add_block(r.clone());
+            self.replace_temporary_block();
+            return (true,Some(r)); 
+        }
         println!("DEBUG BLOCKCHAIN::ADD_MARCO => Index: {_index}");
-        return true;
+        return (true,None);
         //self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
     }
 

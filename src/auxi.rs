@@ -1,6 +1,6 @@
 use pem::{encode, Pem};
 use rand::Rng;
-use rsa::{pkcs1::DecodeRsaPublicKey, RsaPublicKey};
+use rsa::{pkcs1::DecodeRsaPrivateKey,pkcs1::DecodeRsaPublicKey, RsaPrivateKey, RsaPublicKey};
 use sha3::{Digest, Sha3_256};
 use tokio::net::TcpListener;
 use x509_certificate::X509Certificate;
@@ -138,6 +138,14 @@ pub fn get_public_key(cert_pem: String) -> RsaPublicKey {
     let public_pkcs1_pem = encode(&pem);
     let public_key = RsaPublicKey::from_pkcs1_pem(public_pkcs1_pem.as_str()).expect("Failed to Retrieve public key");
     return public_key;
+}
+pub fn get_private_key(private_key: String) -> RsaPrivateKey {
+    // Parse the PEM-encoded private key string
+    //let pem_key = pem::parse(private_key_str.as_str()).expect("Failed to parse private key");
+
+    // Parse the DER-encoded key into components
+    let rsa_priv = RsaPrivateKey::from_pkcs1_pem(private_key.as_str()).expect("Failed to generate private key");
+    rsa_priv
 }
 
 pub fn transform_proto_to_marco(proto_marco: &ProtoMarco) -> Marco {
