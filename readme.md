@@ -1,4 +1,4 @@
-# About 
+# About the Program
 
 This is a project for Systems and Data Security class in the Masters of Cybersecurity
 
@@ -50,6 +50,7 @@ which Marco it received.
 It is best to have more than 1 `client` as clients that create Auctions will not be able to bid on them,
 and the auction will not appear in `Show Auctions`, it will only appear in the second `client` node.
 
+# About the project
 ## Secure Ledger
 
 The secure ledger should be moduler and it must support PoW and Delegated Proof of Stake
