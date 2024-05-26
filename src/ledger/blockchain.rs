@@ -21,7 +21,7 @@ pub struct Blockchain {
     pub is_miner: bool,
     pub temporary_block: Block,
     pub miner_id: String,
-        marco_set: HashMap<String,Marco>
+    pub marco_set: HashMap<String,Marco>
 }
 
 // =========================== BLOCKCHAIN CODE ==================================== //

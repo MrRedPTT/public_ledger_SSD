@@ -13,7 +13,17 @@ pub struct Bid {
     pub(crate) amount: f64,
 }
 
-impl Bid{}
+impl Bid{
+    pub fn new(buyer_id: String, seller_id: String, amount: f64) -> Bid{
+        Bid {
+            buyer_id,
+            seller_id,
+            amount,
+            auction_id: 1,
+        }
+    }
+
+}
 
 impl Sha512Hash for Bid {
     fn to_hash(&self) -> String {

@@ -73,7 +73,7 @@ impl  ResHandler {
             let res = c.ping(req).await;
             match res {
                 Err(e) => {
-                    println!("An error has occurred while trying to ping: {{{}}}", e);
+                    error!("An error has occurred while trying to ping: {{{}}}", e);
                     Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                 },
                 Ok(response) => {

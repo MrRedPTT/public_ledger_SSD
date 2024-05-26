@@ -1,7 +1,9 @@
 #[doc(inline)]
+use colored::Colorize;
 use std::io::{self, Write};
-use std::thread;
-use std::time::Duration;
+//use std::thread;
+use std::collections::HashMap;
+//use std::time::Duration;
 use rsa::{pkcs1v15::SigningKey, pkcs8::DecodePrivateKey, RsaPublicKey};
 use rsa::sha2::Sha256;
 use std::env;
@@ -9,14 +11,16 @@ use std::env;
 use crate::auxi;
 use crate::kademlia::node::Node;
 use crate::p2p::peer::Peer;
-use crate::marco::marco::Marco;
+use crate::marco::marco::{Marco,Data};
+use crate::marco::bid::Bid;
 use crate::marco::auction::Auction as MarcoAuction;
 
 pub struct Auction {
     pub client: Peer,
     pub id:String,
     pub pkey:RsaPublicKey,
-    pub skey: SigningKey<Sha256>
+    pub skey: SigningKey<Sha256>,
+    pub open: HashMap<String,MarcoAuction>,
 }
 
 
@@ -64,7 +68,7 @@ impl Auction {
         }
     }
 
-    pub async fn main(&self) {
+    pub async fn main(&mut self) {
         loop {
             println!("Choose an action:");
             println!("1. Open Auction");
@@ -116,6 +120,7 @@ impl Auction {
             id,
             pkey,
             skey,
+            open: HashMap::new(),
         }
     }
 
@@ -143,17 +148,68 @@ impl Auction {
         self.add_and_broadcast(m);
     }
 
-    pub fn place_bid(&self) {
-        todo!();
-        fn spawn_and_exit() {
-            thread::spawn(|| {
-                for i in 1..10 {
-                    println!("Spawned thread: {}", i);
-                    thread::sleep(Duration::from_millis(500));
-                }
-            });
-            println!("Exiting the spawn_and_exit function");
+    pub fn place_bid(&mut self) {
+        self.search_auctions();
+        let mut entries: Vec<_> = self.open.iter().collect();
+        if entries.len() == 0 {
+            println!("No Auctions Found!");
+            return;
         }
+
+        let mut auction_id :usize;
+        loop {
+            let x = self.get_user_input("What auction do you want to bid in?\n");
+            let result = x.trim().parse::<usize>();
+
+            match result {
+                Ok(number) => {
+                    auction_id = number;
+                    if  auction_id < entries.len() {
+                        break;
+                    } else {
+                        println!("A positive integer, between 0 and {}, is needed",entries.len());
+                    }
+                }
+                Err(e) => println!("A positive integer is needed: {}", e),
+            }
+        }
+        let value :f64;
+        loop {
+            let x = self.get_user_input("How many coins do you want to bid?\n");
+            let result = x.trim().parse::<f64>();
+
+            match result {
+                Ok(number) => {
+                    value = number;
+                    break;
+                }
+                Err(e) => println!("A float is needed: {}", e),
+            }
+        }
+
+        //ir buscar auction
+        let mut auction:&MarcoAuction = &MarcoAuction::new("".to_string(),0.0);
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        let mut i :usize= 0;
+        if  auction_id >= entries.len() {
+            return ;
+        }
+        for (_,value) in entries.iter().clone() {
+            if i != auction_id{
+                break;
+            }
+            auction = value;
+            i+=1;
+        }
+
+
+
+
+        let mut m = Marco::from_bid(Bid::new(self.id.clone(), auction.seller_id.clone(), value ));
+        m.calc_hash();
+        //m.sign(self.skey.clone());
+        self.add_and_broadcast(m);
+
         // Acquire information from the stdin to populate the Marco object
 
         // Once again, use the following call to broadcast the Marco
@@ -162,33 +218,42 @@ impl Auction {
 
     pub fn winner(&self) {
         todo!();
-        fn spawn_and_exit() {
-            thread::spawn(|| {
-                for i in 1..10 {
-                    println!("Spawned thread: {}", i);
-                    thread::sleep(Duration::from_millis(500));
-                }
-            });
-            println!("Exiting the spawn_and_exit function");
-        }
         // Acquire information from the stdin to populate the Marco object
 
         // Once again, use the following call to broadcast the Marco
         // self.client.send_marco(marco).await;
     }
 
-    pub fn search_auctions(&self) {
-        todo!();
-        fn spawn_and_exit() {
-            thread::spawn(|| {
-                for i in 1..10 {
-                    println!("Spawned thread: {}", i);
-                    thread::sleep(Duration::from_millis(500));
+    pub fn search_auctions(&mut self) {
+        //search bc for auctions
+        let list = self.client.blockchain.lock().unwrap()
+            .marco_set.clone();
+
+        //println!("{:?}",list);
+        let _:Vec<_> = list.into_iter()
+            .map(|(key, value)| (
+                match value.data {
+                    Data::CreateAuction(a) => {
+                        self.open.insert(key,a);
+                    },
+                    _ => {}
                 }
-            });
-            println!("Exiting the spawn_and_exit function");
+            )).collect();
+
+        //print auction map
+        println!("Printing List of Auction");
+        let mut entries: Vec<_> = self.open.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        let mut i = 0;
+        for (_, value) in entries {
+            println!("Auction {}: Auctioning {} {}ubiously {}nsecure {}oin {}eeper(s)",i, value.amount,
+                "D".bold().red(),
+                "I".bold().yellow(),
+                "C".bold().blue(),
+                "K".bold().magenta());
+            i+=1;
         }
-        // Iterate through the blockchain to collect all the open auctions
+
     }
 
 }

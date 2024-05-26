@@ -172,7 +172,7 @@ async fn test_server() {
 }
 
 async fn test_client() {
-    let auction = &Auction::new().await;
+    let auction = &mut Auction::new().await;
     println!("Listening at 127.0.0.1:{}", auction.client.node.port);
 
     let mut keys: Vec<Identifier> = Vec::new();
