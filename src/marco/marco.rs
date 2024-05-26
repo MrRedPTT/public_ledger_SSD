@@ -145,6 +145,10 @@ impl Display for Marco {
             Data::Bid(b) => 
                 write!(f, "Data:{}, with hash {} and signature {}", 
                        b.to_string(), self.hash, self.signature),
+            Data::Winner(b) => 
+                write!(f, "Data:{}, with hash {} and signature {}", 
+                       b.to_string(), self.hash, self.signature),
+  
         }
     }
 }
@@ -153,6 +157,7 @@ impl Sha512Hash for Data {
     fn to_hash(&self) -> String {
         match self {
             Data::Transaction(t) => t.to_hash(),
+            Data::Winner(w) => w.to_hash(),
             Data::CreateAuction(a) => a.to_hash(),
             Data::Bid(b) => b.to_hash(),
         }
