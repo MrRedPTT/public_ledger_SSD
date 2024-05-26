@@ -10,6 +10,7 @@ use x509_certificate::Signer;
 use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
 use crate::marco::transaction::Transaction;
+use crate::marco::winner::Winner;
 use crate::marco::sha512hash::Sha512Hash;
 
 ///## MARCO
@@ -26,7 +27,7 @@ pub enum Data {
     Transaction(Transaction),
     CreateAuction(Auction),
     Bid(Bid),
-    Winner(Transaction)
+    Winner(Winner)
 }
 
 impl Marco{
