@@ -25,7 +25,8 @@ pub struct Marco {
 pub enum Data {
     Transaction(Transaction),
     CreateAuction(Auction),
-    Bid(Bid)
+    Bid(Bid),
+    Winner(Transaction)
 }
 
 impl Marco{

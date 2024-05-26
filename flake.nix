@@ -21,6 +21,7 @@
                 rust-analyzer
                 protobuf
                 openssl
+                killall
             ];
             OPENSSL_DIR="${pkgs.openssl.dev}";
             OPENSSL_LIB_DIR="${pkgs.openssl.out}/lib";
@@ -32,6 +33,10 @@
                 alias doc='cargo doc'
                 alias odoc='cargo doc --open'
 
+                alias client='cargo client && killall -9 public_ledger'
+                alias bootstrap='cargo bootstrap && killall -9 public_ledger'
+                alias server='cargo server1 && killall -9 public_ledger'
+                alias server3='cargo server3 && killall -9 public_ledger'
             '';
 
         };

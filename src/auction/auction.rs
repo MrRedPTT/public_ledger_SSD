@@ -175,7 +175,7 @@ impl Auction {
         }
         let value :f64;
         loop {
-            let x = self.get_user_input("How many coins do you want to bid?\n");
+            let x = self.get_user_input("How many euros do you want to bid?\n");
             let result = x.trim().parse::<f64>();
 
             match result {
@@ -247,10 +247,10 @@ impl Auction {
         let mut i = 0;
         for (_, value) in entries {
             println!("Auction {}: Auctioning {} {}ubiously {}nsecure {}oin {}eeper(s)",i, value.amount,
-                "D".bold().red(),
-                "I".bold().yellow(),
-                "C".bold().blue(),
-                "K".bold().magenta());
+                "D".bold().bright_red(),
+                "I".bold().bright_yellow(),
+                "C".bold().bright_blue(),
+                "K".bold().bright_magenta());
             i+=1;
         }
 
