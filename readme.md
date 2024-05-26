@@ -2,9 +2,53 @@
 
 This is a project for Systems and Data Security class in the Masters of Cybersecurity
 
-The [full assigment](./docs/assigment.pdf)
+## How To Run:
+### Set up
+Compiling the Program:
+```sh
+    cargo build
+```
 
-# To do:
+If using using Windows, change the `OS_CONF` enc in the [.cargo/config.toml](./.cargo/config.toml) to "windows"
+
+In order to avoid being asked for the `bootstrap` node location, add the `bootstrap.txt` file inside [src/](./src/) with the following content:
+```
+127.0.0.1
+```
+
+### Runing
+In Terminal 1:
+```sh
+    cargo bootstrap
+```
+
+In Terminal 2:
+```sh
+    cargo client
+```
+
+In Terminal 3:
+```sh
+    cargo server
+```
+
+Each of the previous commands generates a node in the P2P Network.
+
+### Notes on running
+
+The `bootstrap` node needs to be the first node to be inside the network, 
+after which, any number of `client` and/or `server` nodes and be created.
+
+New nodes will only join the network if `bootstrap` node in online, but,
+after joining the network, the `bootstrap` node does not need to be online
+as the nodes already inside it, will comunicate between themselves.
+
+The `client` nodes are nodes in which the Auction is enable and the user is able to interact with it,
+on the other hand, `server` nodes are nodes that display usefull debug messages, such as,
+which Marco it received.
+
+It is best to have more than 1 `client` as clients that create Auctions will not be able to bid on them,
+and the auction will not appear in `Show Auctions`, it will only appear in the second `client` node.
 
 ## Secure Ledger
 
@@ -34,7 +78,7 @@ To be used during presentation to show resiliency of the system.
 
 # Useful links: 
 
-## Documentation
+## Rust Documentation
 
 [Rust documentation](https://www.rust-lang.org/learn)
 
