@@ -1,19 +1,21 @@
-#[doc(inline)]
-use colored::Colorize;
-use std::io::{self, Write};
+use std::borrow::BorrowMut;
 //use std::thread;
 use std::collections::HashMap;
+use std::env;
+use std::io::{self, Write};
+
+#[doc(inline)]
+use colored::Colorize;
 //use std::time::Duration;
 use rsa::{pkcs1v15::SigningKey, pkcs8::DecodePrivateKey, RsaPublicKey};
 use rsa::sha2::Sha256;
-use std::env;
 
 use crate::auxi;
 use crate::kademlia::node::Node;
-use crate::p2p::peer::Peer;
-use crate::marco::marco::{Marco,Data};
-use crate::marco::bid::Bid;
 use crate::marco::auction::Auction as MarcoAuction;
+use crate::marco::bid::Bid;
+use crate::marco::marco::{Data, Marco};
+use crate::p2p::peer::Peer;
 
 pub struct Auction {
     pub client: Peer,
@@ -44,7 +46,9 @@ impl Auction {
         }
     }
 
-    fn add_and_broadcast(&self, m: Marco){
+    fn add_and_broadcast(&self, m: &mut Marco){
+        m.calc_hash();
+        m.sign(self.skey.clone());
         let (res,ob) = self.client.blockchain.lock().unwrap().add_marco(m.clone(),self.pkey.clone());
         if !res {
             println!("There was an issue with the generated auction");
@@ -53,9 +57,10 @@ impl Auction {
         match ob {
             None => {
                 let local_client = self.client.clone();
+                let m_clone = m.clone();
                 tokio::spawn(async move {
                     //open auctin with value
-                    local_client.send_marco(m).await
+                    local_client.send_marco(m_clone).await
                 });
             },
             Some(b) => {
@@ -144,8 +149,8 @@ impl Auction {
         }
         let mut m = Marco::from_auction(MarcoAuction::new(self.id.clone(), value));
         m.calc_hash();
-        //m.sign(self.skey.clone());
-        self.add_and_broadcast(m);
+        m.sign(self.skey.clone());
+        self.add_and_broadcast(m.borrow_mut());
     }
 
     pub fn place_bid(&mut self) {
@@ -208,7 +213,7 @@ impl Auction {
         let mut m = Marco::from_bid(Bid::new(self.id.clone(), auction.seller_id.clone(), value ));
         m.calc_hash();
         //m.sign(self.skey.clone());
-        self.add_and_broadcast(m);
+        self.add_and_broadcast(m.borrow_mut());
 
         // Acquire information from the stdin to populate the Marco object
 

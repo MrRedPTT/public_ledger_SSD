@@ -168,7 +168,7 @@ impl Blockchain {
     /// true if added successfully
     /// and false otherwise
     pub fn add_marco(&mut self,mut t:Marco, public_key: RsaPublicKey) -> (bool, Option<Block>) {
-        if t.verify(public_key) {
+        if !t.verify(public_key) {
             return (false,None)
         }
 
