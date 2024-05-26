@@ -164,7 +164,7 @@ pub fn transform_proto_to_marco(proto_marco: &ProtoMarco) -> Marco {
             amount: a.amount,
         }),
         ProtoDataType::Bid(b) => Data::Bid(Bid {
-            auction_id: b.auction_id,
+            auction_id: b.auction_id.clone(),
             buyer_id: b.buyer_id.clone(),
             seller_id: b.seller_id.clone(),
             amount: b.amount,
@@ -205,7 +205,7 @@ pub fn transform_marco_to_proto(marco: &Marco) -> ProtoMarco {
         },
         Data::Bid(b) => ProtoData {
             data_type: Some(ProtoDataType::Bid(ProtoBid {
-                auction_id: b.auction_id,
+                auction_id: b.auction_id.clone(),
                 buyer_id: b.buyer_id.clone(),
                 seller_id: b.seller_id.clone(),
                 amount: b.amount,

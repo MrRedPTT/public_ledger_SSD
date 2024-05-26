@@ -20,11 +20,63 @@ pub struct Auction {
     pub id:String,
     pub pkey:RsaPublicKey,
     pub skey: SigningKey<Sha256>,
-    pub open: HashMap<String,MarcoAuction>,
+    ///vector of all your
+    pub your_bids: HashMap<String,f64>,
+    pub open: HashMap<String,Marco>,
+    ///max bid for auction with hash
+    pub all_bids: HashMap<String,f64>,
 }
 
 
 impl Auction {
+    fn update_open_auctions(&mut self){
+        //search bc for auctions
+        let list = self.client.blockchain.lock().unwrap()
+            .marco_set.clone();
+
+        //println!("{:?}",list);
+        let _:Vec<_> = list.into_iter()
+            .map(|(key, value)| (
+                match &value.data {
+                    Data::CreateAuction(_) => {
+                        self.open.insert(key,value.clone());
+                    },
+                    Data::Bid(b) => {
+                        //update all_bids
+                        let res = self.all_bids.get(&b.auction_id);
+                        match res {
+                            None => {
+                                self.all_bids.insert(b.auction_id.clone() ,b.amount);
+                            },
+                            Some(bid) => {
+                                if bid < &b.amount {
+                                    self.all_bids.insert(b.auction_id.clone() ,b.amount);
+
+                                }
+                            }
+                        };
+
+                        //update my_bids
+                        let res = self.your_bids.get(&b.auction_id);
+                        match res {
+                            None => {},
+                            Some(bid) => {
+                                if bid < &b.amount {
+                                    self.your_bids.insert(b.auction_id.clone() ,b.amount);
+                                    println!("New Bid for auction you subscribe");
+                                    println!("Auction id: {}", b.auction_id);
+                                    println!("Bid of {} by {}", b.amount, b.buyer_id);
+                                }
+                            }
+                        };
+                        println!("");
+                        
+                    },
+                    _ => {}
+                }
+            )).collect();
+    }
+
     fn get_user_input(&self, prompt: &str) -> String {
         print!("{}", prompt);
         io::stdout().flush().unwrap();
@@ -70,10 +122,11 @@ impl Auction {
 
     pub async fn main(&mut self) {
         loop {
+            self.update_open_auctions();
             println!("Choose an action:");
-            println!("1. Open Auction");
+            println!("1. Open New Auction");
             println!("2. Place Bid");
-            println!("3. Show Auction");
+            println!("3. Show Auctions");
             println!("4. Print The BlockChain");
             println!("5. Exit");
 
@@ -121,6 +174,8 @@ impl Auction {
             pkey,
             skey,
             open: HashMap::new(),
+            your_bids: HashMap::new(),
+            all_bids: HashMap::new(),
         }
     }
 
@@ -128,7 +183,21 @@ impl Auction {
 
     // This will broadcast the Marco through the network
     // self.client.send_marco(marco).await;
-    pub fn open_auction(&self) {
+    pub fn open_auction(&mut self) {
+        let mut entries: Vec<_> = self.open.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        for (_, m) in entries {
+            match &m.data {
+                Data::CreateAuction(a)=> {
+                    if a.seller_id == self.id {
+                        println!("You can only have 1 open auction at the same time\n");
+                        return;
+                    }
+                }
+                _ => {}
+            }
+        }
+
         let value :f64;
         loop {
             let x = self.get_user_input("How many coins do you want to auction?\n");
@@ -188,57 +257,43 @@ impl Auction {
         }
 
         //ir buscar auction
-        let mut auction:&MarcoAuction = &MarcoAuction::new("".to_string(),0.0);
         entries.sort_by(|a, b| a.0.cmp(b.0));
-        let mut i :usize= 0;
         if  auction_id >= entries.len() {
             return ;
         }
-        for (_,value) in entries.iter().clone() {
-            if i != auction_id{
-                break;
+        let auction :& Marco = entries[auction_id].1;
+
+        match &auction.data {
+            Data::CreateAuction(a) => {
+                let mut m = Marco::from_bid(Bid::new(auction.get_hash(),self.id.clone(), a.seller_id.clone(), value ));
+                m.calc_hash();
+                //m.sign(self.skey.clone());
+                self.add_and_broadcast(m);
             }
-            auction = value;
-            i+=1;
+            _ => {}
         }
-
-
-
-
-        let mut m = Marco::from_bid(Bid::new(self.id.clone(), auction.seller_id.clone(), value ));
-        m.calc_hash();
-        //m.sign(self.skey.clone());
-        self.add_and_broadcast(m);
-
-        // Acquire information from the stdin to populate the Marco object
-
-        // Once again, use the following call to broadcast the Marco
-        // self.client.send_marco(marco).await;
     }
 
-    pub fn winner(&self) {
-        todo!();
-        // Acquire information from the stdin to populate the Marco object
+    pub fn check_winner(&self) {
+        //buscar hash de auction
+        let mut entries: Vec<_> = self.open.iter().collect();
+        entries.sort_by(|a, b| a.0.cmp(b.0));
+        for (_, value) in entries {
+            match &value.data {
+                Data::CreateAuction(a) => {
+                    if a.seller_id == self.id {
+                        println!("You can only have 1 open auction at the same time\n");
 
-        // Once again, use the following call to broadcast the Marco
-        // self.client.send_marco(marco).await;
+                        return;
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     pub fn search_auctions(&mut self) {
-        //search bc for auctions
-        let list = self.client.blockchain.lock().unwrap()
-            .marco_set.clone();
-
-        //println!("{:?}",list);
-        let _:Vec<_> = list.into_iter()
-            .map(|(key, value)| (
-                match value.data {
-                    Data::CreateAuction(a) => {
-                        self.open.insert(key,a);
-                    },
-                    _ => {}
-                }
-            )).collect();
+        self.update_open_auctions();
 
         //print auction map
         println!("Printing List of Auction");
@@ -246,14 +301,45 @@ impl Auction {
         entries.sort_by(|a, b| a.0.cmp(b.0));
         let mut i = 0;
         for (_, value) in entries {
-            println!("Auction {}: Auctioning {} {}ubiously {}nsecure {}oin {}eeper(s)",i, value.amount,
+            let amount: f64;
+            match &value.data {
+                Data::CreateAuction(a) => {
+                    amount = a.amount;
+                    if a.seller_id == self.id {
+                        continue;
+                    }
+                }
+                _ => {continue;}
+            }
+
+            println!("Auction {}: Auctioning {} {}ubiously {}nsecure {}oin {}eeper(s)",i, amount,
                 "D".bold().bright_red(),
                 "I".bold().bright_yellow(),
                 "C".bold().bright_blue(),
                 "K".bold().bright_magenta());
+            
+            let res = self.all_bids.get(&value.to_hash());
+            match res  {
+                None => println!("\t Currently, this auction does not have a bid"),
+                Some(b) => println!("\thighest bid is {} euros", b),
+            }
+            
             i+=1;
         }
-
     }
 
+    pub fn close_auction(&self) {
+        loop {
+            let x = self.get_user_input("Do you actually want to finish your auction early?\n");
+            let result = x.trim().parse::<bool>();
+
+            match result {
+                Ok(_) => {
+                    break;
+                }
+                Err(e) => println!("A positive integer is needed: {}", e),
+            }
+        }
+        self.check_winner();
+    }
 }

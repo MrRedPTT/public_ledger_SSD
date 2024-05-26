@@ -125,7 +125,7 @@ message Block {
 }
 
 message Bid {
-  int64 auction_id = 1;
+  string auction_id = 1;
   string buyer_id = 2;
   string seller_id = 3;
   double amount = 4;

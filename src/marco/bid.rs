@@ -7,19 +7,19 @@ use crate::marco::sha512hash::Sha512Hash;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Bid {
-    pub(crate) auction_id: i64,
-    pub(crate) buyer_id: String,
-    pub(crate) seller_id: String,
-    pub(crate) amount: f64,
+    pub auction_id: String,
+    pub buyer_id: String,
+    pub seller_id: String,
+    pub amount: f64,
 }
 
 impl Bid{
-    pub fn new(buyer_id: String, seller_id: String, amount: f64) -> Bid{
+    pub fn new(auction_id:String, buyer_id: String, seller_id: String, amount: f64) -> Bid{
         Bid {
             buyer_id,
             seller_id,
             amount,
-            auction_id: 1,
+            auction_id,
         }
     }
 
@@ -28,7 +28,7 @@ impl Bid{
 impl Sha512Hash for Bid {
     fn to_hash(&self) -> String {
         let mut hasher = Sha512::new();
-        hasher.update(self.auction_id.to_be_bytes());
+        hasher.update(self.auction_id.as_bytes());
         hasher.update(self.buyer_id.as_bytes());
         hasher.update(self.seller_id.as_bytes());
         hasher.update(self.amount.to_le_bytes());
