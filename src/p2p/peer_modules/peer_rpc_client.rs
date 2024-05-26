@@ -124,6 +124,8 @@ impl Peer {
     {
         let nodes = &mut self.kademlia.lock().unwrap().get_k_nearest_to_node(id.clone()).unwrap_or(Vec::new());
         if nodes.len() == 0 {
+            // Call bootstrap to refresh nodes
+            self.boot().await;
             return Err(io::Error::new(ErrorKind::InvalidData, "No nodes found to communicate with"));
         }
         let mut reroute_table: HashMap<Node, Vec<Node>> = HashMap::new();
@@ -222,6 +224,8 @@ impl Peer {
     {
         let nodes = &mut self.kademlia.lock().unwrap().get_k_nodes_new_distance().unwrap_or(Vec::new());
         if nodes.len() == 0 {
+            // Call bootstrap to refresh nodes
+            self.boot().await;
             return Err(io::Error::new(ErrorKind::InvalidData, "No nodes found to communicate with"));
         }
         let mut reroute_table: HashMap<Node, Vec<Node>> = HashMap::new();
