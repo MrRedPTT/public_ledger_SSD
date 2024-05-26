@@ -74,9 +74,6 @@ Auction System capable of supporting sellers and buyers using a single attribute
 Fault Injection mechanism that allows to shutdown 1 or more nodes.
 To be used during presentation to show resiliency of the system.
 
-## Report
-[check this link](https://www.overleaf.com/3364126665gpjnjtsdznxz#c52689)
-
 # Useful links: 
 
 ## Rust Documentation
