@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use log::debug;
 use rsa::RsaPublicKey;
 
 #[doc(inline)]
@@ -114,7 +115,7 @@ impl Blockchain {
         }
 
         //remove marcos that come in the block and that exist in the temporary block
-        println!("Size at beginning {}", self.temporary_block.transactions.len());
+        debug!("Size at beginning {}", self.temporary_block.transactions.len());
         for m in b.transactions.iter() {
             for (i, ml) in self.temporary_block.transactions.clone().iter().enumerate() {
                 if m.to_hash() == ml.to_hash() {
@@ -122,7 +123,7 @@ impl Blockchain {
                 }
             }
         }
-        println!("Size at end {}", self.temporary_block.transactions.len());
+        debug!("Size at end {}", self.temporary_block.transactions.len());
         self.heads.reorder();
         self.adjust_difficulty(); 
         self.adjust_temporary_block();
@@ -187,7 +188,7 @@ impl Blockchain {
             self.replace_temporary_block();
             return (true,Some(r)); 
         }
-        println!("DEBUG BLOCKCHAIN::ADD_MARCO => Index: {_index}");
+        debug!("DEBUG BLOCKCHAIN::ADD_MARCO => Index: {_index}");
         return (true,None);
         //self.event_observer.lock().unwrap().notify_transaction_created(&t).await;
     }

@@ -5,6 +5,7 @@ use std::fmt::Display;
 use std::time::SystemTime;
 
 use base64::{Engine as _, engine::general_purpose};
+use log::debug;
 use rsa::{pkcs1v15::SigningKey, RsaPublicKey};
 use rsa::pss::VerifyingKey;
 use rsa::sha2::{Digest, Sha256};
@@ -64,18 +65,18 @@ impl Marco{
 
     pub fn verify(&self, _pkey: RsaPublicKey) -> bool{
         if self.hash == "".to_string() {
-            println!("DEBUG MARCO::VERIFY => Empty hash");
+            debug!("DEBUG MARCO::VERIFY => Empty hash");
             return false;
         }
         if self.hash != self.to_hash() {
-            println!("DEBUG MARCO::VERIFY => Invalid Hash\nhash:{} <-> data to hash:{}", self.hash.clone(), self.data.to_hash());
+            debug!("DEBUG MARCO::VERIFY => Invalid Hash\nhash:{} <-> data to hash:{}", self.hash.clone(), self.data.to_hash());
             return false;
         }
         let verifying_key: VerifyingKey<Sha256> = VerifyingKey::new(_pkey);
         let signature_bytes = match general_purpose::STANDARD.decode(self.signature.clone()) {
             Ok(bytes) => bytes,
             Err(_) => {
-                println!("DEBUG MARCO::VERIFY => Failed to decode base64");
+                debug!("DEBUG MARCO::VERIFY => Failed to decode base64");
                 return false
             }
         };

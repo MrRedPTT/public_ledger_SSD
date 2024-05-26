@@ -1,7 +1,7 @@
 use std::env;
 use std::sync::Arc;
 
-use log::{error, info};
+use log::{debug, info};
 use tonic::Request;
 use tonic::transport::{Certificate, ClientTlsConfig, Identity};
 
@@ -111,7 +111,7 @@ impl BroadCastReq {
                     // Acquire a permit from the semaphore
                     let permit = semaphore.acquire().await.expect("Failed to acquire permit");
                     for target in arg {
-                        println!("Sending broadcast to {}:{}", target.ip.clone(), target.port.clone());
+                        info!("Sending broadcast to {}:{}", target.ip.clone(), target.port.clone());
                         if trans.is_none(){
                             Self::send_request(target.ip, target.port, None, bl.clone(), time, send.clone().unwrap(), certi.clone()).await;
                         } else {
@@ -129,9 +129,9 @@ impl BroadCastReq {
 
         // Propagate message
         if transaction.is_none(){
-            println!("Block propagated!");
+            info!("Block propagated!");
         } else {
-            println!("Transaction propagated!");
+            info!("Transaction propagated!");
         }
 
     }
@@ -165,7 +165,7 @@ impl BroadCastReq {
                 .await;
             let channel = match ch {
                 Err(_) => {
-                    error!("Error while broadcasting for {url}");
+                    debug!("Error while broadcasting for {url}");
                     return;
                 }
                 Ok(channel) => { channel }
@@ -201,7 +201,7 @@ impl BroadCastReq {
                 let res = c.send_block(request).await;
                 match res {
                     Err(e) => {
-                        error!("An error has occurred while trying to broadcast Block: {{{}}}", e);
+                        debug!("An error has occurred while trying to broadcast Block: {{{}}}", e);
                         return;
                     },
                     Ok(_) => {
@@ -222,7 +222,7 @@ impl BroadCastReq {
                 let res = c.send_marco(request).await;
                 match res {
                     Err(e) => {
-                        error!("An error has occurred while trying to broadcast Transaction: {{{}}}", e);
+                        debug!("An error has occurred while trying to broadcast Transaction: {{{}}}", e);
                         return;
                     },
                     Ok(_) => {

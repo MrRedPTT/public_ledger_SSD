@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use log::{debug, error, info};
+use log::{debug, info};
 use tonic::{Request, Response, Status};
 
 use crate::auxi;
@@ -22,7 +22,7 @@ impl ReqHandler {
     /// handling the request or processing the response.
 
     pub(crate) async fn ping(peer: &Peer, request: Request<PingPacket>) -> Result<Response<PongPacket>, Status> {
-        println!("Got a Ping from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        info!("Got a Ping from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         if input.src.is_none() || input.dst.is_none() {
             return Err(Status::invalid_argument("Source and/or destination not found"));
@@ -84,7 +84,7 @@ impl ReqHandler {
         //
         // We decided to go with the second option given that the first would require the 1st node to wait for the 2nd, the 2nd for the 3rd,
         // the 3rd for the 4th and so on. Which, in a big network would become very problematic
-        println!("Got a Store from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        info!("Got a Store from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let ttl = request.get_ref().ttl.clone();
         let input = request.get_ref();
         let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
@@ -159,7 +159,7 @@ impl ReqHandler {
                 let result = task.await.expect("Failed to retrieve task result");
                 match result {
                     Err(e) => {
-                        error!("Error found: {}", e);
+                        debug!("Error found: {}", e);
                     }
                     Ok(res) => {
                         let resp_type = res.get_ref().response_type;

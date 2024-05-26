@@ -3,6 +3,9 @@ extern crate core;
 use std::env;
 use std::io::stdin;
 
+use env_logger;
+use log::{debug, info};
+
 use crate::auction::auction::Auction;
 use crate::kademlia::node::{ID_LEN, Identifier, Node};
 use crate::ledger::blockchain::Blockchain;
@@ -109,11 +112,11 @@ async fn test_server_blockchain_node() {
     }
     let list = client.blockchain.lock().unwrap().chain.clone();
     for i in list {
-        println!("Block: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
+        info!("Block: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
     }
     let list = client.blockchain.lock().unwrap().heads.get_main().clone();
     for i in list {
-        println!("Block{{Head}}: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
+        info!("Block{{Head}}: id: {{{}}} hash:{}",i.index.clone(), i.hash.clone());
     }
 
     //
@@ -135,6 +138,13 @@ async fn test_server_blockchain_node() {
 }
 
 async fn test_server() {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .filter_module("warn", log::LevelFilter::Off)
+        .filter_module("error", log::LevelFilter::Off)
+        .format_target(false)
+        .format_timestamp(None)
+        .init();
     let node = &Node::new("127.0.0.1".to_string(), auxi::get_port().await as u32).unwrap();
     let (client, server) = Peer::new(node, false);
     let shutdown_rx = server.init_server().await;
@@ -144,7 +154,7 @@ async fn test_server() {
     while ping_boot {
         let ping = client.ping("127.0.0.1", 8635, auxi::gen_id(format!("{}:{}", "127.0.0.1", 8635))).await;
         match ping {
-            Err(e) => {println!("DEBUG MAIN::TEST_SERVER => {e}")},
+            Err(e) => {debug!("DEBUG MAIN::TEST_SERVER => {e}")},
             Ok(_) => {ping_boot = false;}
         }
     }

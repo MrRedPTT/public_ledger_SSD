@@ -1,6 +1,7 @@
+use log::debug;
 #[doc(inline)]
 
-use log::{error, info};
+use log::info;
 use tonic::{Request, Response, Status};
 
 use crate::{auxi, proto};
@@ -33,7 +34,7 @@ impl ReqHandler {
     /// k nearest nodes to the target. Finally, if anything goes wrong, a [Status] will be returned back.
     ///
     pub(crate) async fn find_node(peer: &Peer, request: Request<FindNodeRequest>) -> Result<Response<FindNodeResponse>, Status> {
-        println!("Got a Find Node from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        info!("Got a Find Node from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         let dst =  <Option<DstAddress> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
@@ -164,7 +165,7 @@ impl ReqHandler {
     /// to the target ID. If anything goes wrong, a [Status] will be returned indicating either a request or response related problem.
     ///
     pub(crate) async fn find_value(peer: &Peer, request: Request<FindValueRequest>) -> Result<Response<FindValueResponse>, Status> {
-        println!("Got a Find Value from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        info!("Got a Find Value from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
         if format!("{}:{}", src.ip, src.port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
@@ -228,7 +229,7 @@ impl ReqHandler {
     }
 
     pub(crate) async fn get_block(peer: &Peer, request: Request<GetBlockRequest>) -> Result<Response<GetBlockResponse>, Status> {
-        println!("Got a Get_Block from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        info!("Got a Get_Block from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let list = peer.blockchain.lock().unwrap().chain.clone();
         let input = request.get_ref();
         for i in list {
@@ -286,7 +287,7 @@ impl ReqHandler {
                 };
                 return Ok(tonic::Response::new(res));
             } else {
-                error!("No Nodes found");
+                debug!("No Nodes found");
             }
         }
 

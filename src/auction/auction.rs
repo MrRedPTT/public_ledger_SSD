@@ -14,8 +14,8 @@ use crate::auxi;
 use crate::kademlia::node::Node;
 use crate::marco::auction::Auction as MarcoAuction;
 use crate::marco::bid::Bid;
-use crate::marco::winner::Winner;
 use crate::marco::marco::{Data, Marco};
+use crate::marco::winner::Winner;
 use crate::p2p::peer::Peer;
 
 pub struct Auction {
@@ -357,6 +357,7 @@ impl Auction {
                 "K".bold().bright_magenta());
             
             let res = self.all_bids.get(&value.to_hash());
+            println!("Res: {:?}", res);
             match res  {
                 None => println!("\t Currently, this auction does not have a bid"),
                 Some(b) => println!("\thighest bid is {} euros", b),

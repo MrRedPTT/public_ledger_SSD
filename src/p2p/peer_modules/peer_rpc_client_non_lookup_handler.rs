@@ -2,7 +2,7 @@ use std::io;
 use std::io::ErrorKind;
 use std::sync::Arc;
 
-use log::error;
+use log::debug;
 use tonic::Response;
 
 use crate::kademlia::node::{Identifier, Node};
@@ -71,7 +71,7 @@ impl Peer {
             let (result, id) = task.await.expect("Failed to retrieve task result");
             match result {
                 Err(e) => {
-                    error!("Error found: {}", e);
+                    debug!("Error found: {}", e);
                     self.kademlia.lock().unwrap().risk_penalty(id);
                 }
                 Ok(res) => {

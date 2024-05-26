@@ -1,5 +1,6 @@
+use log::debug;
 #[doc(inline)]
-use log::{error, info};
+use log::info;
 use tonic::{Request, Response, Status};
 
 use crate::auxi;
@@ -22,7 +23,7 @@ impl PacketSending for Peer {
         let res = ReqHandler::ping(self, request).await;
         return match res {
             Err(e) => {
-                error!("An error has occurred while receiving the Pong from {}: {}", addr, e);
+                debug!("An error has occurred while receiving the Pong from {}: {}", addr, e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 Err(Status::aborted(e.to_string()))
             }
@@ -40,7 +41,7 @@ impl PacketSending for Peer {
                     match top_node_pong {
                         Err(e) => {
                             // This means that the top node of the bucket is offline, so let's replace it with the new one
-                            error!("Error while trying to ping {}:{}: {}\nReplacing it with new node", ip, port, e);
+                            debug!("Error while trying to ping {}:{}: {}\nReplacing it with new node", ip, port, e);
                             self.kademlia.lock().unwrap().replace_node(&node);
                             Ok(pong)
                         }
@@ -67,7 +68,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                debug!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
@@ -85,7 +86,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                debug!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
@@ -106,7 +107,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                debug!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
@@ -134,7 +135,7 @@ impl PacketSending for Peer {
 
         let transaction = auxi::transform_proto_to_marco(&unpacked);
 
-        println!("Reveived a Marco: {:?} with TTL: {} from : {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        info!("Reveived a Marco: {:?} with TTL: {} from : {}:{}", transaction, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
 
         // Marco received
         let cert = input.cert.clone();
@@ -178,7 +179,7 @@ impl PacketSending for Peer {
         let unpacked = packed.unwrap();
 
         let block = Block::proto_to_block(unpacked);
-        println!("Reveived a Block: {:?} with TTL: {} from : {}:{}", block, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
+        info!("Reveived a Block: {:?} with TTL: {} from : {}:{}", block, input.ttl, request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         // Block Handler
         if self.blockchain.lock().unwrap().get_block_by_hash(block.hash.clone()).is_some() {
             return Ok(Response::new(()));
@@ -203,7 +204,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                debug!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }

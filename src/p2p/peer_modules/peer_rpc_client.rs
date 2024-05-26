@@ -4,6 +4,8 @@ use std::collections::{BinaryHeap, HashMap};
 use std::io;
 use std::io::ErrorKind;
 
+use log::debug;
+
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
 use crate::marco::marco::Marco;
@@ -153,7 +155,7 @@ impl Peer {
         }
 
         while !priority_queue.is_empty() {
-            println!("New iter: Size of queue: {}", priority_queue.len());
+            debug!("New iter: Size of queue: {}", priority_queue.len());
             let batch = self.get_batch(None, Some(priority_queue), 14);
             let res = self.find_value_handler(id.clone(), batch, already_checked.borrow_mut(), reroute_table.borrow_mut()).await;
             match res {

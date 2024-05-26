@@ -3,6 +3,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
 use std::process::exit;
 
+use log::{debug, info};
+
 use crate::kademlia::node::Node;
 use crate::p2p::peer::Peer;
 
@@ -26,9 +28,9 @@ impl Peer {
                 if let Ok(exists) = Self::file_exists(path.as_str()) {
                     if exists {
                         if let Ok(mut bootstrap_nodes) = Self::read_ips_from_file(path.as_str()) {
-                            println!("List of Bootstrap nodes stored:");
+                            info!("List of Bootstrap nodes stored:");
                             for i in &bootstrap_nodes {
-                                println!("{}", i);
+                                info!("{}", i);
                             }
                             let skip_list = env::var("DEFAULT_BOOTSTRAP").unwrap_or_else(|_| "y".to_string());
                             if skip_list != "y" {
@@ -54,14 +56,14 @@ impl Peer {
                     } else {
                         println!("No bootstrap ip list was found!");
                         let bootstrap_nodes = Self::read_ips_from_user();
-                        println!("DEBUG PEER_BOOT => Path: {}", path.as_str());
+                        debug!("DEBUG PEER_BOOT => Path: {}", path.as_str());
                         let _ = Self::create_file(path.as_str(), bootstrap_nodes.clone());
                         for i in bootstrap_nodes {
                             self.kademlia.lock().unwrap().add_node(&Node::new(i, 8635).unwrap());
                         }
                     }
                 } else {
-                    println!("DEBUG BOOT => Error oppening file");
+                    debug!("DEBUG BOOT => Error oppening file");
                 }
             } else {
                 println!("Unable to determine main file path");
@@ -78,7 +80,7 @@ impl Peer {
 
     // Function to check if the file exists
     fn file_exists(file_path: &str) -> std::io::Result<bool> {
-        println!("DEBUG PEER_BOOT::FILE_EXISTS => Was queried for file: {file_path}");
+        debug!("DEBUG PEER_BOOT::FILE_EXISTS => Was queried for file: {file_path}");
         let metadata = fs::metadata(file_path);
         match metadata {
             Ok(_) => Ok(true), // File exists

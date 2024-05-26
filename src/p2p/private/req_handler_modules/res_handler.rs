@@ -1,7 +1,7 @@
 use std::{env, io};
 use std::io::{Error, ErrorKind};
 
-use log::{error, info};
+use log::{debug, info};
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use tonic::Response;
@@ -73,7 +73,7 @@ impl  ResHandler {
             let res = c.ping(req).await;
             match res {
                 Err(e) => {
-                    error!("An error has occurred while trying to ping: {{{}}}", e);
+                    debug!("An error has occurred while trying to ping: {{{}}}", e);
                     Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                 },
                 Ok(response) => {
@@ -126,7 +126,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    error!("Error while creating find node channel for {url}");
+                    debug!("Error while creating find node channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -142,7 +142,7 @@ impl  ResHandler {
             let res = c.find_node(request).await;
             match res {
                 Err(e) => {
-                    error!("An error has occurred while trying to find node: {{{}}}", e);
+                    debug!("An error has occurred while trying to find node: {{{}}}", e);
                     Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                 },
                 Ok(response) => {
@@ -191,7 +191,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    error!("Error while creating find value channel for {url}");
+                    debug!("Error while creating find value channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -207,7 +207,7 @@ impl  ResHandler {
             let res = c.find_value(request).await;
             match res {
                 Err(e) => {
-                    error!("An error has occurred while trying to find value: {{{}}}", e);
+                    debug!("An error has occurred while trying to find value: {{{}}}", e);
                     Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                 },
                 Ok(response) => {
@@ -255,7 +255,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    error!("Error while creating store channel for {url}");
+                    debug!("Error while creating store channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -273,7 +273,7 @@ impl  ResHandler {
             let res = c.store(request).await;
             match res {
                 Err(e) => {
-                    error!("An error has occurred while trying to store value: {{{}}}", e);
+                    debug!("An error has occurred while trying to store value: {{{}}}", e);
                     Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                 },
                 Ok(response) => {
@@ -315,7 +315,7 @@ impl  ResHandler {
                 .await;
             let channel = match ch {
                 Err(e) => {
-                    error!("Error while creating get block channel for {url}");
+                    debug!("Error while creating get block channel for {url}");
                     return Err(io::Error::new(ErrorKind::ConnectionRefused, e.to_string()))
                 }
                 Ok(channel) => {channel}
@@ -332,7 +332,7 @@ impl  ResHandler {
             let res = c.get_block(request).await;
             match res {
                 Err(e) => {
-                    error!("An error has occurred while trying to get block: {{{}}}", e);
+                    debug!("An error has occurred while trying to get block: {{{}}}", e);
                     Err(io::Error::new(ErrorKind::ConnectionAborted, e))
                 },
                 Ok(response) => {

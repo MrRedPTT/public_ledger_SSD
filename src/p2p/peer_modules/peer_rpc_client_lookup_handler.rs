@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use log::{error, info};
+use log::debug;
+use log::info;
 
 use crate::kademlia::node::{Identifier, Node};
 use crate::ledger::block::Block;
@@ -87,12 +88,12 @@ impl Peer {
                             recommendation.push(node.clone())
                         }
                     } else {
-                        error!("An error has occured during the processing of the request");
+                        debug!("An error has occured during the processing of the request");
                     }
 
                 },
                 Err(_) => {
-                    error!("Got an error on the response");
+                    debug!("Got an error on the response");
                     self.kademlia.lock().unwrap().risk_penalty(node.id);
                 }
             }
@@ -165,12 +166,12 @@ impl Peer {
                             recommendation.push(node.clone())
                         }
                     } else {
-                        error!("An error has occured during the processing of the request");
+                        debug!("An error has occured during the processing of the request");
                     }
 
                 },
                 Err(_) => {
-                    error!("Got an error on the response");
+                    debug!("Got an error on the response");
                     self.kademlia.lock().unwrap().risk_penalty(node.id);
                 }
             }
@@ -243,12 +244,12 @@ impl Peer {
                             recommendation.push(node.clone())
                         }
                     } else {
-                        error!("An error has occurred during the processing of the request");
+                        debug!("An error has occurred during the processing of the request");
                     }
 
                 },
                 Err(_) => {
-                    error!("Got an error on the response");
+                    debug!("Got an error on the response");
                     self.kademlia.lock().unwrap().risk_penalty(node.id);
                 }
             }
