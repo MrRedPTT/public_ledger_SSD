@@ -2,7 +2,7 @@ use std::env;
 use std::sync::Arc;
 
 use log::{error, info};
-use tonic::Request;
+use tonic::{Request, Status};
 use tonic::transport::{Certificate, ClientTlsConfig, Identity};
 
 use crate::{auxi, proto};
@@ -20,6 +20,7 @@ impl BroadCastReq {
         if !ttl.is_none() {
             time_to_live = ttl.unwrap();
         }
+
 
         let all_nodes = peer.kademlia.lock().unwrap().get_all_nodes();
         if all_nodes.is_none() {
@@ -44,9 +45,17 @@ impl BroadCastReq {
         else if trans_request.is_some(){
             sender = trans_request.as_ref().unwrap().get_ref().clone().src;
             cert = trans_request.as_ref().unwrap().get_ref().clone().cert;
+            if format!("{}:{}", sender.clone().unwrap().ip, sender.clone().unwrap().port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
+                // Means we received the request with source ourselves
+                return;
+            }
         } else {
             sender = block_request.as_ref().unwrap().get_ref().clone().src;
             cert = block_request.as_ref().unwrap().get_ref().clone().cert;
+            if format!("{}:{}", sender.clone().unwrap().ip, sender.clone().unwrap().port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
+                // Means we received the request with source ourselves
+                return;
+            }
         }
         if !sender.is_none(){
             let sender_node = &sender.clone().unwrap().clone();
@@ -55,7 +64,6 @@ impl BroadCastReq {
             nodes.retain(|x| String::from(x.ip.clone()) != String::from(&peer.node.ip) || x.port != peer.node.port);
             sender = auxi::gen_address_src(peer.id.clone(), peer.node.ip.clone(), peer.node.port.clone());
         }
-
 
         let n = ( (ID_LEN / 16) as f32).ceil() as usize ; // Number of sub-vectors
 

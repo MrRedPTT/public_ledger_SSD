@@ -27,6 +27,11 @@ impl ReqHandler {
         if input.src.is_none() || input.dst.is_none() {
             return Err(Status::invalid_argument("Source and/or destination not found"));
         }
+        let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        if format!("{}:{}", src.ip, src.port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
+            // Means we received the request with source ourselves
+            return Err(Status::aborted("Source is the current node".to_string()));
+        }
         let args = <Option<DstAddress> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         if request.remote_addr().unwrap().ip().to_string() != "127.0.0.1" && (args.ip != peer.node.ip || args.port != peer.node.port) {
             return Err(Status::invalid_argument("Node provided in destination does not match this node"))
@@ -83,6 +88,10 @@ impl ReqHandler {
         let ttl = request.get_ref().ttl.clone();
         let input = request.get_ref();
         let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        if format!("{}:{}", src.ip, src.port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
+            // Means we received the request with source ourselves
+            return Err(Status::aborted("Source is the current node".to_string()));
+        }
 
         let key = &input.key;
         let mut id_array: [u8; ID_LEN] = [0; ID_LEN];

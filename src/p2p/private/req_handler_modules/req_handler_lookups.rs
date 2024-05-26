@@ -38,6 +38,11 @@ impl ReqHandler {
         let dst =  <Option<DstAddress> as Clone>::clone(&input.dst).unwrap(); // Avoid Borrowing
         let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
 
+        if format!("{}:{}", src.ip, src.port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
+            // Means we received the request with source ourselves
+            return Err(Status::aborted("Source is the current node".to_string()));
+        }
+
         let node_id = &input.id;
         let my_node = &peer.node;
         let mut id_array: [u8; ID_LEN] = [0; ID_LEN];
@@ -162,6 +167,10 @@ impl ReqHandler {
         println!("Got a Find Value from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let input = request.get_ref();
         let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        if format!("{}:{}", src.ip, src.port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
+            // Means we received the request with source ourselves
+            return Err(Status::aborted("Source is the current node".to_string()));
+        }
 
         let value_id = &input.value_id;
         let mut id_array: [u8; ID_LEN] = [0; ID_LEN];
@@ -221,8 +230,14 @@ impl ReqHandler {
     pub(crate) async fn get_block(peer: &Peer, request: Request<GetBlockRequest>) -> Result<Response<GetBlockResponse>, Status> {
         println!("Got a Get_Block from => {:?}:{:?}", request.get_ref().src.as_ref().unwrap().ip.clone(), request.get_ref().src.as_ref().unwrap().port.clone());
         let list = peer.blockchain.lock().unwrap().chain.clone();
+        let input = request.get_ref();
         for i in list {
             println!("Block: id: {{{}}} hash:{} -> prev: {}",i.index.clone(), i.hash.clone(), i.prev_hash.clone());
+        }
+        let src =  &<Option<SrcAddress> as Clone>::clone(&input.src).unwrap(); // Avoid Borrowing
+        if format!("{}:{}", src.ip, src.port) == format!("{}:{}", peer.node.ip.clone(), peer.node.port.clone()) {
+            // Means we received the request with source ourselves
+            return Err(Status::aborted("Source is the current node".to_string()));
         }
         let input = request.get_ref();
 

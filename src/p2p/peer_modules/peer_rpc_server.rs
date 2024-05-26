@@ -22,7 +22,7 @@ impl PacketSending for Peer {
         let res = ReqHandler::ping(self, request).await;
         return match res {
             Err(e) => {
-                println!("An error has occurred while receiving the Pong from {}: {}", addr, e);
+                error!("An error has occurred while receiving the Pong from {}: {}", addr, e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 Err(Status::aborted(e.to_string()))
             }
