@@ -137,11 +137,19 @@ message Auction {
   double amount = 3;
 }
 
+message Winner {
+  string auction = 1;
+  string from = 2;
+  string to = 3;
+  double amount = 4;
+}
+
 message Data {
   oneof data_type {
     Transaction transaction = 1;
     Auction create_auction = 2;
     Bid bid = 3;
+    Winner winner = 4;
   }
 }
 

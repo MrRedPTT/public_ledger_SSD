@@ -67,7 +67,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
@@ -85,7 +85,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
@@ -106,7 +106,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }
@@ -203,7 +203,7 @@ impl PacketSending for Peer {
         let src = request.get_ref().src.as_ref().unwrap();
         match pong {
             Err(e) => {
-                eprintln!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
+                error!("Tried to Ping {} back but got: {}", request.remote_addr().unwrap().to_string(), e);
                 self.kademlia.lock().unwrap().risk_penalty(Identifier::new(src.id.clone().try_into().unwrap()));
                 return Err(Status::aborted(e.to_string()));
             }

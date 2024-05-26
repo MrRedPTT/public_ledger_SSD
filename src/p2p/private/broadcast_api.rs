@@ -2,7 +2,7 @@ use std::env;
 use std::sync::Arc;
 
 use log::{error, info};
-use tonic::{Request, Status};
+use tonic::Request;
 use tonic::transport::{Certificate, ClientTlsConfig, Identity};
 
 use crate::{auxi, proto};

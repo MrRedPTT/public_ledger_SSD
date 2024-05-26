@@ -1,11 +1,11 @@
 use pem::{encode, Pem};
 use rand::Rng;
-use rsa::{pkcs1::DecodeRsaPrivateKey,pkcs1::DecodeRsaPublicKey, RsaPrivateKey, RsaPublicKey};
+use rsa::{pkcs1::DecodeRsaPrivateKey, pkcs1::DecodeRsaPublicKey, RsaPrivateKey, RsaPublicKey};
 use sha3::{Digest, Sha3_256};
 use tokio::net::TcpListener;
 use x509_certificate::X509Certificate;
 
-use proto::{Auction as ProtoAuction, Bid as ProtoBid, Data as ProtoData, Marco as ProtoMarco, Transaction as ProtoTransaction};
+use proto::{Auction as ProtoAuction, Bid as ProtoBid, Data as ProtoData, Marco as ProtoMarco, Transaction as ProtoTransaction, Winner as ProtoWinner};
 use proto::data::DataType as ProtoDataType;
 
 use crate::kademlia::node::ID_LEN;
@@ -16,6 +16,7 @@ use crate::marco::auction::Auction;
 use crate::marco::bid::Bid;
 use crate::marco::marco::{Data, Marco};
 use crate::marco::transaction::Transaction;
+use crate::marco::winner::Winner;
 use crate::proto;
 use crate::proto::DstAddress;
 use crate::proto::SrcAddress;
@@ -168,6 +169,12 @@ pub fn transform_proto_to_marco(proto_marco: &ProtoMarco) -> Marco {
             seller_id: b.seller_id.clone(),
             amount: b.amount,
         }),
+        ProtoDataType::Winner(win) => Data::Winner( Winner {
+            auction: win.auction.clone(),
+            from: win.from.clone(),
+            to: win.to.clone(),
+            amount: win.amount.clone(),
+        }),
     };
 
     Marco {
@@ -204,6 +211,14 @@ pub fn transform_marco_to_proto(marco: &Marco) -> ProtoMarco {
                 amount: b.amount,
             })),
         },
+        Data::Winner(win) => ProtoData {
+            data_type: Some(ProtoDataType::Winner(ProtoWinner {
+                auction: win.auction.clone(),
+                from: win.from.clone(),
+                to: win.to.clone(),
+                amount: win.amount.clone(),
+            }))
+        }
     };
 
     proto::Marco {
